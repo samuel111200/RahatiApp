@@ -4,30 +4,31 @@ import { Tabs } from 'expo-router';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../constants/Theme';
+import { useLang } from '../../context/Languagecontext';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+  const { t, isRTL } = useLang();
+
   const tabConfig: Record<string, { icon: keyof typeof Ionicons.glyphMap; iconActive: keyof typeof Ionicons.glyphMap; label: string }> = {
-    startup:   { icon: 'home-outline',              iconActive: 'home',              label: '' },
-    home:      { icon: 'home-outline',              iconActive: 'home',              label: 'الرئيسية' },
-    tasks:     { icon: 'checkmark-circle-outline',  iconActive: 'checkmark-circle',  label: 'مهامي' },
-    exercises: { icon: 'fitness-outline',           iconActive: 'fitness',           label: 'تمارين' },
-    more:      { icon: 'grid-outline',              iconActive: 'grid',              label: 'المزيد' },
+    startup:   { icon: 'home-outline',             iconActive: 'home',             label: '' },
+    home:      { icon: 'home-outline',             iconActive: 'home',             label: t.home },
+    tasks:     { icon: 'checkmark-circle-outline', iconActive: 'checkmark-circle', label: t.tasks },
+    exercises: { icon: 'fitness-outline',          iconActive: 'fitness',          label: t.exercisesTab },
+    more:      { icon: 'grid-outline',             iconActive: 'grid',             label: t.more },
   };
 
-  // Only show the bar for tabs other than startup
   const visibleRoutes = state.routes.filter(r => r.name !== 'startup');
   if (state.routes[state.index]?.name === 'startup') return null;
 
   return (
     <View style={styles.container}>
-      <View style={styles.bar}>
+      <View style={[styles.bar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         {visibleRoutes.map((route, visualIndex) => {
           const realIndex = state.routes.findIndex(r => r.key === route.key);
           const focused = state.index === realIndex;
           const cfg = tabConfig[route.name];
 
-          // Center FAB slot after 'tasks' (index 1 in visible)
           const elements = [];
           if (visualIndex === 2) {
             elements.push(
@@ -96,7 +97,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   bar: {
-    flexDirection: 'row',
     backgroundColor: Colors.white,
     borderRadius: Radius.xxl,
     paddingVertical: 8,

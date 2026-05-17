@@ -2,17 +2,20 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  KeyboardAvoidingView, Platform, SafeAreaView, Image,
+  KeyboardAvoidingView, Platform, SafeAreaView, Alert,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../context/AuthContext';
+import { useLang } from '../../context/Languagecontext';
 import { PrimaryButton, InputField } from '../../components/UI';
 import RahatiLogo from '../../components/RahatiLogo';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 
 export default function SignInScreen() {
   const { signIn } = useAuth();
+  const { t, isRTL } = useLang();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
@@ -21,10 +24,10 @@ export default function SignInScreen() {
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!email.trim()) e.email = 'هذا الحقل مطلوب';
-    else if (!/\S+@\S+\.\S+/.test(email)) e.email = 'البريد الإلكتروني غير صحيح';
-    if (!password.trim()) e.password = 'هذا الحقل مطلوب';
-    else if (password.length < 6) e.password = 'كلمة المرور 6 أحرف على الأقل';
+    if (!email.trim()) e.email = t.required;
+    else if (!/\S+@\S+\.\S+/.test(email)) e.email = t.invalidEmail;
+    if (!password.trim()) e.password = t.required;
+    else if (password.length < 6) e.password = t.shortPassword;
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -35,8 +38,13 @@ export default function SignInScreen() {
     setTimeout(() => {
       signIn(email, password);
       setLoading(false);
-      router.replace('/(tabs)/startup');
+      router.replace('/tabs/home');
     }, 900);
+  };
+
+  const handleDevReset = async () => {
+    await AsyncStorage.clear();
+    Alert.alert('✅ تم المسح', 'أُعيد تعيين التطبيق — أغلقه وافتحه من جديد');
   };
 
   return (
@@ -44,42 +52,47 @@ export default function SignInScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
-          {/* Decorative orbs */}
           <View style={styles.orbTR} />
           <View style={styles.orbBL} />
 
-          {/* ── Logo & Header ── */}
+          {/* DEV Reset */}
+          <TouchableOpacity style={styles.devBtn} onPress={handleDevReset} activeOpacity={0.7}>
+            <Ionicons name="refresh-circle-outline" size={16} color="#fff" />
+            <Text style={styles.devBtnText}>Reset App</Text>
+          </TouchableOpacity>
+
+          {/* Logo */}
           <View style={styles.headerBlock}>
-            <RahatiLogo size={88} showBackground />
-            <Text style={styles.appName}>راحتي</Text>
-            <Text style={styles.tagline}>رفيقك اليومي للصحة والعافية</Text>
+            <RahatiLogo />
+            <Text style={styles.appName}>{t.appName}</Text>
+            <Text style={styles.tagline}>{t.appTagline2}</Text>
           </View>
 
-          {/* ── Title ── */}
-          <View style={styles.titleBlock}>
-            <Text style={styles.title}>تسجيل الدخول</Text>
-            <Text style={styles.subtitle}>أهلاً بعودتك 👋</Text>
+          {/* Title */}
+          <View style={[styles.titleBlock, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+            <Text style={styles.title}>{t.signIn}</Text>
+            <Text style={styles.subtitle}>{t.welcome}</Text>
           </View>
 
-          {/* ── Form ── */}
+          {/* Form */}
           <View style={styles.card}>
             <InputField
-              label="البريد الإلكتروني"
+              label={t.email}
               placeholder="example@email.com"
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
               error={errors.email}
-              rtl
+              rtl={isRTL}
             />
             <InputField
-              label="كلمة المرور"
+              label={t.password}
               placeholder="••••••••"
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPass}
               error={errors.password}
-              rtl
+              rtl={isRTL}
               rightIcon={
                 <TouchableOpacity onPress={() => setShowPass(!showPass)}>
                   <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={Colors.textMuted} />
@@ -87,35 +100,32 @@ export default function SignInScreen() {
               }
             />
 
-            {/* Social divider */}
             <View style={styles.divRow}>
               <View style={styles.divLine} />
-              <Text style={styles.divText}>أو تابع بواسطة</Text>
+              <Text style={styles.divText}>{t.orWith}</Text>
               <View style={styles.divLine} />
             </View>
 
             <View style={styles.socialRow}>
               <TouchableOpacity style={styles.socialBtn} activeOpacity={0.8}>
                 <FontAwesome name="google" size={20} color="#EA4335" />
-                <Text style={styles.socialBtnText}>جوجل</Text>
+                <Text style={styles.socialBtnText}>{t.google}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.socialBtn} activeOpacity={0.8}>
                 <FontAwesome name="facebook" size={20} color="#1877F2" />
-                <Text style={styles.socialBtnText}>فيسبوك</Text>
+                <Text style={styles.socialBtnText}>{t.facebook}</Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Sign Up prompt */}
-          <TouchableOpacity onPress={() => router.push('/(auth)/sign-up-1')} style={styles.signUpRow} activeOpacity={0.7}>
+          <TouchableOpacity onPress={() => router.push('/auth/sign-up-1')} style={styles.signUpRow} activeOpacity={0.7}>
             <Text style={styles.signUpText}>
-              ليس لديك حساب؟{' '}
-              <Text style={styles.signUpLink}>إنشاء حساب</Text>
+              {t.noAccount}{' '}
+              <Text style={styles.signUpLink}>{t.signUp}</Text>
             </Text>
           </TouchableOpacity>
 
-          {/* CTA */}
-          <PrimaryButton title="تسجيل الدخول" onPress={handleSignIn} loading={loading} />
+          <PrimaryButton title={t.signIn} onPress={handleSignIn} loading={loading} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -125,37 +135,23 @@ export default function SignInScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   scroll: { flexGrow: 1, paddingHorizontal: Spacing.xl, paddingBottom: Spacing.xxxl },
-
   orbTR: { position: 'absolute', top: -30, right: -50, width: 160, height: 160, borderRadius: 80, backgroundColor: Colors.primaryMid, opacity: 0.35 },
   orbBL: { position: 'absolute', bottom: 100, left: -60, width: 120, height: 120, borderRadius: 60, backgroundColor: Colors.accentSoft, opacity: 0.4 },
-
+  devBtn: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end', marginTop: 12, marginRight: 4, backgroundColor: '#FF6B6B', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, gap: 4 },
+  devBtnText: { color: '#fff', fontSize: 11, fontWeight: '700' },
   headerBlock: { alignItems: 'center', paddingTop: 44, paddingBottom: Spacing.base },
   appName: { fontSize: 26, fontWeight: '800', color: Colors.primary, marginTop: 10, letterSpacing: 1 },
   tagline: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 4 },
-
-  titleBlock: { alignItems: 'flex-end', marginBottom: Spacing.xl },
+  titleBlock: { marginBottom: Spacing.xl },
   title: { fontSize: 28, fontWeight: '800', color: Colors.textPrimary },
   subtitle: { fontSize: FontSize.base, color: Colors.textSecondary, marginTop: 4 },
-
-  card: {
-    backgroundColor: Colors.white, borderRadius: Radius.xxl,
-    padding: Spacing.xl, marginBottom: Spacing.base,
-    shadowColor: Colors.shadowDark, shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1, shadowRadius: 8, elevation: 3,
-  },
-
+  card: { backgroundColor: Colors.white, borderRadius: Radius.xxl, padding: Spacing.xl, marginBottom: Spacing.base, shadowColor: Colors.shadowDark, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 8, elevation: 3 },
   divRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 14 },
   divLine: { flex: 1, height: 1, backgroundColor: Colors.border },
   divText: { fontSize: FontSize.xs, color: Colors.textMuted, marginHorizontal: 8 },
-
   socialRow: { flexDirection: 'row', gap: 12 },
-  socialBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    paddingVertical: 12, borderRadius: Radius.lg, backgroundColor: Colors.offWhite,
-    borderWidth: 1, borderColor: Colors.border, gap: 8,
-  },
+  socialBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: Radius.lg, backgroundColor: Colors.offWhite, borderWidth: 1, borderColor: Colors.border, gap: 8 },
   socialBtnText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textPrimary },
-
   signUpRow: { alignItems: 'center', paddingVertical: 14 },
   signUpText: { fontSize: FontSize.sm, color: Colors.textSecondary },
   signUpLink: { color: Colors.primary, fontWeight: '700' },

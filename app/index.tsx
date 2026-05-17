@@ -1,8 +1,91 @@
-// app/index.tsx  –  Entry: redirect to startup or sign-in
-import { Redirect } from 'expo-router';
-import { useAuth } from '../context/AuthContext';
+import { useEffect, useRef, useState } from "react";
+import { Animated, Dimensions, StyleSheet } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useLang } from "../context/Languagecontext";
+
+SplashScreen.preventAutoHideAsync();
+
+const { width } = Dimensions.get("window");
+const FIRST_LAUNCH_KEY = "hasLaunchedBefore";
 
 export default function Index() {
-  const { isAuthenticated } = useAuth();
-  return <Redirect href={isAuthenticated ? '/(tabs)/startup' : '/(auth)/sign-in'} />;
+  const [done, setDone] = useState(false);
+  const { setLang } = useLang();
+
+  const logoOpacity = useRef(new Animated.Value(0)).current;
+  const logoScale   = useRef(new Animated.Value(0.75)).current;
+  const screenFade  = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    async function init() {
+      await SplashScreen.hideAsync();
+
+      // ── شغّل الـ splash دايمًا ──────────────────────────
+      Animated.parallel([
+        Animated.timing(logoOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
+        Animated.spring(logoScale,   { toValue: 1, tension: 60, friction: 8, useNativeDriver: true }),
+      ]).start();
+
+      // بعد 3 ثواني → fade out → شيك على أول مرة
+      setTimeout(() => {
+        Animated.timing(screenFade, { toValue: 0, duration: 400, useNativeDriver: true })
+          .start(async () => {
+            setDone(true);
+
+            const hasLaunched = await AsyncStorage.getItem(FIRST_LAUNCH_KEY);
+
+            if (hasLaunched) {
+              // مش أول مرة → حمّل اللغة المحفوظة وروح sign-in
+              const savedLang = await AsyncStorage.getItem("app_language") as "ar" | "en" | null;
+              if (savedLang) setLang(savedLang);
+              router.replace("/auth/sign-in");
+            } else {
+              // أول مرة → سجّل وروح للـ startup
+              await AsyncStorage.setItem(FIRST_LAUNCH_KEY, "true");
+              router.replace("/startup");
+            }
+          });
+      }, 3000);
+    }
+
+    init();
+  }, []);
+
+  if (done) return null;
+
+  return (
+    <Animated.View style={[styles.wrapper, { opacity: screenFade }]}>
+      <LinearGradient
+        colors={["#7C5CBF", "#ffffff"]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={styles.gradient}
+      >
+        <Animated.Image
+          source={require("../assets/images/logo.png")}
+          style={[styles.logo, { opacity: logoOpacity, transform: [{ scale: logoScale }] }]}
+          resizeMode="contain"
+        />
+      </LinearGradient>
+    </Animated.View>
+  );
 }
+
+const styles = StyleSheet.create({
+  wrapper: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 999,
+  },
+  gradient: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logo: {
+    width: width * 0.55,
+    height: width * 0.55,
+  },
+});
