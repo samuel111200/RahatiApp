@@ -45,7 +45,7 @@ export default function SignUp2Screen() {
         { email, password }
       );
       setLoading(false);
-      router.replace('/tabs/home');
+      router.replace('/energy');
     }, 900);
   };
 

@@ -8,9 +8,29 @@ import { PrimaryButton } from '../../components/UI';
 import RahatiLogo from '../../components/RahatiLogo';
 import { useLang } from '../../context/Languagecontext';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width } = Dimensions.get('window');
 const CARD_W = width * 0.7;
+type Task = {
+  id: string;
+  title: string;
+  completed: boolean;
+};
+
+async function saveTask(newTask: Task) {
+  const stored = await AsyncStorage.getItem("tasks_data");
+  const tasks: Task[] = stored ? JSON.parse(stored) : [];
+  tasks.push(newTask);
+  await AsyncStorage.setItem("tasks_data", JSON.stringify(tasks));
+}
+
+async function deleteTask(taskId: string) {
+  const stored = await AsyncStorage.getItem("tasks_data");
+  const tasks: Task[] = stored ? JSON.parse(stored) : [];
+  const updated = tasks.filter((t) => t.id !== taskId);
+  await AsyncStorage.setItem("tasks_data", JSON.stringify(updated));
+}
 
 export default function ExercisesScreen() {
   const { t, isRTL } = useLang();

@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLang, Lang } from '../context/Languagecontext';
 
 export default function LangChoose() {
@@ -16,13 +17,16 @@ export default function LangChoose() {
   const router = useRouter();
 
   const handleSelect = async (lang: Lang) => {
-    await AsyncStorage.setItem('app_language', lang); // ← يحفظ اللغة
+    await AsyncStorage.setItem('app_language', lang);
     setLang(lang);
     router.replace('/auth/sign-in');
   };
 
   return (
-    <View style={styles.container}>
+    <LinearGradient
+      colors={['#ffffff', '#EDE6F8', '#7C5CBF']}
+      style={styles.container}
+    >
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
       {/* ── Logo ── */}
@@ -58,14 +62,13 @@ export default function LangChoose() {
           <Text style={styles.btnLabel}>English</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 36,

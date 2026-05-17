@@ -38,7 +38,7 @@ export default function SignInScreen() {
     setTimeout(() => {
       signIn(email, password);
       setLoading(false);
-      router.replace('/tabs/home');
+      router.replace('/energy');
     }, 900);
   };
 
