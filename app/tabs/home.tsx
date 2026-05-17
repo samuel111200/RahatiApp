@@ -361,4 +361,4 @@ const cal = StyleSheet.create({
   selectedDay: { backgroundColor: '#7C5CBF' },
   todayDay: { borderWidth: 1.5, borderColor: '#7C5CBF' },
   dayText: { fontSize: 14, color: '#2d2d2d' },
-});
+});1
