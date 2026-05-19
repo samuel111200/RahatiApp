@@ -7,7 +7,7 @@ import { Colors, Spacing, Radius } from '../../constants/Theme';
 import { useLang } from '../../context/Languagecontext';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
-function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const { t, isRTL } = useLang();
 
   const tabConfig: Record<string, { icon: keyof typeof Ionicons.glyphMap; iconActive: keyof typeof Ionicons.glyphMap; label: string }> = {
@@ -22,6 +22,8 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   if (state.routes[state.index]?.name === 'startup') return null;
 
   return (
+    // ✅ الـ container بـ position absolute عشان يتعلق في الأسفل
+    // وعنده padding عشان الـ bar ميلصقش في الحدود
     <View style={styles.container}>
       <View style={[styles.bar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         {visibleRoutes.map((route, visualIndex) => {
@@ -89,38 +91,66 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
+  // ✅ container بـ absolute عشان يتعلق في الأسفل ومش يأكل مساحة من المحتوى
   container: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    paddingHorizontal: Spacing.base,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: Spacing.base,       // مسافة من اليمين واليسار
+    paddingBottom: Platform.OS === 'ios' ? 24 : 12,  // safe area على iOS
     paddingTop: 8,
     backgroundColor: 'transparent',
   },
   bar: {
     backgroundColor: Colors.white,
-    borderRadius: Radius.xxl,
+    borderRadius: 25,
     paddingVertical: 8,
-    paddingHorizontal: Spacing.sm,
-    alignItems: 'center',
+    justifyContent: 'space-around',
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 1,
     shadowRadius: 20,
     elevation: 8,
   },
-  tabItem: { flex: 1, alignItems: 'center' },
-  tabInner: { alignItems: 'center', paddingVertical: 6, paddingHorizontal: 10, borderRadius: Radius.xl, gap: 2 },
-  tabInnerActive: { backgroundColor: Colors.primaryUltraLight },
-  tabLabel: { fontSize: 10, fontWeight: '500', color: Colors.textMuted, marginTop: 1 },
-  tabLabelActive: { color: Colors.primary, fontWeight: '700' },
-  fabWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: -26 },
+  tabItem: { alignItems: 'center', paddingHorizontal: 4 },
+  tabInner: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 60,
+    height: 60,
+
+  },
+  tabInnerActive: { backgroundColor: Colors.primaryUltraLight, borderRadius: 100 },
+  tabLabel: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: Colors.textMuted,
+    marginTop: 1,
+  },
+  tabLabelActive: {
+    color: Colors.primary,
+    fontWeight: '700',
+  },
+  fabWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -26,
+  },
   fab: {
-    width: 56, height: 56, borderRadius: 28,
+    width: 56,
+    height: 56,
+    borderRadius: 100,
     backgroundColor: Colors.primary,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 4, borderColor: Colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 4,
+    borderColor: Colors.white,
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1, shadowRadius: 12, elevation: 6,
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 6,
   },
 });
