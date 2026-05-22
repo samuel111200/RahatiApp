@@ -7,23 +7,23 @@ import { Colors, Spacing, Radius } from '../../constants/Theme';
 import { useLang } from '../../context/Languagecontext';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
+// ─── الـ screens اللي مش المفروض تظهر في الـ tab bar ───────
+const HIDDEN_ROUTES = ['startup', 'notification'];
+
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const { t, isRTL } = useLang();
 
   const tabConfig: Record<string, { icon: keyof typeof Ionicons.glyphMap; iconActive: keyof typeof Ionicons.glyphMap; label: string }> = {
-    startup:   { icon: 'home-outline',             iconActive: 'home',             label: '' },
     home:      { icon: 'home-outline',             iconActive: 'home',             label: t.home },
     tasks:     { icon: 'checkmark-circle-outline', iconActive: 'checkmark-circle', label: t.tasks },
     exercises: { icon: 'fitness-outline',          iconActive: 'fitness',          label: t.exercisesTab },
     more:      { icon: 'grid-outline',             iconActive: 'grid',             label: t.more },
   };
 
-  const visibleRoutes = state.routes.filter(r => r.name !== 'startup');
+  const visibleRoutes = state.routes.filter(r => !HIDDEN_ROUTES.includes(r.name));
   if (state.routes[state.index]?.name === 'startup') return null;
 
   return (
-    // ✅ الـ container بـ position absolute عشان يتعلق في الأسفل
-    // وعنده padding عشان الـ bar ميلصقش في الحدود
     <View style={styles.container}>
       <View style={[styles.bar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         {visibleRoutes.map((route, visualIndex) => {
@@ -47,6 +47,9 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
             );
           }
 
+          // ✅ لو الـ route مش موجود في tabConfig، مش بنرسمه
+          if (!cfg) return elements.length > 0 ? elements : null;
+
           elements.push(
             <TouchableOpacity
               key={route.key}
@@ -56,11 +59,11 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
             >
               <View style={[styles.tabInner, focused && styles.tabInnerActive]}>
                 <Ionicons
-                  name={focused ? (cfg?.iconActive || cfg?.icon) : (cfg?.icon || 'circle-outline')}
+                  name={focused ? cfg.iconActive : cfg.icon}
                   size={22}
                   color={focused ? Colors.primary : Colors.textMuted}
                 />
-                {cfg?.label ? (
+                {cfg.label ? (
                   <Text style={[styles.tabLabel, focused && styles.tabLabelActive]} numberOfLines={1}>
                     {cfg.label}
                   </Text>
@@ -86,19 +89,19 @@ export default function TabsLayout() {
       <Tabs.Screen name="tasks" />
       <Tabs.Screen name="exercises" />
       <Tabs.Screen name="more" />
+      <Tabs.Screen name="notification" />
     </Tabs>
   );
 }
 
 const styles = StyleSheet.create({
-  // ✅ container بـ absolute عشان يتعلق في الأسفل ومش يأكل مساحة من المحتوى
   container: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: Spacing.base,       // مسافة من اليمين واليسار
-    paddingBottom: Platform.OS === 'ios' ? 24 : 12,  // safe area على iOS
+    paddingHorizontal: Spacing.base,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
     paddingTop: 8,
     backgroundColor: 'transparent',
   },
@@ -119,7 +122,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 60,
     height: 60,
-
   },
   tabInnerActive: { backgroundColor: Colors.primaryUltraLight, borderRadius: 100 },
   tabLabel: {

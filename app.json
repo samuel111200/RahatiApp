@@ -40,6 +40,12 @@
     "splash": {
       "image": "./assets/images/logo.png",
       "resizeMode": "contain"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d715c38c-90d8-4575-9f26-7187594dcc4d"
+      }
     }
   }
 }

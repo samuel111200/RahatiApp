@@ -16,8 +16,9 @@ export default function RootLayout() {
             <Stack.Screen name="index" />
             <Stack.Screen name="startup" options={{ gestureEnabled: false }} />
             <Stack.Screen name="langchoose" options={{ gestureEnabled: false }} />
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(tabs)" />
+            {/* ✅ بدون أقواس — اسم المجلد الفعلي */}
+            <Stack.Screen name="auth" />
+            <Stack.Screen name="tabs" />
           </Stack>
           <StatusBar style="dark" />
         </AuthProvider>
