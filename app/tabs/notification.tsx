@@ -2,7 +2,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Platform, StatusBar, RefreshControl, Modal, SafeAreaView,
+  Platform, StatusBar, RefreshControl, Modal,
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';

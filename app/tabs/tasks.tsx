@@ -1,4 +1,3 @@
-// app/(tabs)/tasks.tsx
 import React, { useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView,
@@ -11,7 +10,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Chip } from '../../components/UI';
 import { useLang } from '../../context/Languagecontext';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
-import { notify, suppressTaskListNotifOnce } from './notificationService';
+import { notify, suppressTaskListNotifOnce, parseArabicTime } from './notificationService';
 
 // ─── Types ───────────────────────────────────────────────
 type TaskType = 'core' | 'extra';
@@ -47,6 +46,18 @@ function todayKey() {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${dd}`;
+}
+
+function nowInMinutes(): number {
+  const now = new Date();
+  return now.getHours() * 60 + now.getMinutes();
+}
+
+function timeToMinutes(timeStr: string): number {
+  if (!timeStr) return -1;
+  const parsed = parseArabicTime(timeStr);
+  if (!parsed) return -1;
+  return parsed.hours * 60 + parsed.minutes;
 }
 
 // ─── Default core tasks ───────────────────────────────────
@@ -100,15 +111,19 @@ export default function TasksScreen() {
   const [nameError,     setNameError]     = useState(false);
   const [saving,        setSaving]        = useState(false);
 
-  const longPressTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const longPressTimers  = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const upcomingInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ── Load from AsyncStorage ──
   useFocusEffect(useCallback(() => {
     loadAllTasks();
+    startUpcomingWatcher();
+    return () => {
+      stopUpcomingWatcher();
+    };
   }, []));
 
   async function loadAllTasks() {
-    // Core tasks
     const storedCore = await AsyncStorage.getItem(CORE_TASKS_KEY);
     if (storedCore) {
       setCoreTasks(JSON.parse(storedCore));
@@ -117,7 +132,6 @@ export default function TasksScreen() {
       setCoreTasks(DEFAULT_CORE_TASKS);
     }
 
-    // Extra tasks
     const storedExtra = await AsyncStorage.getItem(EXTRA_TASKS_KEY);
     if (storedExtra) {
       const parsed: Task[] = JSON.parse(storedExtra);
@@ -130,6 +144,74 @@ export default function TasksScreen() {
     } else {
       await AsyncStorage.setItem(EXTRA_TASKS_KEY, JSON.stringify([]));
       setExtraTasks([]);
+    }
+  }
+
+  // ── Upcoming watcher (10 min before) ──
+  function startUpcomingWatcher() {
+    if (upcomingInterval.current) return;
+    upcomingInterval.current = setInterval(checkUpcomingTasks, 60_000);
+    // شغّلها مرة فور ما الصفحة تتفتح
+    checkUpcomingTasks();
+  }
+
+  function stopUpcomingWatcher() {
+    if (upcomingInterval.current) {
+      clearInterval(upcomingInterval.current);
+      upcomingInterval.current = null;
+    }
+  }
+
+  async function checkUpcomingTasks() {
+    try {
+      const todayStr = todayKey();
+      const nowMin   = nowInMinutes();
+
+      const [coreRaw, extraRaw] = await Promise.all([
+        AsyncStorage.getItem(CORE_TASKS_KEY),
+        AsyncStorage.getItem(EXTRA_TASKS_KEY),
+      ]);
+
+      const core: Task[]  = coreRaw  ? JSON.parse(coreRaw)  : [];
+      const extra: Task[] = extraRaw ? JSON.parse(extraRaw) : [];
+      const allTasks      = [...core, ...extra];
+
+      for (const task of allTasks) {
+        if (task.done) continue;
+
+        // استخرج وقت البداية من الـ time string  "09:00 - 10:30"
+        const timeParts = (task.time ?? '').split(' - ');
+        const startStr  = timeParts[0]?.trim() ?? '';
+        if (!startStr || startStr === '--:--') continue;
+
+        const startMin = timeToMinutes(startStr);
+        if (startMin < 0) continue;
+
+        const diffMin = startMin - nowMin;
+
+        // بين 9 و 11 دقيقة قبل الموعد
+        if (diffMin > 9 && diffMin <= 11) {
+          const storageKey = `task_upcoming_10min_${task.key}_${todayStr}`;
+          const already    = await AsyncStorage.getItem(storageKey);
+          if (!already) {
+            const label = task.name ?? CORE_LABELS[task.key] ?? task.key;
+            await notify(
+              {
+                title: isRTL ? 'موعد مهمة قريب ⏰' : 'Task coming up ⏰',
+                body: isRTL
+                  ? `${task.icon} "${label}" هتبدأ بعد 10 دقايق`
+                  : `${task.icon} "${label}" starts in 10 minutes`,
+                emoji: '⏰',
+                type: 'task',
+              },
+              'tasks'
+            );
+            await AsyncStorage.setItem(storageKey, '1');
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('checkUpcomingTasks error:', e);
     }
   }
 
@@ -311,10 +393,8 @@ export default function TasksScreen() {
         ...(newType === 'extra' ? { date: TODAY } : {}),
       };
 
-      // أغلق المودال أولاً
       closeModal();
 
-      // حدّث الـ state و AsyncStorage
       if (newType === 'core') {
         const updated = [...coreTasks, newTask];
         setCoreTasks(updated);
@@ -327,9 +407,6 @@ export default function TasksScreen() {
 
       await AsyncStorage.setItem('data_changed_at', Date.now().toString());
       setActiveSection(newType);
-
-      // ── إشعار الإضافة أُلغي عمداً ──
-      // (الإشعار بيجي من الصفحة الرئيسية تلقائياً)
 
     } catch (e) {
       console.warn('addTask error:', e);
@@ -410,7 +487,7 @@ export default function TasksScreen() {
         </View>
 
         {/* ── Section hint ── */}
-        <View style={styles.sectionHint}>
+        <View style={[styles.sectionHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <Ionicons
             name={activeSection === 'core' ? 'refresh-circle-outline' : 'calendar-outline'}
             size={13}
@@ -445,7 +522,10 @@ export default function TasksScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={[styles.filters, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+          contentContainerStyle={[
+            styles.filters,
+            { flexDirection: isRTL ? 'row-reverse' : 'row' , alignContent: isRTL ? 'flex-end' : 'flex-start' },
+          ]}
           style={{ marginBottom: Spacing.base }}
           keyboardShouldPersistTaps="handled"
         >
@@ -544,14 +624,12 @@ export default function TasksScreen() {
           style={{ flex: 1 }}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
-          {/* خلفية شفافة — الضغط عليها يقفل المودال */}
           <TouchableOpacity
             style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }}
             activeOpacity={1}
             onPress={closeModal}
           />
 
-          {/* محتوى المودال */}
           <View style={styles.modalSheet}>
             <ScrollView
               contentContainerStyle={{ paddingBottom: 36 }}
@@ -560,7 +638,6 @@ export default function TasksScreen() {
             >
               <View style={styles.modalHandle} />
 
-              {/* Header */}
               <View style={styles.modalHeaderRow}>
                 <Text style={styles.modalTitle}>
                   {isRTL ? 'إضافة مهمة جديدة' : 'Add New Task'}
@@ -734,7 +811,7 @@ const styles = StyleSheet.create({
   sectionCountText: { fontSize: 10, fontWeight: '800' },
 
   sectionHint: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
+    alignItems: 'center', gap: 5,
     marginBottom: Spacing.base,
   },
   sectionHintText: { fontSize: 11, color: '#7C5CBF99', fontStyle: 'italic' },

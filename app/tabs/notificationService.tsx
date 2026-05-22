@@ -461,13 +461,12 @@ export async function sendPushNotification(
         body,
         ...(Platform.OS === "android" && {
           // @ts-ignore
-          icon: "ic_notification",
-          largeIcon: "ic_launcher",
+          icon: "logo",
+          largeIcon: "logo",
           color: "#7C5CBF",
           channelId,
         }),
-        sound:
-          Platform.OS === "ios" ? "notification_sound.wav" : undefined,
+        sound: Platform.OS === "ios" ? "notification_sound.wav" : undefined,
         data: { channelId, ...data },
         badge: 1,
       },
@@ -549,9 +548,10 @@ export async function getUnreadCount(): Promise<number> {
 let _suppressTaskListNotif = false;
 export function suppressTaskListNotifOnce() {
   _suppressTaskListNotif = true;
-  setTimeout(() => {
-    _suppressTaskListNotif = false;
-  }, 8000);
+setTimeout(() => {
+  _suppressTaskListNotif = false;
+}, 2000);
+
 }
 
 // ════════════════════════════════════════════════════════════
@@ -620,7 +620,7 @@ export function startMissedWatcher() {
     } catch (e) {
       console.warn("Missed watcher error:", e);
     }
-  }, 60000);
+  }, 6000);
 }
 
 export function stopMissedWatcher() {
@@ -715,6 +715,7 @@ export function startCompletionWatcher() {
 
         const sentKey = `completion_notif_${id}_${todayKey}`;
         if (!(await AsyncStorage.getItem(sentKey))) {
+          suppressTaskListNotifOnce();
           await notifyTaskCompleted(
             task.title ?? task.name ?? "المهمة",
             task.emoji ?? task.icon ?? "📌"
@@ -782,7 +783,8 @@ export function stopEnergyWatcher() {
     energyWatcherInterval = null;
   }
 }
-
+let lastTaskNotifTime = 0;
+const TASK_LIST_NOTIF_COOLDOWN = 30_00;
 // ── Tasks list watcher ──
 let lastTasksHash: string | null = null;
 let lastTaskKeys: Set<string> = new Set();
@@ -802,12 +804,10 @@ export function startTasksListWatcher() {
       const extraTasks: any[] = extraRaw ? JSON.parse(extraRaw) : [];
       const allTasks = [...coreTasks, ...extraTasks];
 
-      const currentHash = `${allTasks.length}_${allTasks
-        .map(
-          (t) =>
-            `${t.id ?? t.key}:${t.title ?? t.name}:${t.timeFrom ?? ""}:${t.timeTo ?? ""}`
-        )
-        .join(",")}`;
+const currentHash = `${allTasks.length}_${[...allTasks]
+  .sort((a, b) => String(a.id ?? a.key).localeCompare(String(b.id ?? b.key)))
+  .map((t) => `${t.id ?? t.key}:${t.title ?? t.name}`)
+  .join(",")}`;
 
       const currentKeys = new Set<string>(
         allTasks.map((t) => String(t.id ?? t.key))
@@ -821,7 +821,9 @@ export function startTasksListWatcher() {
           const removedKeys = [...lastTaskKeys].filter(
             (k) => !currentKeys.has(k)
           );
-
+const now = Date.now();
+if (now - lastTaskNotifTime < TASK_LIST_NOTIF_COOLDOWN) return;
+lastTaskNotifTime = now;
           if (addedKeys.length > 0) {
             const newTask = allTasks.find((t) =>
               addedKeys.includes(String(t.id ?? t.key))

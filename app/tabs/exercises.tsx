@@ -3,7 +3,6 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView,
   Dimensions, Modal, TextInput, KeyboardAvoidingView, Platform, Alert,
-  Animated, Easing,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLang } from '../../context/Languagecontext';
@@ -82,403 +81,6 @@ function speakStep(text: string, isRTL: boolean) {
     pitch: 1.05,
     rate: isRTL ? 0.82 : 0.88,
   });
-}
-
-// ════════════════════════════════════════════════════════════
-// ─── Animations ───────────────────────────────────────────
-// ════════════════════════════════════════════════════════════
-
-function HipMarchingAnim({ color, isRTL }: { color: string; isRTL: boolean }) {
-  const leftLeg  = useRef(new Animated.Value(0)).current;
-  const rightLeg = useRef(new Animated.Value(0)).current;
-  const bodyBob  = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    function marchCycle() {
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(leftLeg,  { toValue: -38, duration: 500, useNativeDriver: true, easing: Easing.out(Easing.back(1.5)) }),
-          Animated.timing(rightLeg, { toValue: 6,   duration: 500, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-          Animated.timing(bodyBob,  { toValue: -4,  duration: 500, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-        ]),
-        Animated.delay(250),
-        Animated.parallel([
-          Animated.timing(leftLeg,  { toValue: 6,   duration: 500, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-          Animated.timing(rightLeg, { toValue: -38, duration: 500, useNativeDriver: true, easing: Easing.out(Easing.back(1.5)) }),
-          Animated.timing(bodyBob,  { toValue: -4,  duration: 500, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-        ]),
-        Animated.delay(250),
-        Animated.parallel([
-          Animated.timing(leftLeg,  { toValue: 0, duration: 400, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-          Animated.timing(rightLeg, { toValue: 0, duration: 400, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-          Animated.timing(bodyBob,  { toValue: 0, duration: 400, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-        ]),
-      ]).start(({ finished }) => { if (finished) marchCycle(); });
-    }
-    marchCycle();
-    return () => { leftLeg.stopAnimation(); rightLeg.stopAnimation(); bodyBob.stopAnimation(); };
-  }, []);
-
-  return (
-    <View style={mascot.wrap}>
-      <View style={mascot.chairSeat}>
-        <View style={[mascot.chairLegL, { backgroundColor: color + '88' }]} />
-        <View style={[mascot.chairBase, { backgroundColor: color + '44', borderColor: color }]} />
-        <View style={[mascot.chairLegR, { backgroundColor: color + '88' }]} />
-      </View>
-      <Animated.View style={[mascot.body, { transform: [{ translateY: bodyBob }] }]}>
-        <View style={[mascot.head, { backgroundColor: '#FFEAA7', borderColor: color }]}>
-          <Text style={mascot.face}>😊</Text>
-        </View>
-        <View style={[mascot.torso, { backgroundColor: color, borderRadius: 12 }]}>
-          <View style={[mascot.armL, { backgroundColor: color + 'CC' }]} />
-          <View style={[mascot.armR, { backgroundColor: color + 'CC' }]} />
-        </View>
-      </Animated.View>
-      <View style={mascot.legsContainer}>
-        <Animated.View style={[mascot.thighL, { backgroundColor: color + 'BB', transform: [{ translateY: leftLeg }] }]}>
-          <View style={[mascot.shinL, { backgroundColor: color + '88' }]} />
-        </Animated.View>
-        <View style={{ width: 14 }} />
-        <Animated.View style={[mascot.thighR, { backgroundColor: color + 'BB', transform: [{ translateY: rightLeg }] }]}>
-          <View style={[mascot.shinR, { backgroundColor: color + '88' }]} />
-        </Animated.View>
-      </View>
-      <Text style={[mascot.label, { color }]}>
-        {isRTL ? '🦵 ارفع كل ركبة بالتناوب' : '🦵 Lift each knee alternately'}
-      </Text>
-    </View>
-  );
-}
-
-function ArmRaiseAnim({ color, isRTL }: { color: string; isRTL: boolean }) {
-  const rightArm = useRef(new Animated.Value(0)).current;
-  const leftArm  = useRef(new Animated.Value(0)).current;
-  const headNod  = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    function raiseCycle() {
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(rightArm, { toValue: -130, duration: 700, useNativeDriver: true, easing: Easing.out(Easing.back(1.2)) }),
-          Animated.timing(headNod,  { toValue: -5,   duration: 700, useNativeDriver: true }),
-        ]),
-        Animated.delay(600),
-        Animated.parallel([
-          Animated.timing(rightArm, { toValue: 0,    duration: 600, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-          Animated.timing(leftArm,  { toValue: -130, duration: 700, useNativeDriver: true, easing: Easing.out(Easing.back(1.2)) }),
-          Animated.timing(headNod,  { toValue: -5,   duration: 700, useNativeDriver: true }),
-        ]),
-        Animated.delay(600),
-        Animated.parallel([
-          Animated.timing(leftArm, { toValue: 0, duration: 600, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-          Animated.timing(headNod, { toValue: 0, duration: 400, useNativeDriver: true }),
-        ]),
-        Animated.delay(300),
-      ]).start(({ finished }) => { if (finished) raiseCycle(); });
-    }
-    raiseCycle();
-    return () => { rightArm.stopAnimation(); leftArm.stopAnimation(); headNod.stopAnimation(); };
-  }, []);
-
-  const rightRot = rightArm.interpolate({ inputRange: [-130, 0], outputRange: ['-130deg', '30deg'] });
-  const leftRot  = leftArm.interpolate({  inputRange: [-130, 0], outputRange: ['130deg',  '-30deg'] });
-
-  return (
-    <View style={mascot.wrap}>
-      <View style={mascot.chairSeat}>
-        <View style={[mascot.chairLegL, { backgroundColor: color + '88' }]} />
-        <View style={[mascot.chairBase, { backgroundColor: color + '44', borderColor: color }]} />
-        <View style={[mascot.chairLegR, { backgroundColor: color + '88' }]} />
-      </View>
-      <View style={mascot.body}>
-        <Animated.View style={{ transform: [{ translateY: headNod }] }}>
-          <View style={[mascot.head, { backgroundColor: '#FFEAA7', borderColor: color }]}>
-            <Text style={mascot.face}>😤</Text>
-          </View>
-        </Animated.View>
-        <View style={[mascot.torso, { backgroundColor: color }]}>
-          <Animated.View style={[mascot.armLong, { backgroundColor: color + 'DD', right: -18, transformOrigin: 'top right' }, { transform: [{ rotate: rightRot }] }]} />
-          <Animated.View style={[mascot.armLong, { backgroundColor: color + 'DD', left: -18, transformOrigin: 'top left' },  { transform: [{ rotate: leftRot }] }]} />
-        </View>
-      </View>
-      <View style={mascot.legsContainer}>
-        <View style={[mascot.thighL, { backgroundColor: color + '66' }]}><View style={[mascot.shinL, { backgroundColor: color + '44' }]} /></View>
-        <View style={{ width: 14 }} />
-        <View style={[mascot.thighR, { backgroundColor: color + '66' }]}><View style={[mascot.shinR, { backgroundColor: color + '44' }]} /></View>
-      </View>
-      <Text style={[mascot.label, { color }]}>
-        {isRTL ? '🙌 ارفع دراعك فوق رأسك' : '🙌 Raise your arm above your head'}
-      </Text>
-    </View>
-  );
-}
-
-function StandingRowAnim({ color, isRTL }: { color: string; isRTL: boolean }) {
-  const pullX  = useRef(new Animated.Value(0)).current;
-  const leanX  = useRef(new Animated.Value(0)).current;
-  const elbowY = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    function pullCycle() {
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(pullX,  { toValue: -20, duration: 700, useNativeDriver: true, easing: Easing.out(Easing.back(1.2)) }),
-          Animated.timing(leanX,  { toValue: 6,   duration: 700, useNativeDriver: true }),
-          Animated.timing(elbowY, { toValue: -8,  duration: 700, useNativeDriver: true }),
-        ]),
-        Animated.delay(500),
-        Animated.parallel([
-          Animated.timing(pullX,  { toValue: 0, duration: 800, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-          Animated.timing(leanX,  { toValue: 0, duration: 800, useNativeDriver: true }),
-          Animated.timing(elbowY, { toValue: 0, duration: 800, useNativeDriver: true }),
-        ]),
-        Animated.delay(300),
-      ]).start(({ finished }) => { if (finished) pullCycle(); });
-    }
-    pullCycle();
-    return () => { pullX.stopAnimation(); leanX.stopAnimation(); elbowY.stopAnimation(); };
-  }, []);
-
-  return (
-    <View style={mascot.wrap}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-        <View style={[mascot.bandAnchor, { backgroundColor: color }]} />
-        <View style={[mascot.bandLine, { borderColor: color }]} />
-      </View>
-      <Animated.View style={[mascot.standingBody, { transform: [{ translateX: leanX }] }]}>
-        <View style={[mascot.head, { backgroundColor: '#FFEAA7', borderColor: color }]}>
-          <Text style={mascot.face}>💪</Text>
-        </View>
-        <View style={[mascot.torsoTall, { backgroundColor: color }]}>
-          <Animated.View style={[mascot.pullArm, { backgroundColor: color + 'CC', transform: [{ translateX: pullX }, { translateY: elbowY }] }]} />
-        </View>
-        <View style={mascot.standingLegs}>
-          <View style={[mascot.standLeg, { backgroundColor: color + 'BB' }]} />
-          <View style={{ width: 10 }} />
-          <View style={[mascot.standLeg, { backgroundColor: color + 'BB' }]} />
-        </View>
-      </Animated.View>
-      <Text style={[mascot.label, { color }]}>
-        {isRTL ? '💪 اسحب المقابض نحوك بقوة' : '💪 Pull the handles toward you'}
-      </Text>
-    </View>
-  );
-}
-
-function LegCurlAnim({ color, isRTL }: { color: string; isRTL: boolean }) {
-  const heel    = useRef(new Animated.Value(0)).current;
-  const bodyTip = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    function curlCycle() {
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(heel,    { toValue: 1,  duration: 700, useNativeDriver: true, easing: Easing.out(Easing.back(1.3)) }),
-          Animated.timing(bodyTip, { toValue: -3, duration: 700, useNativeDriver: true }),
-        ]),
-        Animated.delay(600),
-        Animated.parallel([
-          Animated.timing(heel,    { toValue: 0, duration: 600, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-          Animated.timing(bodyTip, { toValue: 0, duration: 600, useNativeDriver: true }),
-        ]),
-        Animated.delay(300),
-      ]).start(({ finished }) => { if (finished) curlCycle(); });
-    }
-    curlCycle();
-    return () => { heel.stopAnimation(); bodyTip.stopAnimation(); };
-  }, []);
-
-  const heelTranslateY = heel.interpolate({ inputRange: [0, 1], outputRange: [0, -32] });
-  const heelRotate     = heel.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '90deg'] });
-
-  return (
-    <View style={mascot.wrap}>
-      <View style={[mascot.chairBackSupport, { borderColor: color }]} />
-      <Animated.View style={[mascot.standingBody, { transform: [{ translateX: bodyTip }] }]}>
-        <View style={[mascot.head, { backgroundColor: '#FFEAA7', borderColor: color }]}>
-          <Text style={mascot.face}>🤸</Text>
-        </View>
-        <View style={[mascot.torsoTall, { backgroundColor: color }]}>
-          <View style={[mascot.armL, { backgroundColor: color + 'CC' }]} />
-          <View style={[mascot.armR, { backgroundColor: color + 'CC' }]} />
-        </View>
-        <View style={mascot.standingLegs}>
-          <View style={[mascot.standLeg, { backgroundColor: color + '66' }]} />
-          <View style={{ width: 10 }} />
-          <View style={{ position: 'relative' }}>
-            <View style={[mascot.standLeg, { backgroundColor: color + 'BB' }]} />
-            <Animated.View style={[mascot.heel, { backgroundColor: color, position: 'absolute', bottom: 0, right: -4, transform: [{ translateY: heelTranslateY }, { rotate: heelRotate }] }]} />
-          </View>
-        </View>
-      </Animated.View>
-      <Text style={[mascot.label, { color }]}>
-        {isRTL ? '🦶 ارفع الكعب للخلف وللأعلى' : '🦶 Lift heel backward & up'}
-      </Text>
-    </View>
-  );
-}
-
-function RollUpAnim({ color, isRTL }: { color: string; isRTL: boolean }) {
-  const rise   = useRef(new Animated.Value(0)).current;
-  const armsUp = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    function rollCycle() {
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(rise,   { toValue: 1, duration: 900, useNativeDriver: true, easing: Easing.out(Easing.back(1.1)) }),
-          Animated.timing(armsUp, { toValue: 1, duration: 700, useNativeDriver: true, easing: Easing.out(Easing.ease) }),
-        ]),
-        Animated.delay(700),
-        Animated.parallel([
-          Animated.timing(rise,   { toValue: 0, duration: 900, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-          Animated.timing(armsUp, { toValue: 0, duration: 700, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-        ]),
-        Animated.delay(500),
-      ]).start(({ finished }) => { if (finished) rollCycle(); });
-    }
-    rollCycle();
-    return () => { rise.stopAnimation(); armsUp.stopAnimation(); };
-  }, []);
-
-  const bodyRotate = rise.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-52deg'] });
-  const bodyY      = rise.interpolate({ inputRange: [0, 1], outputRange: [0, -20] });
-  const armsRotate = armsUp.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-60deg'] });
-
-  return (
-    <View style={mascot.wrap}>
-      <View style={[mascot.mat, { backgroundColor: color + '22', borderColor: color }]} />
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4 }}>
-        <Animated.View style={{ alignItems: 'center', transformOrigin: 'bottom center', transform: [{ rotate: bodyRotate }, { translateY: bodyY }] }}>
-          <Animated.View style={[mascot.rollArms, { transform: [{ rotate: armsRotate }] }]}>
-            <View style={[mascot.rollArmBar, { backgroundColor: color + 'BB' }]} />
-          </Animated.View>
-          <View style={[mascot.head, { backgroundColor: '#FFEAA7', borderColor: color, width: 36, height: 36, borderRadius: 18 }]}>
-            <Text style={[mascot.face, { fontSize: 18 }]}>😣</Text>
-          </View>
-          <View style={[mascot.rollTorso, { backgroundColor: color }]} />
-        </Animated.View>
-        <View style={{ flexDirection: 'row', marginBottom: 2 }}>
-          <View style={[mascot.rollLeg, { backgroundColor: color + '77' }]} />
-          <View style={{ width: 6 }} />
-          <View style={[mascot.rollLeg, { backgroundColor: color + '77' }]} />
-        </View>
-      </View>
-      <Text style={[mascot.label, { color }]}>
-        {isRTL ? '🧘 ارفع الجزء العلوي ببطء' : '🧘 Slowly raise your upper body'}
-      </Text>
-    </View>
-  );
-}
-
-function AchillesReleaseAnim({ color, isRTL }: { color: string; isRTL: boolean }) {
-  const footPull  = useRef(new Animated.Value(0)).current;
-  const bandTense = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    function pullCycle() {
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(footPull,  { toValue: 1, duration: 900, useNativeDriver: true, easing: Easing.out(Easing.back(1.1)) }),
-          Animated.timing(bandTense, { toValue: 1, duration: 900, useNativeDriver: true }),
-        ]),
-        Animated.delay(700),
-        Animated.parallel([
-          Animated.timing(footPull,  { toValue: 0, duration: 800, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-          Animated.timing(bandTense, { toValue: 0, duration: 800, useNativeDriver: true }),
-        ]),
-        Animated.delay(400),
-      ]).start(({ finished }) => { if (finished) pullCycle(); });
-    }
-    pullCycle();
-    return () => { footPull.stopAnimation(); bandTense.stopAnimation(); };
-  }, []);
-
-  const footRotate = footPull.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-30deg'] });
-  const bandScale  = bandTense.interpolate({ inputRange: [0, 1], outputRange: [1, 0.65] });
-  const handX      = bandTense.interpolate({ inputRange: [0, 1], outputRange: [0, -14] });
-
-  return (
-    <View style={mascot.wrap}>
-      <View style={mascot.chairSeat}>
-        <View style={[mascot.chairLegL, { backgroundColor: color + '88' }]} />
-        <View style={[mascot.chairBase, { backgroundColor: color + '44', borderColor: color }]} />
-        <View style={[mascot.chairLegR, { backgroundColor: color + '88' }]} />
-      </View>
-      <View style={mascot.body}>
-        <View style={[mascot.head, { backgroundColor: '#FFEAA7', borderColor: color }]}>
-          <Text style={mascot.face}>😤</Text>
-        </View>
-        <View style={[mascot.torso, { backgroundColor: color }]}>
-          <Animated.View style={[mascot.armL, { backgroundColor: color + 'CC', transform: [{ translateX: handX }] }]} />
-          <View style={[mascot.armR, { backgroundColor: color + 'CC' }]} />
-        </View>
-      </View>
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 4 }}>
-        <View style={[mascot.thighL, { backgroundColor: color + '66', marginRight: 4 }]}>
-          <View style={[mascot.shinL, { backgroundColor: color + '44' }]} />
-        </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          <View style={{ width: 44, height: 14, borderRadius: 7, backgroundColor: color + 'BB' }} />
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-            <Animated.View style={{ height: 5, borderRadius: 3, backgroundColor: color, width: 52, transform: [{ scaleX: bandScale }] }} />
-            <Animated.View style={{ width: 22, height: 10, borderRadius: 5, backgroundColor: color + 'DD', transform: [{ rotate: footRotate }], transformOrigin: 'left center' }} />
-          </View>
-        </View>
-      </View>
-      <Text style={[mascot.label, { color }]}>
-        {isRTL ? '👟 اسحب القدم نحوك من الكاحل' : '👟 Pull foot toward you at the ankle'}
-      </Text>
-    </View>
-  );
-}
-
-function BounceAnim({ color, isRTL, emoji = '🏋️' }: { color: string; isRTL: boolean; emoji?: string }) {
-  const bounce = useRef(new Animated.Value(0)).current;
-  const squash = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(bounce, { toValue: -18, duration: 380, useNativeDriver: true, easing: Easing.out(Easing.quad) }),
-          Animated.timing(squash, { toValue: 1.15, duration: 380, useNativeDriver: true }),
-        ]),
-        Animated.parallel([
-          Animated.timing(bounce, { toValue: 0, duration: 380, useNativeDriver: true, easing: Easing.in(Easing.quad) }),
-          Animated.timing(squash, { toValue: 0.92, duration: 380, useNativeDriver: true }),
-        ]),
-        Animated.timing(squash, { toValue: 1, duration: 100, useNativeDriver: true }),
-      ])
-    ).start();
-    return () => { bounce.stopAnimation(); squash.stopAnimation(); };
-  }, []);
-
-  return (
-    <View style={mascot.wrap}>
-      <Animated.View style={{ transform: [{ translateY: bounce }, { scaleX: squash }] }}>
-        <Text style={{ fontSize: 54 }}>{emoji}</Text>
-      </Animated.View>
-      <Text style={[mascot.label, { color }]}>
-        {isRTL ? '✨ تمرين مخصص' : '✨ Custom exercise'}
-      </Text>
-    </View>
-  );
-}
-
-function ExerciseAnimation({ animType, color, isRTL, customEmoji }: {
-  animType: Exercise['animType']; color: string; isRTL: boolean; customEmoji?: string;
-}) {
-  switch (animType) {
-    case 'hipMarch':        return <HipMarchingAnim      color={color} isRTL={isRTL} />;
-    case 'armRaise':        return <ArmRaiseAnim         color={color} isRTL={isRTL} />;
-    case 'standingRow':     return <StandingRowAnim      color={color} isRTL={isRTL} />;
-    case 'legCurl':         return <LegCurlAnim          color={color} isRTL={isRTL} />;
-    case 'rollUp':          return <RollUpAnim           color={color} isRTL={isRTL} />;
-    case 'achillesRelease': return <AchillesReleaseAnim  color={color} isRTL={isRTL} />;
-    default:                return <BounceAnim           color={color} isRTL={isRTL} emoji={customEmoji} />;
-  }
 }
 
 // ─── Default exercises ────────────────────────────────────
@@ -796,7 +398,7 @@ export default function ExercisesScreen() {
   const openAddModal = () => {
     setNewName('');
     setNewEmoji('🏋️');
-    setNewMinutes('');
+    setNewMinutes('2');
     setNewDesc('');
     setNewType(activeSection);
     setSavingEx(false);
@@ -861,10 +463,8 @@ export default function ExercisesScreen() {
         ...(newType === 'extra' ? { date: todayKey() } : {}),
       };
 
-      // أغلق المودال أولاً
       closeAddModal();
 
-      // حدّث الـ state و AsyncStorage
       if (newType === 'core') {
         const updated = [...coreList, newEx];
         setCoreList(updated);
@@ -951,9 +551,10 @@ export default function ExercisesScreen() {
           </View>
           <Text style={[styles.cardDesc, { textAlign: isRTL ? 'right' : 'left' }]}>{iDesc}</Text>
 
+          {/* ── Timer active: show big emoji + active step ── */}
           {iSel && timerActive ? (
-            <View style={styles.animBox}>
-              <ExerciseAnimation animType={item.animType} color={item.color} isRTL={isRTL} customEmoji={item.emoji} />
+            <View style={styles.activeTimerBox}>
+              <Text style={styles.activeTimerEmoji}>{item.emoji}</Text>
               {isSpeaking && activeStep >= 0 && iSteps.length > 0 && (
                 <View style={[styles.activeStepBanner, { backgroundColor: item.color + '18', borderColor: item.color + '44' }]}>
                   <View style={styles.progressDots}>
@@ -1174,14 +775,12 @@ export default function ExercisesScreen() {
           style={{ flex: 1 }}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
-          {/* خلفية شفافة للإغلاق */}
           <TouchableOpacity
             style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }}
             activeOpacity={1}
             onPress={closeAddModal}
           />
 
-          {/* محتوى المودال */}
           <View style={modal.addBox}>
             <View style={modal.addHeader}>
               <Text style={modal.addTitle}>
@@ -1197,7 +796,6 @@ export default function ExercisesScreen() {
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              {/* Exercise Type */}
               <Text style={modal.label}>{isRTL ? 'نوع التمرين' : 'Exercise Type'}</Text>
               <View style={modal.typeRow}>
                 <TouchableOpacity
@@ -1222,7 +820,6 @@ export default function ExercisesScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Emoji */}
               <Text style={modal.label}>{isRTL ? 'الإيموجي' : 'Emoji'}</Text>
               <TextInput
                 style={modal.emojiInput}
@@ -1233,7 +830,6 @@ export default function ExercisesScreen() {
                 textAlign="center"
               />
 
-              {/* Name */}
               <Text style={modal.label}>{isRTL ? 'اسم التمرين *' : 'Exercise name *'}</Text>
               <TextInput
                 style={[modal.input, { textAlign: isRTL ? 'right' : 'left' }]}
@@ -1244,7 +840,6 @@ export default function ExercisesScreen() {
                 returnKeyType="next"
               />
 
-              {/* Duration */}
               <Text style={modal.label}>{isRTL ? 'المدة بالدقائق *' : 'Duration (minutes) *'}</Text>
               <TextInput
                 style={[modal.input, { textAlign: isRTL ? 'right' : 'left' }]}
@@ -1256,7 +851,6 @@ export default function ExercisesScreen() {
                 returnKeyType="next"
               />
 
-              {/* Description */}
               <Text style={modal.label}>{isRTL ? 'وصف (اختياري)' : 'Description (optional)'}</Text>
               <TextInput
                 style={[modal.input, modal.inputMulti, { textAlign: isRTL ? 'right' : 'left' }]}
@@ -1268,7 +862,6 @@ export default function ExercisesScreen() {
                 numberOfLines={2}
               />
 
-              {/* Save */}
               <TouchableOpacity
                 style={[modal.saveBtn, savingEx && { opacity: 0.6 }]}
                 onPress={handleAddExercise}
@@ -1361,10 +954,12 @@ const styles = StyleSheet.create({
   durationText:   { fontSize: FontSize.sm, fontWeight: '600' },
   cardDesc:       { fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: 8 },
 
-  animBox: {
-    flex: 1, alignItems: 'center', justifyContent: 'center',
-    borderRadius: 16, overflow: 'hidden', gap: 6,
+  // ── Active timer box (replaces animBox) ──
+  activeTimerBox: {
+    flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8,
   },
+  activeTimerEmoji: { fontSize: 72 },
+
   activeStepBanner: {
     width: '100%', borderRadius: 12, borderWidth: 1.5,
     paddingHorizontal: 10, paddingVertical: 7, gap: 5,
@@ -1417,41 +1012,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0EBFA',
   },
   emptyAddText: { fontSize: 13, fontWeight: '700', color: '#7C5CBF' },
-});
-
-const mascot = StyleSheet.create({
-  wrap: { alignItems: 'center', justifyContent: 'center', paddingVertical: 6, gap: 4, width: '100%' },
-  label: { fontSize: 11, fontWeight: '700', textAlign: 'center', marginTop: 4 },
-  head: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 2, zIndex: 2 },
-  face: { fontSize: 24 },
-  body:  { alignItems: 'center', position: 'relative' },
-  torso: { width: 44, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  torsoTall: { width: 40, height: 46, borderRadius: 10, alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  armL: { position: 'absolute', left: -14, top: 6, width: 12, height: 22, borderRadius: 6 },
-  armR: { position: 'absolute', right: -14, top: 6, width: 12, height: 22, borderRadius: 6 },
-  armLong: { position: 'absolute', width: 10, height: 36, borderRadius: 5, top: 4 },
-  pullArm: { width: 36, height: 10, borderRadius: 5, position: 'absolute', left: -10 },
-  chairSeat: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: -6, zIndex: 0 },
-  chairBase: { width: 68, height: 10, borderRadius: 4, borderWidth: 2, marginBottom: 0 },
-  chairLegL: { width: 6, height: 18, borderRadius: 3, marginRight: 3 },
-  chairLegR: { width: 6, height: 18, borderRadius: 3, marginLeft: 3 },
-  chairBackSupport: { position: 'absolute', left: '60%', top: 10, width: 8, height: 50, borderRadius: 4, borderWidth: 2 },
-  legsContainer: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 2 },
-  thighL: { width: 16, height: 30, borderRadius: 8 },
-  shinL:  { width: 12, height: 20, borderRadius: 6, marginTop: 2, alignSelf: 'center', marginLeft: 2 },
-  thighR: { width: 16, height: 30, borderRadius: 8 },
-  shinR:  { width: 12, height: 20, borderRadius: 6, marginTop: 2, alignSelf: 'center', marginLeft: 2 },
-  standingBody: { alignItems: 'center', gap: 1 },
-  standingLegs: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 2 },
-  standLeg:     { width: 14, height: 38, borderRadius: 7 },
-  heel: { width: 10, height: 20, borderRadius: 5 },
-  bandAnchor: { width: 10, height: 28, borderRadius: 4, marginRight: 2 },
-  bandLine:   { width: 44, height: 0, borderWidth: 2, borderStyle: 'dashed' },
-  mat:      { width: 120, height: 12, borderRadius: 6, borderWidth: 1.5, marginBottom: 4 },
-  rollTorso: { width: 34, height: 26, borderRadius: 8 },
-  rollLeg:   { width: 40, height: 12, borderRadius: 6 },
-  rollArms: { alignItems: 'center', marginBottom: 2 },
-  rollArmBar: { width: 44, height: 8, borderRadius: 4 },
 });
 
 const modal = StyleSheet.create({

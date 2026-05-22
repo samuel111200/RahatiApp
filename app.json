@@ -6,6 +6,10 @@
     "sdkVersion": "54.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
+    "notification": {
+      "icon": "./assets/images/logo.png",
+      "color": "#7C5CBF"
+    },
     "scheme": "rahtyi",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -37,10 +41,7 @@
     "experiments": {
       "typedRoutes": true
     },
-    "splash": {
-      "image": "./assets/images/logo.png",
-      "resizeMode": "contain"
-    },
+
     "extra": {
       "router": {},
       "eas": {
