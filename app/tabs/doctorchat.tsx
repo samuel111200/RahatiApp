@@ -7,7 +7,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
 import { Colors, Spacing, FontSize } from '../../constants/Theme';
 import { useLang } from '../../context/Languagecontext';
 
@@ -194,14 +193,18 @@ export default function DoctorChatScreen() {
     setShowQuick(false);
   };
 
+  // ✅ الرجوع لصفحة الدكاترة مباشرة
+  const handleBack = () => {
+    router.replace('/tabs/doctors');
+  };
+
   return (
-    // ✅ استخدم SafeAreaView بدل View عشان يحترم الـ notch والـ status bar
     <SafeAreaView style={styles.safe}>
       <StatusBar backgroundColor="#F8F5FF" barStyle="dark-content" />
 
       {/* ── Header ── */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.8}>
+        <TouchableOpacity onPress={handleBack} style={styles.backBtn} activeOpacity={0.8}>
           <Ionicons name="arrow-back" size={22} color={doctorColor} />
         </TouchableOpacity>
 
@@ -277,7 +280,7 @@ export default function DoctorChatScreen() {
           </Animated.ScrollView>
         )}
 
-        {/* ✅ Input bar بدون أي padding تحت — مفيش tab bar هنا */}
+        {/* ✅ Input bar — مفيش tab bar هنا */}
         <View style={styles.inputBarWrap}>
           <View style={[styles.inputBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <TouchableOpacity
@@ -320,7 +323,6 @@ export default function DoctorChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  // ✅ SafeAreaView بيتعامل مع الـ status bar تلقائياً على iOS و Android
   safe: {
     flex: 1,
     backgroundColor: '#F8F5FF',
@@ -417,7 +419,6 @@ const styles = StyleSheet.create({
   },
   quickChipText: { fontSize: 12, fontWeight: '600' },
 
-  // ✅ مفيش paddingBottom هنا — SafeAreaView بيتكلم بدالنا
   inputBarWrap: {
     backgroundColor: '#fff',
     borderTopWidth: 1, borderTopColor: Colors.border,
@@ -428,7 +429,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end', gap: 8,
     paddingHorizontal: Spacing.base,
     paddingTop: 10,
-    paddingBottom: 12, // ✅ padding بسيط بس — مش محتاج قيمة كبيرة
+    paddingBottom: 12,
   },
   inputWrap: {
     flex: 1, backgroundColor: Colors.background,

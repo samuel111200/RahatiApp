@@ -7,7 +7,7 @@ import { Colors, Spacing, Radius } from '../../constants/Theme';
 import { useLang } from '../../context/Languagecontext';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
-const HIDDEN_ROUTES = ['startup', 'notification'];
+const HIDDEN_ROUTES = ['startup', 'notification', 'doctorchat'];
 
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const { t, isRTL } = useLang();
@@ -22,6 +22,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
 
   const visibleRoutes = state.routes.filter(r => !HIDDEN_ROUTES.includes(r.name));
   if (state.routes[state.index]?.name === 'startup') return null;
+  if (HIDDEN_ROUTES.includes(state.routes[state.index]?.name)) return null;
 
   return (
     <View style={styles.container}>
@@ -73,6 +74,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="doctors" />
       <Tabs.Screen name="more" />
       <Tabs.Screen name="notification" />
+      <Tabs.Screen name="doctorchat" />
     </Tabs>
   );
 }
@@ -98,6 +100,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 20,
     elevation: 8,
+    // paddingTop: 8,
   },
   tabItem: { alignItems: 'center', paddingHorizontal: 4 },
   tabInner: {

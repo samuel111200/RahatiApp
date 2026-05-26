@@ -773,7 +773,7 @@ const s = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: '#f8f5ff',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 8,
   },
   navbar: {
     flexDirection: 'row',

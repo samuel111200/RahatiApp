@@ -9,8 +9,8 @@ import { Colors, Spacing, FontSize } from '../../constants/Theme';
 import { useLang } from '../../context/Languagecontext';
 
 // ─── Constants ────────────────────────────────────────────
-const DOC_COLOR       = '#1A7EBD';
-const DOC_COLOR_LIGHT = '#EAF4FB';
+const DOC_COLOR       = '#7C5CBF';
+const DOC_COLOR_LIGHT = '#F0EBFA';
 
 // ─── Types ────────────────────────────────────────────────
 type ChatPreview = {
@@ -206,9 +206,8 @@ export default function ChatsListScreen() {
   };
 
   return (
-    // ✅ SafeAreaView بدون أي padding إضافي — مفيش tab bar هنا
     <SafeAreaView style={styles.safe}>
-      <StatusBar backgroundColor="#F0F7FC" barStyle="dark-content" />
+      <StatusBar backgroundColor="#F8F5FF" barStyle="dark-content" />
 
       {/* ── Header ── */}
       <View style={styles.header}>
@@ -269,15 +268,13 @@ export default function ChatsListScreen() {
 
 // ─── Styles ──────────────────────────────────────────────
 const styles = StyleSheet.create({
-  // ✅ SafeAreaView بدون padding إضافي — مفيش tab bar
-  safe: { flex: 1, backgroundColor: '#F0F7FC' },
+  safe: { flex: 1, backgroundColor: '#F8F5FF' },
 
-  // Header
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: Spacing.base, paddingVertical: 14,
     backgroundColor: '#fff',
-    borderBottomWidth: 1, borderBottomColor: '#EAF4FB',
+    borderBottomWidth: 1, borderBottomColor: '#F0EBFA',
     shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07, shadowRadius: 8, elevation: 3,
     gap: 10,
@@ -287,7 +284,7 @@ const styles = StyleSheet.create({
     backgroundColor: DOC_COLOR_LIGHT,
     alignItems: 'center', justifyContent: 'center',
   },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: '#0D2B3E' },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: Colors.textPrimary },
   headerSub:   { fontSize: 12, color: DOC_COLOR, fontWeight: '600', marginTop: 2 },
   headerIconBtn: {
     width: 40, height: 40, borderRadius: 20,
@@ -295,20 +292,18 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
 
-  // Search
   searchWrap: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#fff',
     marginHorizontal: Spacing.base, marginTop: 12, marginBottom: 6,
     borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10,
-    borderWidth: 1.5, borderColor: '#D6EAF8',
+    borderWidth: 1.5, borderColor: '#E8DFFA',
     shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06, shadowRadius: 4, elevation: 1,
   },
   searchIcon:  { marginEnd: 8 },
-  searchInput: { flex: 1, fontSize: FontSize.base, color: '#0D2B3E', padding: 0 },
+  searchInput: { flex: 1, fontSize: FontSize.base, color: Colors.textPrimary, padding: 0 },
 
-  // Notice banner
   noticeBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     marginHorizontal: Spacing.base, marginBottom: 10,
@@ -318,15 +313,13 @@ const styles = StyleSheet.create({
   },
   noticeText: { fontSize: 12, color: DOC_COLOR, fontWeight: '500', flex: 1 },
 
-  // Chat Row
   chatRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: Spacing.base, paddingVertical: 13,
     backgroundColor: '#fff',
   },
-  chatRowUnread: { backgroundColor: '#F5FBFF' },
+  chatRowUnread: { backgroundColor: '#F8F5FF' },
 
-  // Avatar
   avatarWrap: { position: 'relative' },
   avatar: {
     width: 52, height: 52, borderRadius: 26,
@@ -343,12 +336,11 @@ const styles = StyleSheet.create({
     borderWidth: 2, borderColor: '#fff',
   },
 
-  // Content
   chatContent: { flex: 1 },
   chatTopRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   chatBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 
-  patientName:     { fontSize: FontSize.base, fontWeight: '600', color: '#0D2B3E', flex: 1, marginEnd: 6 },
+  patientName:     { fontSize: FontSize.base, fontWeight: '600', color: Colors.textPrimary, flex: 1, marginEnd: 6 },
   patientNameBold: { fontWeight: '800' },
 
   timeText:       { fontSize: 11, color: Colors.textMuted },
@@ -356,9 +348,8 @@ const styles = StyleSheet.create({
 
   lastMsgWrap: { flexDirection: 'row', alignItems: 'center', flex: 1, marginEnd: 8 },
   lastMsg:     { fontSize: 13, color: Colors.textMuted, flex: 1 },
-  lastMsgBold: { color: '#0D2B3E', fontWeight: '600' },
+  lastMsgBold: { color: Colors.textPrimary, fontWeight: '600' },
 
-  // Unread badge
   unreadBadge: {
     minWidth: 20, height: 20, borderRadius: 10,
     backgroundColor: DOC_COLOR,
@@ -367,10 +358,8 @@ const styles = StyleSheet.create({
   },
   unreadText: { fontSize: 11, color: '#fff', fontWeight: '800' },
 
-  // Separator
-  separator: { height: 1, backgroundColor: '#EAF4FB', marginStart: 78 },
+  separator: { height: 1, backgroundColor: '#F0EBFA', marginStart: 78 },
 
-  // Empty state
   emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
   emptyIconCircle: {
     width: 90, height: 90, borderRadius: 45,
@@ -379,6 +368,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderWidth: 2, borderColor: DOC_COLOR + '25',
   },
-  emptyTitle:    { fontSize: 18, fontWeight: '800', color: '#0D2B3E', marginBottom: 10, textAlign: 'center' },
+  emptyTitle:    { fontSize: 18, fontWeight: '800', color: Colors.textPrimary, marginBottom: 10, textAlign: 'center' },
   emptySubtitle: { fontSize: 14, color: Colors.textMuted, textAlign: 'center', lineHeight: 22 },
 });

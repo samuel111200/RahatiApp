@@ -5,14 +5,14 @@ import {
   Platform, Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams, useFocusEffect } from 'expo-router'; // ← useFocusEffect جديد
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Colors, Spacing, FontSize } from '../../constants/Theme';
 import { useLang } from '../../context/Languagecontext';
-import { useChats } from '../../context/Chatscontext'; // ← جديد
+import { useChats } from '../../context/Chatscontext';
 
 // ─── Constants ────────────────────────────────────────────
-const DOC_COLOR       = '#1A7EBD';
-const DOC_COLOR_LIGHT = '#EAF4FB';
+const DOC_COLOR       = '#7C5CBF';
+const DOC_COLOR_LIGHT = '#F0EBFA';
 
 // ─── Types ────────────────────────────────────────────────
 type Message = {
@@ -67,7 +67,7 @@ function MessageBubble({ msg, isRTL }: { msg: Message; isRTL: boolean }) {
             <Ionicons
               name={msg.status === 'read' ? 'checkmark-done' : 'checkmark-done-outline'}
               size={13}
-              color={msg.status === 'read' ? '#93E0FF' : 'rgba(255,255,255,0.6)'}
+              color={msg.status === 'read' ? '#D4BBFF' : 'rgba(255,255,255,0.6)'}
             />
           )}
         </View>
@@ -107,7 +107,7 @@ const msgStyles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 1,
     borderWidth: 1,
-    borderColor: '#EAF0F6',
+    borderColor: Colors.border,
   },
   bubbleText:        { fontSize: FontSize.base, lineHeight: 22 },
   bubbleTextDoc:     { color: '#fff', fontWeight: '500' },
@@ -129,8 +129,8 @@ function DateDivider({ label }: { label: string }) {
 
 const divStyles = StyleSheet.create({
   wrap: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 14, paddingHorizontal: 8 },
-  line: { flex: 1, height: 1, backgroundColor: '#E0ECF5' },
-  text: { fontSize: 11, color: Colors.textMuted, fontWeight: '600', backgroundColor: '#F0F7FC', paddingHorizontal: 8, borderRadius: 8 },
+  line: { flex: 1, height: 1, backgroundColor: Colors.border },
+  text: { fontSize: 11, color: Colors.textMuted, fontWeight: '600', backgroundColor: '#F8F5FF', paddingHorizontal: 8, borderRadius: 8 },
 });
 
 // ─── Quick Replies ────────────────────────────────────────
@@ -146,9 +146,8 @@ const QUICK_REPLIES = [
 export default function Docpatient() {
   const { patientId, patientName } = useLocalSearchParams<{ patientId: string; patientName: string }>();
   const { isRTL } = useLang();
-  const { markAsRead } = useChats(); // ← جديد
+  const { markAsRead } = useChats();
 
-  // ✅ لما الصفحة تتفتح أو يرجعلها focus، امسح الـ unread فوراً
   useFocusEffect(
     useCallback(() => {
       if (patientId) markAsRead(patientId);
@@ -200,7 +199,7 @@ export default function Docpatient() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar backgroundColor="#F0F7FC" barStyle="dark-content" />
+      <StatusBar backgroundColor="#F8F5FF" barStyle="dark-content" />
 
       {/* ── Header ── */}
       <View style={styles.header}>
@@ -302,13 +301,13 @@ export default function Docpatient() {
 
 // ─── Styles ──────────────────────────────────────────────
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F0F7FC' },
+  safe: { flex: 1, backgroundColor: '#F8F5FF' },
 
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingHorizontal: Spacing.base, paddingVertical: 12,
     backgroundColor: '#fff',
-    borderBottomWidth: 1, borderBottomColor: '#EAF4FB',
+    borderBottomWidth: 1, borderBottomColor: '#F0EBFA',
     shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08, shadowRadius: 8, elevation: 3,
   },
@@ -353,14 +352,14 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end', gap: 8,
     paddingHorizontal: Spacing.base, paddingVertical: 10,
     backgroundColor: '#fff',
-    borderTopWidth: 1, borderTopColor: '#EAF4FB',
+    borderTopWidth: 1, borderTopColor: '#F0EBFA',
     shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.06, shadowRadius: 8, elevation: 4,
   },
   inputWrap: {
-    flex: 1, backgroundColor: '#F0F7FC',
+    flex: 1, backgroundColor: Colors.background,
     borderRadius: 22, paddingHorizontal: 14, paddingVertical: 10,
-    borderWidth: 1.5, borderColor: '#D6EAF8',
+    borderWidth: 1.5, borderColor: '#E8DFFA',
     minHeight: 44, maxHeight: 120,
   },
   textInput: {

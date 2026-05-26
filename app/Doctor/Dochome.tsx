@@ -14,9 +14,9 @@ import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 import { usePathname } from 'expo-router';
 
 // ─── Constants ────────────────────────────────────────────
-const DOC_COLOR       = '#1A7EBD';
-const DOC_COLOR_LIGHT = '#EAF4FB';
-const DOC_COLOR_MID   = '#D6EAF8';
+const DOC_COLOR       = '#7C5CBF';
+const DOC_COLOR_LIGHT = '#F0EBFA';
+const DOC_COLOR_MID   = '#E8DFFA';
 
 // ─── Types ────────────────────────────────────────────────
 export type PatientStatus = 'pending' | 'accepted';
@@ -114,11 +114,11 @@ const tabStyles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: '#EAF4FB',
+    borderTopColor: '#F0EBFA',
     paddingBottom: 12,
     paddingTop: 10,
     paddingHorizontal: 16,
-    shadowColor: '#1A7EBD',
+    shadowColor: '#7C5CBF',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.10,
     shadowRadius: 12,
@@ -427,9 +427,8 @@ export default function DocHome() {
   const docName = user ? `${user.firstName || ''}` : '';
 
   return (
-    // ✅ SafeAreaView بيتعامل مع الـ status bar تلقائياً
     <SafeAreaView style={styles.safe}>
-      <StatusBar backgroundColor="#F0F7FC" barStyle="dark-content" />
+      <StatusBar backgroundColor="#F8F5FF" barStyle="dark-content" />
 
       <ScrollView
         contentContainerStyle={styles.content}
@@ -568,7 +567,6 @@ export default function DocHome() {
           </View>
         )}
 
-        {/* ✅ مسافة تحت عشان الـ tab bar */}
         <View style={{ height: 20 }} />
       </ScrollView>
 
@@ -589,11 +587,9 @@ export default function DocHome() {
 
 // ─── Styles ──────────────────────────────────────────────
 const styles = StyleSheet.create({
-  // ✅ SafeAreaView بدل View مع paddingTop يدوي
-  safe:    { flex: 1, backgroundColor: '#F0F7FC' },
+  safe:    { flex: 1, backgroundColor: '#F8F5FF' },
   content: { padding: Spacing.xl, paddingBottom: 20 },
 
-  // Header
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     marginBottom: Spacing.xl,
@@ -613,7 +609,6 @@ const styles = StyleSheet.create({
   },
   notifDotText: { fontSize: 9, fontWeight: '800', color: '#fff' },
 
-  // Stats strip
   statsStrip: { flexDirection: 'row', gap: 10, marginBottom: Spacing.xl },
   statPill: {
     flex: 1, borderRadius: 16, paddingVertical: 14,
@@ -622,7 +617,6 @@ const styles = StyleSheet.create({
   statPillNum:   { fontSize: 22, fontWeight: '900' },
   statPillLabel: { fontSize: 10, color: Colors.textMuted, fontWeight: '600', textAlign: 'center' },
 
-  // Search
   searchBar: {
     alignItems: 'center', gap: 10, backgroundColor: '#fff',
     borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12,
@@ -631,7 +625,6 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: FontSize.base, color: Colors.textPrimary, padding: 0 },
 
-  // Tabs
   tabs: { gap: 8, marginBottom: Spacing.xl },
   tabBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
@@ -646,14 +639,12 @@ const styles = StyleSheet.create({
   tabCountText:    { fontSize: 11, fontWeight: '800', color: Colors.textMuted },
   tabCountTextActive: { color: '#fff' },
 
-  // Section headers
   sectionHeader: { alignItems: 'center', gap: 8, marginBottom: 10 },
   sectionDot:    { width: 8, height: 8, borderRadius: 4, backgroundColor: '#F4A32B' },
   sectionTitle:  { fontSize: FontSize.sm, fontWeight: '700', color: '#F4A32B' },
 
   listWrap: { gap: 10 },
 
-  // Patient card
   patientCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: '#fff', borderRadius: 20, padding: 14,
