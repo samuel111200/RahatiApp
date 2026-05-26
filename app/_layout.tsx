@@ -14,11 +14,13 @@ export default function RootLayout() {
         <AuthProvider>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
-            <Stack.Screen name="startup" options={{ gestureEnabled: false }} />
+            <Stack.Screen name="startup"    options={{ gestureEnabled: false }} />
             <Stack.Screen name="langchoose" options={{ gestureEnabled: false }} />
-            {/* ✅ بدون أقواس — اسم المجلد الفعلي */}
             <Stack.Screen name="auth" />
             <Stack.Screen name="tabs" />
+            <Stack.Screen name="tabs/Exercisesessionscreen" options={{ gestureEnabled: true }} />
+            {/* ✅ Doctor screens */}
+            <Stack.Screen name="Doctor" />
           </Stack>
           <StatusBar style="dark" />
         </AuthProvider>

@@ -1,3 +1,4 @@
+// app/(auth)/sign-up-2.tsx
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,

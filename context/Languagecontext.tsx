@@ -1,4 +1,3 @@
-// context/LanguageContext.tsx
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 export type Lang = 'ar' | 'en';

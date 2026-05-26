@@ -8,16 +8,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLang } from '../../context/Languagecontext';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
 import { notify, suppressTaskListNotifOnce } from './notificationService';
 
 const { width, height } = Dimensions.get('window');
 const CARD_W = width * 0.72;
-const CARD_H = height * 0.50;
+const CARD_H = height * 0.57;
 
 // ─── Types ────────────────────────────────────────────────
-type ExerciseType = 'core' | 'extra';
+type ExerciseType = 'therapy' | 'yoga' | 'aerobic' | 'endurance';
 
 type Exercise = {
   key: string;
@@ -37,42 +38,78 @@ type Exercise = {
   animType: 'hipMarch' | 'armRaise' | 'standingRow' | 'legCurl' | 'rollUp' | 'achillesRelease' | 'bounce' | 'sway';
   type: ExerciseType;
   custom?: boolean;
-  date?: string;
 };
 
 // ─── Storage Keys ─────────────────────────────────────────
-const CORE_EXERCISES_KEY  = 'core_exercises';
-const EXTRA_EXERCISES_KEY = 'extra_exercises';
+const THERAPY_KEY   = 'therapy_exercises';
+const YOGA_KEY      = 'yoga_exercises';
+const AEROBIC_KEY   = 'aerobic_exercises';
+const ENDURANCE_KEY = 'endurance_exercises';
 
-// ─── Congrats ─────────────────────────────────────────────
-const CONGRATS_AR = [
-  'أحسنت! 🎉 استمر على هذا الإيقاع الرائع',
-  'رائع جداً! 💪 جسمك يشكرك على هذه الاستراحة',
-  'ممتاز! 🌟 كل تمرين صغير يصنع فرقاً كبيراً',
-  'أنت بطل! 🏆 الاستمرارية هي سر النجاح',
-  'جميل جداً! 🌸 استراحة قصيرة تعيد الطاقة والتركيز',
+// ─── Section Config ───────────────────────────────────────
+type SectionKey = ExerciseType;
+
+type SectionConfig = {
+  key: SectionKey;
+  labelAr: string;
+  labelEn: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  descAr: string;
+  descEn: string;
+  emoji: string;
+};
+
+const SECTION_CONFIGS: SectionConfig[] = [
+  {
+    key: 'therapy',
+    labelAr: 'علاجي',
+    labelEn: 'Therapy',
+    icon: 'medkit-outline',
+    color: '#5B9BD5',
+    descAr: 'تمارين علاج طبيعي وتأهيل',
+    descEn: 'Physical & occupational therapy exercises',
+    emoji: '🩺',
+  },
+  {
+    key: 'yoga',
+    labelAr: 'يوغا',
+    labelEn: 'Yoga',
+    icon: 'leaf-outline',
+    color: '#4CAF82',
+    descAr: 'وضعيات اليوغا والاسترخاء',
+    descEn: 'Yoga poses & relaxation',
+    emoji: '🧘',
+  },
+  {
+    key: 'aerobic',
+    labelAr: 'هوائي',
+    labelEn: 'Aerobic',
+    icon: 'heart-outline',
+    color: '#E07B5C',
+    descAr: 'تمارين القلب والأوعية الدموية',
+    descEn: 'Cardio & aerobic exercises',
+    emoji: '🏃',
+  },
+  {
+    key: 'endurance',
+    labelAr: 'تحمّل',
+    labelEn: 'Endurance',
+    icon: 'flame-outline',
+    color: '#D45BAA',
+    descAr: 'تمارين القوة والتحمّل',
+    descEn: 'Strength & endurance training',
+    emoji: '💪',
+  },
 ];
-const CONGRATS_EN = [
-  'Well done! 🎉 Keep up this amazing pace',
-  'Awesome! 💪 Your body thanks you for this break',
-  'Excellent! 🌟 Every small exercise makes a big difference',
-  "You're a champion! 🏆 Consistency is the key to success",
-  'Beautiful! 🌸 A short break restores energy and focus',
-];
 
-function formatTime(seconds: number): string {
-  const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-  const s = (seconds % 60).toString().padStart(2, '0');
-  return `${m}:${s}`;
-}
-
-function todayKey() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${dd}`;
-}
+// ─── Section badge styles ─────────────────────────────────
+const SECTION_BADGE: Record<SectionKey, { bg: string; color: string; label: string }> = {
+  therapy:   { bg: '#5B9BD522', color: '#5B9BD5', label: '🩺' },
+  yoga:      { bg: '#4CAF8222', color: '#4CAF82', label: '🧘' },
+  aerobic:   { bg: '#E07B5C22', color: '#E07B5C', label: '🏃' },
+  endurance: { bg: '#D45BAA22', color: '#D45BAA', label: '💪' },
+};
 
 function speakStep(text: string, isRTL: boolean) {
   Speech.stop();
@@ -83,76 +120,211 @@ function speakStep(text: string, isRTL: boolean) {
   });
 }
 
-// ─── Default exercises ────────────────────────────────────
-const DEFAULT_CORE_EXERCISES: Exercise[] = [
+// ─── Default Exercises ────────────────────────────────────
+
+const DEFAULT_THERAPY_EXERCISES: Exercise[] = [
   {
-    key: 'hipMarch',
-    emoji: '🦵', title: 'رفع الركبة (Hip Marching)', titleEn: 'Hip Marching',
+    key: 'wristCurls',
+    emoji: '🤲', title: 'ثني الرسغ (Wrist Curls)', titleEn: 'Wrist Curls',
     duration: '5 دقائق', durationEn: '5 minutes', durationSeconds: 300,
-    color: '#7C5CBF', bg: '#F0EBFA', accent: '#EDE4FA',
-    desc: 'تقوية عضلات الفخذ والورك أثناء الجلوس',
-    descEn: 'Strengthen thigh and hip muscles while sitting',
-    steps: ['اجلس على كرسي وظهرك مستقيم', 'ارفع ساقك اليسرى ببطء مع ثني الركبة', 'اثبت 5 ثوانٍ ثم أنزلها', 'كرر مع الساق اليمنى'],
-    stepsEn: ['Sit on a chair with your back straight', 'Slowly raise your left leg with knee bent', 'Hold for 5 seconds then lower it', 'Repeat with the right leg'],
-    animType: 'hipMarch', type: 'core',
-  },
-  {
-    key: 'armRaise',
-    emoji: '🙌', title: 'رفع الذراع (Arm Raise)', titleEn: 'Arm Raise',
-    duration: '3 دقائق', durationEn: '3 minutes', durationSeconds: 180,
     color: '#5B9BD5', bg: '#E8F1FB', accent: '#D0E5F7',
-    desc: 'تقوية عضلات الكتف والذراع',
-    descEn: 'Strengthen shoulder and arm muscles',
-    steps: ['اجلس على كرسي وظهرك مستقيم', 'مد إحدى ذراعيك على الجانب', 'ارفعها فوق رأسك مع الحفاظ على استقامتها', 'خذ نفساً عميقاً ثم أنزل الذراع'],
-    stepsEn: ['Sit on a chair with your back straight', 'Extend one arm to the side', 'Raise it above your head keeping it straight', 'Take a deep breath then lower your arm'],
-    animType: 'armRaise', type: 'core',
-  },
-  {
-    key: 'standingRow',
-    emoji: '💪', title: 'السحب الواقف (Standing Row)', titleEn: 'Standing Row',
-    duration: '5 دقائق', durationEn: '5 minutes', durationSeconds: 300,
-    color: '#4CAF82', bg: '#E8F5EF', accent: '#D6EFE3',
-    desc: 'تقوية عضلات الظهر والكتفين بالشريط المطاطي',
-    descEn: 'Strengthen back and shoulder muscles with resistance band',
-    steps: ['ثبّت الشريط حول عمود ثابت وأمسك بمقابضه', 'ابتعد خطوات للخلف حتى يشتد الشريط', 'اسحب المقابض نحوك حتى يصل مرفقاك للخلف', 'اضغط لوحي الكتف ثم عد ببطء'],
-    stepsEn: ['Fix band around a stable pole and hold handles', 'Step back until the band is taut', 'Pull handles toward you until elbows are behind you', 'Squeeze shoulder blades then slowly return'],
-    animType: 'standingRow', type: 'core',
+    desc: 'يزيد الثبات، ويقلل الرعشة، ويحسّن خفة حركة الأصابع واليدين',
+    descEn: 'Increases stability, reduces tremors, and improves finger and hand dexterity',
+    steps: [
+      'استخدم دمبل بوزن من 1 إلى 5 أرطال (0.5 إلى 2.5 كجم)',
+      'ضع يدك اليسرى ورسغك على حافة طاولة مع توجيه راحة اليد للأعلى',
+      'امسك الوزن في يدك بإحكام',
+      'ارفع الرسغ ببطء لأعلى قدر تستطيع',
+      'حافظ على الوضعية لبضع ثوانٍ ثم أنزل ببطء',
+      'اعمل من 1 إلى 2 مجموعة، كل مجموعة 12 تكراراً، ثم كرر على اليد اليمنى',
+    ],
+    stepsEn: [
+      'Use a dumbbell weighing 1 to 5 pounds (0.5 to 2.5 kg)',
+      'Place your left hand and wrist on the edge of a table with your palm facing up',
+      'Hold the weight firmly in your hand',
+      'Slowly raise your wrist upward as far as you can',
+      'Hold the position for a few seconds then lower slowly',
+      'Do 1 to 2 sets of 12 repetitions, then repeat with the right hand',
+    ],
+    animType: 'armRaise', type: 'therapy',
   },
 ];
 
-const DEFAULT_EXTRA_EXERCISES: Exercise[] = [
+const DEFAULT_YOGA_EXERCISES: Exercise[] = [
+  {
+    key: 'childsPose',
+    emoji: '🧘',
+    title: 'وضعية الطفل (Balasana)',
+    titleEn: "Child's Pose (Balasana)",
+    duration: '5 دقائق', durationEn: '5 minutes', durationSeconds: 300,
+    color: '#4CAF82', bg: '#E8F5EF', accent: '#D6EFE3',
+    desc: 'تخفف الإرهاق النفسي والجسدي وترخي مفاصل الورك والفخذين والكاحلين',
+    descEn: 'Relieves mental and physical fatigue, relaxes hips, thighs, and ankles',
+    steps: [
+      'اجلس على كعبيك مع ضم الركبتين أو تركهما متباعدتين قليلاً',
+      'انحنِ من عند مفصل الورك للأمام ببطء وهدوء',
+      'مدّ ذراعيك للأمام أو اتركهما بجانب الجسم',
+      'ضع الجبهة على الأرض أو على وسادة للراحة',
+      'استرخِ بعمق واسمح للجسم بالتخلص من التوتر',
+      'ثبّت الوضعية حتى 5 دقائق مع تنفس عميق وهادئ',
+    ],
+    stepsEn: [
+      'Sit on your heels with knees together or slightly apart',
+      'Slowly hinge forward from your hips',
+      'Extend your arms forward or rest them alongside your body',
+      'Rest your forehead on the floor or on a pillow',
+      'Relax deeply and let your body release tension',
+      'Hold the pose for up to 5 minutes with deep, calm breathing',
+    ],
+    animType: 'sway', type: 'yoga',
+  },
+  {
+    key: 'warriorTwo',
+    emoji: '🥋',
+    title: 'وضعية المحارب الثاني (Warrior II)',
+    titleEn: 'Warrior II (Virabhadrasana II)',
+    duration: '3 دقائق', durationEn: '3 minutes', durationSeconds: 180,
+    color: '#4CAF82', bg: '#E8F5EF', accent: '#D6EFE3',
+    desc: 'تبني التحمل وتحسن التوازن مع تمديد وتقوية الجسم في نفس الوقت',
+    descEn: 'Builds endurance and improves balance while stretching and strengthening the body',
+    steps: [
+      'قف في وضع مستقيم واخطُ بقدمك اليسرى للخلف بخطوة واسعة',
+      'أدر القدم اليسرى قليلاً للخارج واجعل القدم اليمنى للأمام مباشرة',
+      'افتح الوركين للجانب',
+      'ارفع الذراعين لمستوى الكتفين أفقياً مع توجيه راحتي اليدين للأسفل',
+      'اثنِ الركبة اليمنى بحيث تكون فوق الكاحل أو خلفه قليلاً',
+      'حافظ على استقامة الساق الخلفية ووجّه نظرك للأمام فوق اليد الأمامية',
+      'ثبّت الوضعية 20-60 ثانية ثم كرر على الجانب الآخر',
+      'للدعم: استخدم كرسي تحت الفخذ الأمامي أو قف بجانب حائط',
+    ],
+    stepsEn: [
+      'Stand tall and step your left foot back into a wide stance',
+      'Turn your left foot slightly outward and point your right foot straight ahead',
+      'Open your hips to the side',
+      'Raise arms to shoulder height horizontally with palms facing down',
+      'Bend your right knee so it is over or just behind the ankle',
+      'Keep your back leg straight and gaze forward over your front hand',
+      'Hold for 20-60 seconds then repeat on the other side',
+      'Modification: use a chair under the front thigh or stand near a wall',
+    ],
+    animType: 'armRaise', type: 'yoga',
+  },
+  {
+    key: 'jabPunches',
+    emoji: '👊',
+    title: 'اللكمات الأمامية (Jab Punches)',
+    titleEn: 'Jab Punches',
+    duration: '5 دقائق', durationEn: '5 minutes', durationSeconds: 300,
+    color: '#4CAF82', bg: '#E8F5EF', accent: '#D6EFE3',
+    desc: 'تنشط الدورة الدموية وتقوي عضلات الذراعين والكتفين',
+    descEn: 'Boosts circulation and strengthens arm and shoulder muscles',
+    steps: [
+      'قف مستقيماً وافتح قدميك بعرض الكتفين لتحسين التوازن',
+      'كوّن قبضتين وضعهما أمام كتفيك مع توجيه راحتي اليدين للأمام',
+      'اضرب بقبضتك اليسرى للأمام مع مد الذراع بالكامل',
+      'عد إلى وضع البداية',
+      'كرر الحركة بالذراع اليمنى — هذا تكرار واحد',
+      'اعمل من 1 إلى 2 مجموعة، كل مجموعة 20 تكراراً',
+    ],
+    stepsEn: [
+      'Stand straight with feet shoulder-width apart for better balance',
+      'Form two fists and hold them in front of your shoulders, palms facing forward',
+      'Punch your left fist straight forward with arm fully extended',
+      'Return to the starting position',
+      'Repeat with the right arm — this counts as one repetition',
+      'Do 1 to 2 sets of 20 repetitions',
+    ],
+    animType: 'armRaise', type: 'yoga',
+  },
+  {
+    key: 'comboPunches',
+    emoji: '🥊',
+    title: 'اللكمات المركبة (Combination Punches)',
+    titleEn: 'Combination Punches',
+    duration: '5 دقائق', durationEn: '5 minutes', durationSeconds: 300,
+    color: '#4CAF82', bg: '#E8F5EF', accent: '#D6EFE3',
+    desc: 'تقوية عضلات الذراعين والكتفين مع تحسين التنسيق الحركي',
+    descEn: 'Strengthens arms and shoulders while improving motor coordination',
+    steps: [
+      'قف مستقيماً وافتح قدميك بعرض الكتفين',
+      'كوّن قبضتين وضعهما أمام كتفيك مع توجيه راحتي اليدين للداخل',
+      'ارفع قبضة يدك اليسرى للأعلى مع فرد الذراع بالكامل',
+      'ارجع إلى وضع البداية',
+      'ارفع نفس القبضة اليسرى عبر جسمك أفقياً مع فرد الذراع بالكامل',
+      'ارجع للبداية ثم كرر نفس الخطوات على الجانب الأيمن — هذا تكرار واحد',
+      'اعمل من 1 إلى 2 مجموعة، كل مجموعة 20 تكراراً',
+    ],
+    stepsEn: [
+      'Stand straight with feet shoulder-width apart',
+      'Form two fists and hold them in front of your shoulders, palms facing inward',
+      'Raise your left fist upward with arm fully extended',
+      'Return to the starting position',
+      'Raise the same left fist horizontally across your body with arm fully extended',
+      'Return to start, then repeat on the right side — this counts as one repetition',
+      'Do 1 to 2 sets of 20 repetitions',
+    ],
+    animType: 'armRaise', type: 'yoga',
+  },
+];
+
+const DEFAULT_AEROBIC_EXERCISES: Exercise[] = [
+  {
+    key: 'bounce',
+    emoji: '🏃', title: 'المشي في المكان', titleEn: 'Marching in Place',
+    duration: '5 دقائق', durationEn: '5 minutes', durationSeconds: 300,
+    color: '#E07B5C', bg: '#FDF0EB', accent: '#FAE2D6',
+    desc: 'تحريك الجسم وتنشيط الدورة الدموية',
+    descEn: 'Get the body moving and boost blood circulation',
+    steps: ['قف مستقيماً وحرك ذراعيك بشكل طبيعي', 'ارفع ركبتيك بالتناوب كأنك تمشي', 'حافظ على تنفس منتظم', 'استمر 5 دقائق بإيقاع مريح'],
+    stepsEn: ['Stand straight and swing your arms naturally', 'Lift your knees alternately as if walking', 'Maintain a steady breathing rhythm', 'Continue for 5 minutes at a comfortable pace'],
+    animType: 'bounce', type: 'aerobic',
+  },
   {
     key: 'legCurl',
     emoji: '🦶', title: 'ثني الساق للخلف', titleEn: 'Leg Curl',
     duration: '3 دقائق', durationEn: '3 minutes', durationSeconds: 180,
     color: '#E07B5C', bg: '#FDF0EB', accent: '#FAE2D6',
-    desc: 'تقوية عضلات الجزء الخلفي من الساق',
-    descEn: 'Strengthen the muscles of the back of the leg',
+    desc: 'تنشيط عضلات الجزء الخلفي من الساق',
+    descEn: 'Activate the muscles of the back of the leg',
     steps: ['قف وأمسك مسند كرسي للتوازن', 'ارفع كعب قدمك للخلف وللأعلى ببطء', 'اقتصر الحركة على مفصل الركبة فقط', 'أنزل القدم ببطء وكرر'],
     stepsEn: ['Stand and hold chair back for balance', 'Slowly lift your heel backward and upward', 'Limit movement to the knee joint only', 'Lower your foot slowly and repeat'],
-    animType: 'legCurl', type: 'extra',
+    animType: 'legCurl', type: 'aerobic',
+  },
+];
+
+const DEFAULT_ENDURANCE_EXERCISES: Exercise[] = [
+  {
+    key: 'wallSit',
+    emoji: '🏋️', title: 'الجلوس على الحائط', titleEn: 'Wall Sit',
+    duration: '3 دقائق', durationEn: '3 minutes', durationSeconds: 180,
+    color: '#D45BAA', bg: '#FCEEF8', accent: '#F8D6F0',
+    desc: 'تقوية عضلات الفخذ وتحمّل الضغط',
+    descEn: 'Strengthen quadriceps and build endurance',
+    steps: ['قف بظهرك مقابل الحائط', 'انزلق للأسفل حتى تصبح ركبتاك بزاوية 90 درجة', 'اثبت في هذا الوضع قدر الإمكان', 'ارتفع ببطء ثم كرر'],
+    stepsEn: ['Stand with your back against the wall', 'Slide down until your knees are at 90 degrees', 'Hold the position as long as possible', 'Slowly rise back up then repeat'],
+    animType: 'bounce', type: 'endurance',
   },
   {
-    key: 'rollUp',
-    emoji: '🧘', title: 'التدحرج لأعلى (Roll-ups)', titleEn: 'Roll-ups',
+    key: 'calfRaise',
+    emoji: '🦵', title: 'رفع الكعب (Calf Raise)', titleEn: 'Calf Raise',
     duration: '5 دقائق', durationEn: '5 minutes', durationSeconds: 300,
     color: '#D45BAA', bg: '#FCEEF8', accent: '#F8D6F0',
-    desc: 'تقوية عضلات البطن والظهر',
-    descEn: 'Strengthen abdominal and back muscles',
-    steps: ['استلقِ على سجادة مع مد ساقيك', 'مد يديك فوق رأسك', 'ارفع الكتفين والجزء العلوي من الظهر ببطء', 'توقف ثانيتين ثم انزل ببطء'],
-    stepsEn: ['Lie on a mat with legs extended', 'Extend your arms above your head', 'Slowly raise shoulders and upper back', 'Hold 2 seconds then slowly lower'],
-    animType: 'rollUp', type: 'extra',
+    desc: 'تقوية عضلة الساق السفلية وتحسين التوازن',
+    descEn: 'Strengthen calf muscles and improve balance',
+    steps: ['قف مستقيماً وأمسك مسند كرسي دعماً', 'ارفع كعبيك معاً ببطء لأعلى', 'اثبت ثانيتين على أصابع قدميك', 'أنزل ببطء وكرر 15 مرة'],
+    stepsEn: ['Stand straight and hold a chair for support', 'Slowly raise both heels upward', 'Hold on your toes for 2 seconds', 'Lower slowly and repeat 15 times'],
+    animType: 'hipMarch', type: 'endurance',
   },
   {
-    key: 'achillesRelease',
-    emoji: '👟', title: 'إرخاء وتر أكيليس', titleEn: 'Achilles Tendon Release',
-    duration: '5 دقائق', durationEn: '5 minutes', durationSeconds: 300,
-    color: '#2A9D8F', bg: '#E8F7F5', accent: '#C8EDE9',
-    desc: 'إطالة وعلاج العضلات المشدودة في الجزء الخلفي من الساق والكعب',
-    descEn: 'Stretch and treat tightness in the back of the leg and heel',
-    steps: ['اجلس على كرسي وافرد إحدى ساقيك للأمام، ثم لف شريطاً مطاطياً حول باطن قدمك', 'افرد ظهرك واجعل قوامك مستقيماً', 'اسحب الشريط ببطء نحوك لترجع قدمك باتجاهك', 'الحركة تقتصر على مفصل الكاحل فقط'],
-    stepsEn: ['Sit on a chair, extend one leg forward, loop a band around the sole of your foot', 'Straighten your back and gently draw your belly inward', 'Slowly pull the band toward you to flex your foot back', 'Movement should come only from the ankle joint'],
-    animType: 'achillesRelease', type: 'extra',
+    key: 'plankKnee',
+    emoji: '🔥', title: 'البلانك على الركبتين', titleEn: 'Knee Plank',
+    duration: '3 دقائق', durationEn: '3 minutes', durationSeconds: 180,
+    color: '#D45BAA', bg: '#FCEEF8', accent: '#F8D6F0',
+    desc: 'تقوية عضلات الجذع والبطن',
+    descEn: 'Strengthen core and abdominal muscles',
+    steps: ['استلقِ بوضع كوعيك وركبتيك على الأرض', 'ارفع جسمك بحيث يكون مستقيماً من الركبتين للكتفين', 'شد عضلات البطن وتنفس بانتظام', 'اثبت 20-30 ثانية ثم استرح'],
+    stepsEn: ['Get into position with elbows and knees on the floor', 'Lift your body so it is straight from knees to shoulders', 'Engage your core and breathe steadily', 'Hold for 20-30 seconds then rest'],
+    animType: 'rollUp', type: 'endurance',
   },
 ];
 
@@ -161,35 +333,45 @@ const DEFAULT_EXTRA_EXERCISES: Exercise[] = [
 // ════════════════════════════════════════════════════════════
 export default function ExercisesScreen() {
   const { t, isRTL } = useLang();
-  const navigation   = useNavigation();
+  const router = useRouter();
 
-  const [coreList,      setCoreList]      = useState<Exercise[]>([]);
-  const [extraList,     setExtraList]     = useState<Exercise[]>([]);
-  const [selected,      setSelected]      = useState('hipMarch');
-  const [activeSection, setActiveSection] = useState<'core' | 'extra'>('core');
-  const [energy,        setEnergy]        = useState(50);
-  const [timerActive,   setTimerActive]   = useState(false);
-  const [timeLeft,      setTimeLeft]      = useState(0);
-  const [showDone,      setShowDone]      = useState(false);
+  const [therapyList,   setTherapyList]   = useState<Exercise[]>([]);
+  const [yogaList,      setYogaList]      = useState<Exercise[]>([]);
+  const [aerobicList,   setAerobicList]   = useState<Exercise[]>([]);
+  const [enduranceList, setEnduranceList] = useState<Exercise[]>([]);
+
+  const [selected,      setSelected]      = useState('wristCurls');
+  const [activeSection, setActiveSection] = useState<SectionKey>('therapy');
   const [showAdd,       setShowAdd]       = useState(false);
   const [newName,       setNewName]       = useState('');
   const [newEmoji,      setNewEmoji]      = useState('🏋️');
   const [newMinutes,    setNewMinutes]    = useState('');
   const [newDesc,       setNewDesc]       = useState('');
-  const [newType,       setNewType]       = useState<ExerciseType>('core');
+  const [newType,       setNewType]       = useState<SectionKey>('therapy');
   const [activeStep,    setActiveStep]    = useState(-1);
   const [isSpeaking,    setIsSpeaking]    = useState(false);
   const [savingEx,      setSavingEx]      = useState(false);
 
-  const congratsIdx  = useRef(Math.floor(Math.random() * CONGRATS_AR.length)).current;
-  const intervalRef  = useRef<ReturnType<typeof setInterval> | null>(null);
-  const stepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stepTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  // ── Helper: get list + setter by type ──
+  function getListAndSetter(type: SectionKey): [Exercise[], React.Dispatch<React.SetStateAction<Exercise[]>>, string] {
+    switch (type) {
+      case 'therapy':   return [therapyList,   setTherapyList,   THERAPY_KEY];
+      case 'yoga':      return [yogaList,       setYogaList,      YOGA_KEY];
+      case 'aerobic':   return [aerobicList,    setAerobicList,   AEROBIC_KEY];
+      case 'endurance': return [enduranceList,  setEnduranceList, ENDURANCE_KEY];
+    }
+  }
+
+  function getAllExercises(): Exercise[] {
+    return [...therapyList, ...yogaList, ...aerobicList, ...enduranceList];
+  }
 
   // ── Load ──
   useFocusEffect(useCallback(() => {
     loadAllExercises();
-
     return () => {
       Speech.stop();
       setIsSpeaking(false);
@@ -197,37 +379,60 @@ export default function ExercisesScreen() {
     };
   }, []));
 
-  async function loadAllExercises() {
-    const storedEnergy = await AsyncStorage.getItem('energy_level');
-    if (storedEnergy) setEnergy(Number(storedEnergy));
-
-    const storedCore = await AsyncStorage.getItem(CORE_EXERCISES_KEY);
-    if (storedCore) {
-      setCoreList(JSON.parse(storedCore));
-    } else {
-      await AsyncStorage.setItem(CORE_EXERCISES_KEY, JSON.stringify(DEFAULT_CORE_EXERCISES));
-      setCoreList(DEFAULT_CORE_EXERCISES);
-    }
-
-    const storedExtra = await AsyncStorage.getItem(EXTRA_EXERCISES_KEY);
-    if (storedExtra) {
-      const parsed: Exercise[] = JSON.parse(storedExtra);
-      const today = todayKey();
-      const filtered = parsed.filter((e: any) => !e.date || e.date === today);
-      if (filtered.length !== parsed.length) {
-        await AsyncStorage.setItem(EXTRA_EXERCISES_KEY, JSON.stringify(filtered));
+  async function loadSection(
+    key: string,
+    defaults: Exercise[],
+    setter: React.Dispatch<React.SetStateAction<Exercise[]>>,
+  ) {
+    const stored = await AsyncStorage.getItem(key);
+    if (stored) {
+      const parsed: Exercise[] = JSON.parse(stored);
+      let updated = [...parsed];
+      let changed = false;
+      defaults.forEach((def, idx) => {
+        if (!updated.find(e => e.key === def.key)) {
+          const insertAt = Math.min(idx, updated.length);
+          updated.splice(insertAt, 0, def);
+          changed = true;
+        }
+      });
+      if (changed) {
+        await AsyncStorage.setItem(key, JSON.stringify(updated));
       }
-      setExtraList(filtered);
+      setter(updated);
     } else {
-      await AsyncStorage.setItem(EXTRA_EXERCISES_KEY, JSON.stringify(DEFAULT_EXTRA_EXERCISES));
-      setExtraList(DEFAULT_EXTRA_EXERCISES);
+      await AsyncStorage.setItem(key, JSON.stringify(defaults));
+      setter(defaults);
     }
   }
 
-  const SECTION_EXERCISES = activeSection === 'core' ? coreList : extraList;
-  const ex = [...coreList, ...extraList].find(e => e.key === selected)
-    ?? coreList[0]
-    ?? DEFAULT_CORE_EXERCISES[0];
+  async function loadAllExercises() {
+    const migrated = await AsyncStorage.getItem('exercises_v5_migrated');
+    if (!migrated) {
+      await AsyncStorage.multiRemove([
+        'core_exercises', 'extra_exercises', 'therapy_exercises', 'yoga_exercises',
+      ]);
+      await AsyncStorage.setItem('exercises_v5_migrated', '1');
+    }
+
+    await loadSection(THERAPY_KEY,   DEFAULT_THERAPY_EXERCISES,   setTherapyList);
+    await loadSection(YOGA_KEY,      DEFAULT_YOGA_EXERCISES,      setYogaList);
+    await loadSection(AEROBIC_KEY,   DEFAULT_AEROBIC_EXERCISES,   setAerobicList);
+    await loadSection(ENDURANCE_KEY, DEFAULT_ENDURANCE_EXERCISES, setEnduranceList);
+  }
+
+  const SECTION_EXERCISES = (() => {
+    switch (activeSection) {
+      case 'therapy':   return therapyList;
+      case 'yoga':      return yogaList;
+      case 'aerobic':   return aerobicList;
+      case 'endurance': return enduranceList;
+    }
+  })();
+
+  const ex = getAllExercises().find(e => e.key === selected)
+    ?? therapyList[0]
+    ?? DEFAULT_THERAPY_EXERCISES[0];
 
   // ── TTS ──
   function speakAllSteps(exercise: Exercise) {
@@ -242,7 +447,7 @@ export default function ExercisesScreen() {
         language: isRTL ? 'ar-SA' : 'en-US',
         pitch: 1.05,
         rate: isRTL ? 0.80 : 0.85,
-        onDone: () => { stepTimerRef.current = setTimeout(() => readStep(index + 1), 600); },
+        onDone:    () => { stepTimerRef.current = setTimeout(() => readStep(index + 1), 600); },
         onStopped: () => { setIsSpeaking(false); setActiveStep(-1); },
       });
     }
@@ -256,42 +461,27 @@ export default function ExercisesScreen() {
     setActiveStep(-1);
   }
 
-  // ── Timer ──
-  function startTimer() {
-    if (timerActive) {
-      clearInterval(intervalRef.current!);
-      setTimerActive(false);
-      setTimeLeft(0);
-      stopSpeaking();
-      return;
-    }
-    setTimeLeft(ex.durationSeconds);
-    setTimerActive(true);
-    speakAllSteps(ex);
+  // ── Navigate to Session Screen ──
+  function startSession() {
+    stopSpeaking();
+    router.push({
+      pathname: '/tabs/Exercisesessionscreen',
+      params: {
+        exerciseKey:     ex.key,
+        title:           ex.title,
+        titleEn:         ex.titleEn,
+        emoji:           ex.emoji,
+        durationSeconds: String(ex.durationSeconds),
+        color:           ex.color,
+        bg:              ex.bg,
+        accent:          ex.accent,
+        steps:           JSON.stringify(ex.steps),
+        stepsEn:         JSON.stringify(ex.stepsEn),
+      },
+    });
   }
 
   useEffect(() => {
-    if (timerActive && timeLeft > 0) {
-      intervalRef.current = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
-            clearInterval(intervalRef.current!);
-            setTimerActive(false);
-            setShowDone(true);
-            stopSpeaking();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [timerActive]);
-
-  useEffect(() => {
-    clearInterval(intervalRef.current!);
-    setTimerActive(false);
-    setTimeLeft(0);
     stopSpeaking();
   }, [selected]);
 
@@ -299,16 +489,18 @@ export default function ExercisesScreen() {
   function handleLongPressStart(item: Exercise) {
     longPressTimers.current[item.key] = setTimeout(() => {
       const title = isRTL ? item.title : item.titleEn;
-      const convertLabel = item.type === 'core'
-        ? (isRTL ? '⚡ حوّل لإضافي' : '⚡ Move to Extra')
-        : (isRTL ? '⭐ حوّل لأساسي' : '⭐ Move to Core');
+      const otherSections = SECTION_CONFIGS.filter(s => s.key !== item.type);
+      const moveOptions = otherSections.map(s => ({
+        text: `${s.emoji} ${isRTL ? 'نقل لـ ' + s.labelAr : 'Move to ' + s.labelEn}`,
+        onPress: () => handleConvertExercise(item, s.key),
+      }));
 
       Alert.alert(
         isRTL ? 'خيارات التمرين' : 'Exercise Options',
         `"${title}"`,
         [
           { text: isRTL ? 'إلغاء' : 'Cancel', style: 'cancel' },
-          { text: convertLabel, onPress: () => handleConvertExercise(item) },
+          ...moveOptions,
           {
             text: isRTL ? '🗑️ حذف' : '🗑️ Delete',
             style: 'destructive',
@@ -326,41 +518,31 @@ export default function ExercisesScreen() {
     }
   }
 
-  // ── Convert exercise (core ↔ extra) ──
-  async function handleConvertExercise(item: Exercise) {
-    const newExType: ExerciseType = item.type === 'core' ? 'extra' : 'core';
-    const converted: Exercise = {
-      ...item,
-      type: newExType,
-      ...(newExType === 'extra' ? { date: todayKey() } : { date: undefined }),
-    };
+  // ── Convert exercise between sections ──
+  async function handleConvertExercise(item: Exercise, targetType: SectionKey) {
+    const converted: Exercise = { ...item, type: targetType };
 
-    if (item.type === 'core') {
-      const updatedCore = coreList.filter(e => e.key !== item.key);
-      const updatedExtra = [...extraList, converted];
-      setCoreList(updatedCore);
-      setExtraList(updatedExtra);
-      await AsyncStorage.setItem(CORE_EXERCISES_KEY, JSON.stringify(updatedCore));
-      await AsyncStorage.setItem(EXTRA_EXERCISES_KEY, JSON.stringify(updatedExtra));
-    } else {
-      const updatedExtra = extraList.filter(e => e.key !== item.key);
-      const updatedCore = [...coreList, converted];
-      setExtraList(updatedExtra);
-      setCoreList(updatedCore);
-      await AsyncStorage.setItem(EXTRA_EXERCISES_KEY, JSON.stringify(updatedExtra));
-      await AsyncStorage.setItem(CORE_EXERCISES_KEY, JSON.stringify(updatedCore));
-    }
+    const [oldList, oldSetter, oldKey] = getListAndSetter(item.type);
+    const updatedOld = oldList.filter(e => e.key !== item.key);
+    oldSetter(updatedOld);
+    await AsyncStorage.setItem(oldKey, JSON.stringify(updatedOld));
+
+    const [newList, newSetter, newStorageKey] = getListAndSetter(targetType);
+    const updatedNew = [...newList, converted];
+    newSetter(updatedNew);
+    await AsyncStorage.setItem(newStorageKey, JSON.stringify(updatedNew));
 
     await AsyncStorage.setItem('data_changed_at', Date.now().toString());
-    setActiveSection(newExType);
+    setActiveSection(targetType);
     setSelected(converted.key);
 
+    const targetConfig = SECTION_CONFIGS.find(s => s.key === targetType)!;
     suppressTaskListNotifOnce();
     await notify({
-      title: isRTL ? 'تم التحويل ✅' : 'Exercise Moved ✅',
+      title: isRTL ? 'تم النقل ✅' : 'Exercise Moved ✅',
       body: isRTL
-        ? `"${item.title}" اتحول لـ${newExType === 'core' ? 'الأساسي' : 'الإضافي'}`
-        : `"${item.titleEn}" moved to ${newExType === 'core' ? 'Core' : 'Extra'}`,
+        ? `"${item.title}" اتنقل لـ${targetConfig.labelAr}`
+        : `"${item.titleEn}" moved to ${targetConfig.labelEn}`,
       emoji: item.emoji,
       type: 'add',
     });
@@ -370,20 +552,14 @@ export default function ExercisesScreen() {
   async function handleDeleteExercise(item: Exercise) {
     suppressTaskListNotifOnce();
 
-    if (item.type === 'core') {
-      const updated = coreList.filter(e => e.key !== item.key);
-      setCoreList(updated);
-      await AsyncStorage.setItem(CORE_EXERCISES_KEY, JSON.stringify(updated));
-      if (selected === item.key && updated.length > 0) setSelected(updated[0].key);
-    } else {
-      const updated = extraList.filter(e => e.key !== item.key);
-      setExtraList(updated);
-      await AsyncStorage.setItem(EXTRA_EXERCISES_KEY, JSON.stringify(updated));
-      if (selected === item.key && updated.length > 0) setSelected(updated[0].key);
-    }
+    const [list, setter, storageKey] = getListAndSetter(item.type);
+    const updated = list.filter(e => e.key !== item.key);
+    setter(updated);
+    await AsyncStorage.setItem(storageKey, JSON.stringify(updated));
+
+    if (selected === item.key && updated.length > 0) setSelected(updated[0].key);
 
     await AsyncStorage.setItem('data_changed_at', Date.now().toString());
-
     await notify({
       title: isRTL ? 'تم حذف التمرين 🗑️' : 'Exercise Deleted 🗑️',
       body: isRTL
@@ -417,31 +593,23 @@ export default function ExercisesScreen() {
   // ── Add Custom Exercise ──
   async function handleAddExercise() {
     if (!newName.trim()) {
-      Alert.alert(
-        isRTL ? 'تنبيه' : 'Notice',
-        isRTL ? 'يرجى إدخال اسم التمرين' : 'Please enter exercise name'
-      );
+      Alert.alert(isRTL ? 'تنبيه' : 'Notice', isRTL ? 'يرجى إدخال اسم التمرين' : 'Please enter exercise name');
       return;
     }
     if (!newMinutes.trim()) {
-      Alert.alert(
-        isRTL ? 'تنبيه' : 'Notice',
-        isRTL ? 'يرجى إدخال المدة' : 'Please enter duration'
-      );
+      Alert.alert(isRTL ? 'تنبيه' : 'Notice', isRTL ? 'يرجى إدخال المدة' : 'Please enter duration');
       return;
     }
     const mins = parseInt(newMinutes);
     if (isNaN(mins) || mins <= 0) {
-      Alert.alert(
-        isRTL ? 'تنبيه' : 'Notice',
-        isRTL ? 'أدخل عدداً صحيحاً للدقائق' : 'Enter a valid number of minutes'
-      );
+      Alert.alert(isRTL ? 'تنبيه' : 'Notice', isRTL ? 'أدخل عدداً صحيحاً للدقائق' : 'Enter a valid number of minutes');
       return;
     }
     if (savingEx) return;
     setSavingEx(true);
 
     try {
+      const sectionConfig = SECTION_CONFIGS.find(s => s.key === newType)!;
       const newEx: Exercise = {
         key:             `custom_${Date.now()}`,
         emoji:           newEmoji.trim() || '🏋️',
@@ -450,9 +618,9 @@ export default function ExercisesScreen() {
         duration:        `${mins} ${isRTL ? 'دقيقة' : 'min'}`,
         durationEn:      `${mins} min`,
         durationSeconds: mins * 60,
-        color:           '#7C5CBF',
-        bg:              '#F0EBFA',
-        accent:          '#EDE4FA',
+        color:           sectionConfig.color,
+        bg:              '#F8F8F8',
+        accent:          '#EEEEEE',
         desc:            newDesc.trim() || (isRTL ? 'تمرين مخصص' : 'Custom exercise'),
         descEn:          newDesc.trim() || 'Custom exercise',
         steps:           [],
@@ -460,20 +628,14 @@ export default function ExercisesScreen() {
         animType:        'bounce',
         type:            newType,
         custom:          true,
-        ...(newType === 'extra' ? { date: todayKey() } : {}),
       };
 
       closeAddModal();
 
-      if (newType === 'core') {
-        const updated = [...coreList, newEx];
-        setCoreList(updated);
-        await AsyncStorage.setItem(CORE_EXERCISES_KEY, JSON.stringify(updated));
-      } else {
-        const updated = [...extraList, newEx];
-        setExtraList(updated);
-        await AsyncStorage.setItem(EXTRA_EXERCISES_KEY, JSON.stringify(updated));
-      }
+      const [list, setter, storageKey] = getListAndSetter(newType);
+      const updated = [...list, newEx];
+      setter(updated);
+      await AsyncStorage.setItem(storageKey, JSON.stringify(updated));
 
       await AsyncStorage.setItem('data_changed_at', Date.now().toString());
       setSelected(newEx.key);
@@ -483,8 +645,8 @@ export default function ExercisesScreen() {
       await notify({
         title: isRTL ? 'تمت إضافة تمرين ✅' : 'Exercise Added ✅',
         body: isRTL
-          ? `"${newEx.title}" اتضاف لقسم ${newType === 'core' ? 'الأساسي' : 'الإضافي'}`
-          : `"${newEx.titleEn}" added to ${newType === 'core' ? 'Core' : 'Extra'} exercises`,
+          ? `"${newEx.title}" اتضاف لـ${sectionConfig.labelAr}`
+          : `"${newEx.titleEn}" added to ${sectionConfig.labelEn}`,
         emoji: newEx.emoji,
         type: 'add',
       });
@@ -499,6 +661,8 @@ export default function ExercisesScreen() {
   const exDesc  = isRTL ? ex.desc     : ex.descEn;
   const exDur   = isRTL ? ex.duration : ex.durationEn;
 
+  const activeSectionConfig = SECTION_CONFIGS.find(s => s.key === activeSection)!;
+
   // ── Render cards ──
   function renderCards(list: Exercise[]) {
     return list.map((item) => {
@@ -507,6 +671,7 @@ export default function ExercisesScreen() {
       const iDesc  = isRTL ? item.desc     : item.descEn;
       const iDur   = isRTL ? item.duration : item.durationEn;
       const iSteps = isRTL ? item.steps    : item.stepsEn;
+      const badge  = SECTION_BADGE[item.type];
 
       return (
         <TouchableOpacity
@@ -522,6 +687,7 @@ export default function ExercisesScreen() {
             iSel && { borderWidth: 2.5, borderColor: item.color },
           ]}
         >
+          {/* ── Top Row ── */}
           <View style={styles.cardTopRow}>
             <View style={[styles.emojiCircle, { backgroundColor: item.accent }]}>
               <Text style={{ fontSize: 30 }}>{item.emoji}</Text>
@@ -531,48 +697,35 @@ export default function ExercisesScreen() {
                 <Ionicons name="checkmark" size={14} color="#fff" />
               </View>
             )}
-            <View style={[styles.exerciseTypeBadge, {
-              backgroundColor: item.type === 'core' ? '#7C5CBF22' : '#F4A32B22',
-            }]}>
-              <Text style={[styles.exerciseTypeBadgeText, {
-                color: item.type === 'core' ? '#7C5CBF' : '#C97B3A',
-              }]}>
-                {item.type === 'core' ? '⭐' : '⚡'}
+            <View style={[styles.exerciseTypeBadge, { backgroundColor: badge.bg }]}>
+              <Text style={[styles.exerciseTypeBadgeText, { color: badge.color }]}>
+                {badge.label}
               </Text>
             </View>
           </View>
 
+          {/* ── Title ── */}
           <Text style={[styles.cardTitle, { color: item.color, textAlign: isRTL ? 'right' : 'left' }]}>
             {iTitle}
           </Text>
+
+          {/* ── Duration ── */}
           <View style={styles.durationRow}>
             <Ionicons name="time-outline" size={13} color={item.color} />
             <Text style={[styles.durationText, { color: item.color }]}> {iDur}</Text>
           </View>
+
+          {/* ── Description ── */}
           <Text style={[styles.cardDesc, { textAlign: isRTL ? 'right' : 'left' }]}>{iDesc}</Text>
 
-          {/* ── Timer active: show big emoji + active step ── */}
-          {iSel && timerActive ? (
-            <View style={styles.activeTimerBox}>
-              <Text style={styles.activeTimerEmoji}>{item.emoji}</Text>
-              {isSpeaking && activeStep >= 0 && iSteps.length > 0 && (
-                <View style={[styles.activeStepBanner, { backgroundColor: item.color + '18', borderColor: item.color + '44' }]}>
-                  <View style={styles.progressDots}>
-                    {iSteps.map((_, i) => (
-                      <View key={i} style={[styles.progressDot, { backgroundColor: i === activeStep ? item.color : item.color + '33' }, i === activeStep && { width: 16 }]} />
-                    ))}
-                  </View>
-                  <View style={styles.activeStepRow}>
-                    <Ionicons name="volume-high" size={13} color={item.color} />
-                    <Text style={[styles.activeStepTxt, { color: item.color }]} numberOfLines={2}>
-                      {iSteps[activeStep]}
-                    </Text>
-                  </View>
-                </View>
-              )}
-            </View>
-          ) : (
-            <View style={styles.stepsArea}>
+          {/* ── Steps Area: ScrollView for steps + speak button pinned at bottom ── */}
+          <View style={styles.stepsArea}>
+            {/* Scrollable steps list */}
+            <ScrollView
+              style={styles.stepsScroll}
+              showsVerticalScrollIndicator={false}
+              nestedScrollEnabled={true}
+            >
               {iSteps.map((step, i) => (
                 <TouchableOpacity
                   key={i}
@@ -586,20 +739,22 @@ export default function ExercisesScreen() {
                   <Text style={[styles.stepText, { textAlign: isRTL ? 'right' : 'left' }]}>{step}</Text>
                 </TouchableOpacity>
               ))}
-              {iSel && iSteps.length > 0 && (
-                <TouchableOpacity
-                  style={[styles.speakBtn, { borderColor: item.color, backgroundColor: item.bg }]}
-                  onPress={() => speakAllSteps(item)}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="volume-high-outline" size={16} color={item.color} />
-                  <Text style={[styles.speakBtnText, { color: item.color }]}>
-                    {isRTL ? 'اقرأ الخطوات' : 'Read steps aloud'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
+            </ScrollView>
+
+            {/* Speak button pinned inside stepsArea, always visible */}
+            {iSel && iSteps.length > 0 && (
+              <TouchableOpacity
+                style={[styles.speakBtn, { borderColor: item.color, backgroundColor: item.bg }]}
+                onPress={() => speakAllSteps(item)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="volume-high-outline" size={16} color={item.color} />
+                <Text style={[styles.speakBtnText, { color: item.color }]}>
+                  {isRTL ? 'اقرأ الخطوات' : 'Read steps aloud'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </TouchableOpacity>
       );
     });
@@ -611,7 +766,7 @@ export default function ExercisesScreen() {
 
         {/* ── Navbar ── */}
         <View style={styles.navbar}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.navBtn}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.navBtn}>
             <Ionicons name="chevron-back" size={22} color="#7C5CBF" />
           </TouchableOpacity>
           <View style={styles.navCenter}>
@@ -623,70 +778,73 @@ export default function ExercisesScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── Section Toggle ── */}
-        <View style={styles.sectionToggle}>
-          <TouchableOpacity
-            style={[styles.sectionBtn, activeSection === 'core' && styles.sectionBtnActive]}
-            onPress={() => setActiveSection('core')}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="star" size={14} color={activeSection === 'core' ? '#fff' : '#7C5CBF'} />
-            <Text style={[styles.sectionBtnText, activeSection === 'core' && styles.sectionBtnTextActive]}>
-              {isRTL ? 'الأساسي' : 'Core'}
-            </Text>
-            <View style={[styles.sectionCount, { backgroundColor: activeSection === 'core' ? 'rgba(255,255,255,0.3)' : '#7C5CBF22' }]}>
-              <Text style={[styles.sectionCountText, { color: activeSection === 'core' ? '#fff' : '#7C5CBF' }]}>
-                {coreList.length}
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.sectionBtn, activeSection === 'extra' && styles.sectionBtnActive]}
-            onPress={() => setActiveSection('extra')}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="flash" size={14} color={activeSection === 'extra' ? '#fff' : '#7C5CBF'} />
-            <Text style={[styles.sectionBtnText, activeSection === 'extra' && styles.sectionBtnTextActive]}>
-              {isRTL ? 'الإضافي' : 'Extra'}
-            </Text>
-            <View style={[styles.sectionCount, { backgroundColor: activeSection === 'extra' ? 'rgba(255,255,255,0.3)' : '#7C5CBF22' }]}>
-              <Text style={[styles.sectionCountText, { color: activeSection === 'extra' ? '#fff' : '#7C5CBF' }]}>
-                {extraList.length}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        </View>
+        {/* ── Section Toggle (4 sections) ── */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.sectionToggleRow}
+          style={styles.sectionToggleScroll}
+        >
+          {SECTION_CONFIGS.map((section) => {
+            const isActive = activeSection === section.key;
+            const count = (() => {
+              switch (section.key) {
+                case 'therapy':   return therapyList.length;
+                case 'yoga':      return yogaList.length;
+                case 'aerobic':   return aerobicList.length;
+                case 'endurance': return enduranceList.length;
+              }
+            })();
+            return (
+              <TouchableOpacity
+                key={section.key}
+                style={[
+                  styles.sectionBtn,
+                  isActive && { backgroundColor: section.color },
+                ]}
+                onPress={() => setActiveSection(section.key)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name={section.icon} size={14} color={isActive ? '#fff' : section.color} />
+                <Text style={[styles.sectionBtnText, { color: isActive ? '#fff' : section.color }]}>
+                  {isRTL ? section.labelAr : section.labelEn}
+                </Text>
+                <View style={[
+                  styles.sectionCount,
+                  { backgroundColor: isActive ? 'rgba(255,255,255,0.3)' : section.color + '22' },
+                ]}>
+                  <Text style={[styles.sectionCountText, { color: isActive ? '#fff' : section.color }]}>
+                    {count}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
 
         {/* ── Section Description ── */}
         <View style={styles.sectionDesc}>
-          <Ionicons
-            name={activeSection === 'core' ? 'refresh-circle-outline' : 'calendar-outline'}
-            size={14}
-            color="#7C5CBF99"
-          />
-          <Text style={styles.sectionDescText}>
-            {activeSection === 'core'
-              ? (isRTL ? 'تمارين يومية ثابتة — موجودة دايماً' : 'Daily fixed exercises — always available')
-              : (isRTL ? 'تمارين إضافية ليوم واحد فقط' : 'Extra exercises for today only')}
+          <Ionicons name={activeSectionConfig.icon} size={13} color={activeSectionConfig.color + '99'} />
+          <Text style={[styles.sectionDescText, { color: activeSectionConfig.color + '99' }]}>
+            {isRTL ? activeSectionConfig.descAr : activeSectionConfig.descEn}
           </Text>
         </View>
 
         {/* ── Cards ── */}
         {SECTION_EXERCISES.length === 0 ? (
           <View style={styles.emptySection}>
-            <Text style={{ fontSize: 44 }}>{activeSection === 'core' ? '⭐' : '⚡'}</Text>
+            <Text style={{ fontSize: 44 }}>{activeSectionConfig.emoji}</Text>
             <Text style={styles.emptySectionText}>
               {isRTL
-                ? (activeSection === 'core' ? 'مفيش تمارين أساسية بعد' : 'مفيش تمارين إضافية لليوم دة')
-                : (activeSection === 'core' ? 'No core exercises yet' : 'No extra exercises for today')}
+                ? `مفيش تمارين في قسم ${activeSectionConfig.labelAr} بعد`
+                : `No ${activeSectionConfig.labelEn} exercises yet`}
             </Text>
             <TouchableOpacity
-              style={styles.emptyAddBtn}
+              style={[styles.emptyAddBtn, { borderColor: activeSectionConfig.color, backgroundColor: activeSectionConfig.color + '11' }]}
               onPress={() => { setNewType(activeSection); openAddModal(); }}
             >
-              <Ionicons name="add" size={16} color="#7C5CBF" />
-              <Text style={styles.emptyAddText}>
+              <Ionicons name="add" size={16} color={activeSectionConfig.color} />
+              <Text style={[styles.emptyAddText, { color: activeSectionConfig.color }]}>
                 {isRTL ? 'أضف تمرين' : 'Add Exercise'}
               </Text>
             </TouchableOpacity>
@@ -708,59 +866,28 @@ export default function ExercisesScreen() {
         <View style={styles.dotsRow}>
           {SECTION_EXERCISES.map((e) => (
             <TouchableOpacity key={e.key} onPress={() => setSelected(e.key)}>
-              <View style={[styles.dot, selected === e.key && { width: 20, backgroundColor: Colors.primary }]} />
+              <View style={[
+                styles.dot,
+                selected === e.key && { width: 20, backgroundColor: activeSectionConfig.color },
+              ]} />
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* ── Timer Button ── */}
+        {/* ── Start Session Button ── */}
         <View style={styles.timerWrap}>
-          {(timerActive || timeLeft > 0) && (
-            <Text style={[styles.timerCountdown, { color: ex.color }]}>
-              {formatTime(timeLeft)}
-            </Text>
-          )}
           <TouchableOpacity
             style={[styles.timerBtn, { backgroundColor: ex.bg, borderColor: ex.color }]}
-            onPress={startTimer}
+            onPress={startSession}
             activeOpacity={0.85}
           >
-            <Ionicons
-              name={timerActive ? 'stop-circle-outline' : 'play-circle-outline'}
-              size={26}
-              color={ex.color}
-            />
+            <Ionicons name="play-circle-outline" size={26} color={ex.color} />
             <Text style={[styles.timerBtnText, { color: ex.color }]}>
-              {timerActive
-                ? (isRTL ? 'إيقاف التمرين' : 'Stop Exercise')
-                : (isRTL ? `ابدأ التمرين · ${exDur}` : `Start · ${exDur}`)}
+              {isRTL ? `ابدأ التمرين · ${exDur}` : `Start · ${exDur}`}
             </Text>
           </TouchableOpacity>
         </View>
       </View>
-
-      {/* ══ Done Modal ══ */}
-      <Modal visible={showDone} transparent animationType="fade">
-        <View style={modal.overlay}>
-          <View style={[modal.box, { borderTopColor: ex.color }]}>
-            <Text style={modal.bigEmoji}>{ex.emoji}</Text>
-            <Text style={[modal.doneTitle, { color: ex.color }]}>
-              {isRTL ? 'أحسنت! انتهى التمرين 🎉' : 'Well done! Exercise complete 🎉'}
-            </Text>
-            <Text style={modal.doneMsg}>
-              {isRTL ? CONGRATS_AR[congratsIdx] : CONGRATS_EN[congratsIdx]}
-            </Text>
-            <TouchableOpacity
-              style={[modal.doneBtn, { backgroundColor: ex.color }]}
-              onPress={() => setShowDone(false)}
-            >
-              <Text style={modal.doneBtnText}>
-                {isRTL ? 'شكراً، متشجع! 💪' : 'Thanks, motivated! 💪'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       {/* ══ Add Exercise Modal ══ */}
       <Modal
@@ -797,28 +924,32 @@ export default function ExercisesScreen() {
               showsVerticalScrollIndicator={false}
             >
               <Text style={modal.label}>{isRTL ? 'نوع التمرين' : 'Exercise Type'}</Text>
-              <View style={modal.typeRow}>
-                <TouchableOpacity
-                  style={[modal.typeBtn, newType === 'core' && modal.typeBtnActive]}
-                  onPress={() => setNewType('core')}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="star" size={16} color={newType === 'core' ? '#fff' : '#7C5CBF'} />
-                  <Text style={[modal.typeBtnText, newType === 'core' && modal.typeBtnTextActive]}>
-                    {isRTL ? 'أساسي 🔁' : 'Core 🔁'}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[modal.typeBtn, newType === 'extra' && modal.typeBtnActive]}
-                  onPress={() => setNewType('extra')}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="flash" size={16} color={newType === 'extra' ? '#fff' : '#7C5CBF'} />
-                  <Text style={[modal.typeBtnText, newType === 'extra' && modal.typeBtnTextActive]}>
-                    {isRTL ? 'إضافي ⚡ (اليوم بس)' : 'Extra ⚡ (Today only)'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={modal.typeRow}
+              >
+                {SECTION_CONFIGS.map((section) => {
+                  const isActive = newType === section.key;
+                  return (
+                    <TouchableOpacity
+                      key={section.key}
+                      style={[
+                        modal.typeBtn,
+                        { borderColor: section.color },
+                        isActive && { backgroundColor: section.color },
+                      ]}
+                      onPress={() => setNewType(section.key)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={{ fontSize: 16 }}>{section.emoji}</Text>
+                      <Text style={[modal.typeBtnText, { color: isActive ? '#fff' : section.color }]}>
+                        {isRTL ? section.labelAr : section.labelEn}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
 
               <Text style={modal.label}>{isRTL ? 'الإيموجي' : 'Emoji'}</Text>
               <TextInput
@@ -863,7 +994,11 @@ export default function ExercisesScreen() {
               />
 
               <TouchableOpacity
-                style={[modal.saveBtn, savingEx && { opacity: 0.6 }]}
+                style={[
+                  modal.saveBtn,
+                  { backgroundColor: SECTION_CONFIGS.find(s => s.key === newType)?.color ?? '#7C5CBF' },
+                  savingEx && { opacity: 0.6 },
+                ]}
                 onPress={handleAddExercise}
                 disabled={savingEx}
                 activeOpacity={0.85}
@@ -903,22 +1038,19 @@ const styles = StyleSheet.create({
   navTitle:  { fontSize: 18, fontWeight: '800', color: Colors.textPrimary },
   navSub:    { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 1 },
 
-  sectionToggle: {
+  sectionToggleScroll: { flexGrow: 0, marginBottom: 8 },
+  sectionToggleRow: {
+    paddingHorizontal: Spacing.xl,
+    gap: 8,
     flexDirection: 'row',
-    marginHorizontal: Spacing.xl,
-    backgroundColor: '#F0EBFA',
-    borderRadius: 16,
-    padding: 4,
-    marginBottom: 8,
-    gap: 4,
   },
   sectionBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, paddingVertical: 10, borderRadius: 12,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 5, paddingVertical: 9, paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: '#F5F5F5',
   },
-  sectionBtnActive:     { backgroundColor: '#7C5CBF' },
-  sectionBtnText:       { fontSize: 13, fontWeight: '700', color: '#7C5CBF' },
-  sectionBtnTextActive: { color: '#fff' },
+  sectionBtnText: { fontSize: 12, fontWeight: '700' },
   sectionCount: {
     width: 20, height: 20, borderRadius: 10,
     alignItems: 'center', justifyContent: 'center',
@@ -929,7 +1061,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: Spacing.xl, marginBottom: 8,
   },
-  sectionDescText: { fontSize: 11, color: '#7C5CBF99', fontStyle: 'italic' },
+  sectionDescText: { fontSize: 11, fontStyle: 'italic' },
 
   cardsRow: { paddingHorizontal: Spacing.xl, gap: 14, paddingBottom: Spacing.sm },
   card: {
@@ -939,46 +1071,44 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1, shadowRadius: 8, elevation: 3,
   },
-  cardTopRow:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
+  cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
   emojiCircle: {
     width: 56, height: 56, borderRadius: 28,
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12, shadowRadius: 4, elevation: 2,
   },
-  selectedCheck:        { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  exerciseTypeBadge:    { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  exerciseTypeBadgeText:{ fontSize: 13 },
-  cardTitle:      { fontSize: FontSize.base, fontWeight: '800', marginBottom: 3 },
-  durationRow:    { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-  durationText:   { fontSize: FontSize.sm, fontWeight: '600' },
-  cardDesc:       { fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: 8 },
+  selectedCheck:         { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  exerciseTypeBadge:     { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  exerciseTypeBadgeText: { fontSize: 14 },
+  cardTitle:    { fontSize: FontSize.base, fontWeight: '800', marginBottom: 3 },
+  durationRow:  { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  durationText: { fontSize: FontSize.sm, fontWeight: '600' },
+  cardDesc:     { fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: 8 },
 
-  // ── Active timer box (replaces animBox) ──
-  activeTimerBox: {
-    flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8,
+  // ── Steps area: fixed height container with scroll inside ──
+  stepsArea: {
+    flex: 1,
+    overflow: 'hidden',
   },
-  activeTimerEmoji: { fontSize: 72 },
-
-  activeStepBanner: {
-    width: '100%', borderRadius: 12, borderWidth: 1.5,
-    paddingHorizontal: 10, paddingVertical: 7, gap: 5,
+  stepsScroll: {
+    flex: 1,
   },
-  progressDots:   { flexDirection: 'row', gap: 4, alignItems: 'center' },
-  progressDot:    { height: 5, width: 5, borderRadius: 3 },
-  activeStepRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
-  activeStepTxt:  { flex: 1, fontSize: 12, fontWeight: '700', lineHeight: 17 },
-
-  stepsArea: { gap: 5, flex: 1 },
-  stepRow:   { alignItems: 'center', gap: 7, paddingHorizontal: 4, paddingVertical: 3 },
-  stepNum:   { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  stepRow: {
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 4,
+    paddingVertical: 3,
+    marginBottom: 5,
+  },
+  stepNum:     { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   stepNumText: { fontSize: 10, fontWeight: '700', color: '#fff' },
-  stepText:  { flex: 1, fontSize: FontSize.sm, color: Colors.textSecondary },
+  stepText:    { flex: 1, fontSize: FontSize.sm, color: Colors.textSecondary },
 
   speakBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 6, borderWidth: 1.5, borderRadius: 12,
-    paddingVertical: 7, paddingHorizontal: 12, marginTop: 4,
+    paddingVertical: 7, paddingHorizontal: 12, marginTop: 6,
   },
   speakBtnText: { fontSize: 12, fontWeight: '700' },
 
@@ -991,7 +1121,6 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xl,
     gap: 10, alignItems: 'center',
   },
-  timerCountdown: { fontSize: 44, fontWeight: '800', letterSpacing: 2 },
   timerBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 10, borderRadius: Radius.xl, borderWidth: 2,
@@ -1007,30 +1136,13 @@ const styles = StyleSheet.create({
   emptySectionText: { fontSize: 14, color: Colors.textMuted, textAlign: 'center' },
   emptyAddBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    borderWidth: 1.5, borderColor: '#7C5CBF', borderRadius: 12,
+    borderWidth: 1.5, borderRadius: 12,
     paddingVertical: 8, paddingHorizontal: 16,
-    backgroundColor: '#F0EBFA',
   },
-  emptyAddText: { fontSize: 13, fontWeight: '700', color: '#7C5CBF' },
+  emptyAddText: { fontSize: 13, fontWeight: '700' },
 });
 
 const modal = StyleSheet.create({
-  overlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'center', alignItems: 'center',
-  },
-  box: {
-    backgroundColor: '#fff', borderRadius: 24, padding: 28,
-    width: width * 0.85, alignItems: 'center', borderTopWidth: 5,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15, shadowRadius: 14, elevation: 10,
-  },
-  bigEmoji:    { fontSize: 52, marginBottom: 12 },
-  doneTitle:   { fontSize: 20, fontWeight: '800', marginBottom: 8, textAlign: 'center' },
-  doneMsg:     { fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 22, marginBottom: 22 },
-  doneBtn:     { borderRadius: 16, paddingVertical: 13, paddingHorizontal: 32 },
-  doneBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
-
   addBox: {
     backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: 24, maxHeight: '80%',
@@ -1055,18 +1167,17 @@ const modal = StyleSheet.create({
   },
   inputMulti: { height: 70, textAlignVertical: 'top' },
   saveBtn: {
-    backgroundColor: '#7C5CBF', borderRadius: 16,
+    borderRadius: 16,
     paddingVertical: 14, alignItems: 'center', marginTop: 16,
   },
   saveBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 
-  typeRow: { flexDirection: 'row', gap: 10, marginBottom: 4 },
+  typeRow: { flexDirection: 'row', gap: 8, marginBottom: 4, paddingBottom: 4 },
   typeBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, borderWidth: 1.5, borderColor: '#7C5CBF',
-    borderRadius: 12, paddingVertical: 10, backgroundColor: '#F0EBFA',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 5, borderWidth: 1.5,
+    borderRadius: 12, paddingVertical: 9, paddingHorizontal: 12,
+    backgroundColor: '#F8F8F8',
   },
-  typeBtnActive:     { backgroundColor: '#7C5CBF' },
-  typeBtnText:       { fontSize: 12, fontWeight: '700', color: '#7C5CBF' },
-  typeBtnTextActive: { color: '#fff' },
+  typeBtnText: { fontSize: 12, fontWeight: '700' },
 });
