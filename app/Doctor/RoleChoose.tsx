@@ -11,17 +11,19 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useLang } from '../../context/Languagecontext'; // ← عدّل المسار لو مختلف
 
-type Role = 'doctor' | 'patient'|"دكتور"|"مريض";
+type Role = 'doctor' | 'patient';
 
 export default function RoleChoose() {
   const router = useRouter();
+  const { t, isRTL } = useLang();
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
 
   const handleContinue = async () => {
     if (!selectedRole) return;
     await AsyncStorage.setItem('app_role', selectedRole);
-    if (selectedRole === 'doctor'||selectedRole === "دكتور") {
+    if (selectedRole === 'doctor') {
       router.replace('/Doctor/Docsignin');
     } else {
       router.replace('/auth/sign-in');
@@ -42,14 +44,14 @@ export default function RoleChoose() {
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={styles.appNameAr}>راحتي</Text>
-        <Text style={styles.appNameEn}>My Energy Buddy</Text>
+        <Text style={styles.appNameAr}>{t.appName}</Text>
+        <Text style={styles.appNameEn}>{t.appTagline}</Text>
       </View>
 
       {/* ── Heading ── */}
       <View style={styles.headingWrap}>
-        <Text style={styles.title}>من أنت؟</Text>
-        <Text style={styles.subtitle}>اختر دورك للمتابعة</Text>
+        <Text style={styles.title}>{t.docRoleTitle}</Text>
+        <Text style={styles.subtitle}>{t.docRoleSubtitle}</Text>
       </View>
 
       {/* ── Role Cards ── */}
@@ -64,12 +66,12 @@ export default function RoleChoose() {
           <View style={[styles.roleIconWrap, selectedRole === 'doctor' && styles.roleIconWrapActive]}>
             <Text style={styles.roleIcon}>🩺</Text>
           </View>
-          <View style={styles.roleTextCol}>
-            <Text style={[styles.roleTitle, selectedRole === 'doctor' && styles.roleTitleActive]}>
-              دكتور
+          <View style={[styles.roleTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+            <Text style={[styles.roleTitle, { textAlign: isRTL ? 'right' : 'left' }, selectedRole === 'doctor' && styles.roleTitleActive]}>
+              {t.docRoleDoctor}
             </Text>
-            <Text style={[styles.roleSub, selectedRole === 'doctor' && styles.roleSubActive]}>
-              متابعة المرضى وإدارة التمارين
+            <Text style={[styles.roleSub, { textAlign: isRTL ? 'right' : 'left' }, selectedRole === 'doctor' && styles.roleSubActive]}>
+              {t.docRoleDoctorSub}
             </Text>
           </View>
           {selectedRole === 'doctor' && (
@@ -86,12 +88,12 @@ export default function RoleChoose() {
           <View style={[styles.roleIconWrap, selectedRole === 'patient' && styles.roleIconWrapActive]}>
             <Text style={styles.roleIcon}>🧑‍⚕️</Text>
           </View>
-          <View style={styles.roleTextCol}>
-            <Text style={[styles.roleTitle, selectedRole === 'patient' && styles.roleTitleActive]}>
-              مريض
+          <View style={[styles.roleTextCol, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+            <Text style={[styles.roleTitle, { textAlign: isRTL ? 'right' : 'left' }, selectedRole === 'patient' && styles.roleTitleActive]}>
+              {t.docRolePatient}
             </Text>
-            <Text style={[styles.roleSub, selectedRole === 'patient' && styles.roleSubActive]}>
-              متابعة تمارينك وصحتك اليومية
+            <Text style={[styles.roleSub, { textAlign: isRTL ? 'right' : 'left' }, selectedRole === 'patient' && styles.roleSubActive]}>
+              {t.docRolePatientSub}
             </Text>
           </View>
           {selectedRole === 'patient' && (
@@ -107,8 +109,12 @@ export default function RoleChoose() {
         activeOpacity={selectedRole ? 0.8 : 1}
         disabled={!selectedRole}
       >
-        <Text style={styles.continueBtnText}>متابعة</Text>
-        <Ionicons name="arrow-back" size={18} color={selectedRole ? '#fff' : '#bbb'} />
+        <Text style={styles.continueBtnText}>{t.docContinue}</Text>
+        <Ionicons
+          name={isRTL ? 'arrow-back' : 'arrow-forward'}
+          size={18}
+          color={selectedRole ? '#fff' : '#bbb'}
+        />
       </TouchableOpacity>
 
     </LinearGradient>
@@ -199,14 +205,12 @@ const styles = StyleSheet.create({
   },
   roleTextCol: {
     flex: 1,
-    alignItems: 'flex-end',
     gap: 4,
   },
   roleTitle: {
     fontSize: 18,
     fontWeight: '800',
     color: '#2d2d2d',
-    textAlign: 'right',
   },
   roleTitleActive: {
     color: '#7C5CBF',
@@ -214,7 +218,6 @@ const styles = StyleSheet.create({
   roleSub: {
     fontSize: 12,
     color: '#aaa',
-    textAlign: 'right',
     lineHeight: 18,
   },
   roleSubActive: {

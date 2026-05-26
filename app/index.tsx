@@ -21,15 +21,13 @@ export default function Index() {
 
   useEffect(() => {
     async function init() {
-      await SplashScreen.hideAsync();
+      await SplashScreen.hideAsync(); // ← شيل AsyncStorage.clear() تماماً
 
-      // ── شغّل الـ splash دايمًا ──────────────────────────
       Animated.parallel([
         Animated.timing(logoOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
         Animated.spring(logoScale,   { toValue: 1, tension: 60, friction: 8, useNativeDriver: true }),
       ]).start();
 
-      // بعد 3 ثواني → fade out → شيك على أول مرة
       setTimeout(() => {
         Animated.timing(screenFade, { toValue: 0, duration: 400, useNativeDriver: true })
           .start(async () => {
@@ -38,12 +36,18 @@ export default function Index() {
             const hasLaunched = await AsyncStorage.getItem(FIRST_LAUNCH_KEY);
 
             if (hasLaunched) {
-              // مش أول مرة → حمّل اللغة المحفوظة وروح sign-in
               const savedLang = await AsyncStorage.getItem("app_language") as "ar" | "en" | null;
               if (savedLang) setLang(savedLang);
-              router.replace("/auth/sign-in");
+
+              const savedRole = await AsyncStorage.getItem("app_role");
+              if (savedRole === "doctor") {
+                router.replace("/Doctor/Docsignin");
+              } else if (savedRole === "patient") {
+                router.replace("/auth/sign-in");
+              } else {
+                router.replace("/langchoose"); // ← مفيش role محفوظ
+              }
             } else {
-              // أول مرة → سجّل وروح للـ startup
               await AsyncStorage.setItem(FIRST_LAUNCH_KEY, "true");
               router.replace("/startup");
             }

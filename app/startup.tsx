@@ -86,7 +86,7 @@ export default function StartupScreen() {
             style={styles.ctaBtn}
             onPress={() => {
               // استخدم pathname object بدل string عشان Expo Router يفهمه صح
-              router.replace({ pathname: "/langchoose" } as any);
+              router.push({ pathname: "/langchoose" } as any);
             }}
             activeOpacity={0.88}
           >
