@@ -25,8 +25,6 @@ type ChatPreview = {
 };
 
 // ─── Mock Data ────────────────────────────────────────────
-// هذه البيانات هتيجي من الـ backend أو state management بتاعك
-// الشرط: المريض لازم يكون اتقبل في صفحة الهوم وعنده شات سابق
 const MOCK_CHATS: ChatPreview[] = [
   {
     patientId: 'p1',
@@ -144,7 +142,6 @@ function ChatItem({
 
           <View style={styles.chatBottomRow}>
             <View style={styles.lastMsgWrap}>
-              {/* إيقونة حالة الرسالة لو الدكتور هو اللي بعتها */}
               {item.lastMessageSender === 'doctor' && (
                 <Ionicons
                   name={item.status === 'read' ? 'checkmark-done' : 'checkmark-done-outline'}
@@ -195,7 +192,6 @@ export default function ChatsListScreen() {
   const { isRTL } = useLang();
   const [search, setSearch] = useState('');
 
-  // فلترة المحادثات بناءً على البحث
   const filtered = MOCK_CHATS.filter(c =>
     c.patientName.includes(search) || c.lastMessage.includes(search)
   );
@@ -210,12 +206,16 @@ export default function ChatsListScreen() {
   };
 
   return (
+    // ✅ SafeAreaView بدون أي padding إضافي — مفيش tab bar هنا
     <SafeAreaView style={styles.safe}>
       <StatusBar backgroundColor="#F0F7FC" barStyle="dark-content" />
 
       {/* ── Header ── */}
       <View style={styles.header}>
-        <View>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.8}>
+          <Ionicons name="arrow-back" size={22} color={DOC_COLOR} />
+        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>المحادثات</Text>
           {totalUnread > 0 && (
             <Text style={styles.headerSub}>{totalUnread} رسالة غير مقروءة</Text>
@@ -243,7 +243,7 @@ export default function ChatsListScreen() {
         )}
       </View>
 
-      {/* ── Notice: المرضى المقبولين فقط ── */}
+      {/* ── Notice ── */}
       <View style={styles.noticeBanner}>
         <Ionicons name="information-circle-outline" size={15} color={DOC_COLOR} />
         <Text style={styles.noticeText}>
@@ -269,6 +269,7 @@ export default function ChatsListScreen() {
 
 // ─── Styles ──────────────────────────────────────────────
 const styles = StyleSheet.create({
+  // ✅ SafeAreaView بدون padding إضافي — مفيش tab bar
   safe: { flex: 1, backgroundColor: '#F0F7FC' },
 
   // Header
@@ -279,8 +280,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: '#EAF4FB',
     shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07, shadowRadius: 8, elevation: 3,
+    gap: 10,
   },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: Colors.textPrimary },
+  backBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: DOC_COLOR_LIGHT,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: '#0D2B3E' },
   headerSub:   { fontSize: 12, color: DOC_COLOR, fontWeight: '600', marginTop: 2 },
   headerIconBtn: {
     width: 40, height: 40, borderRadius: 20,
@@ -299,7 +306,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06, shadowRadius: 4, elevation: 1,
   },
   searchIcon:  { marginEnd: 8 },
-  searchInput: { flex: 1, fontSize: FontSize.base, color: Colors.textPrimary, padding: 0 },
+  searchInput: { flex: 1, fontSize: FontSize.base, color: '#0D2B3E', padding: 0 },
 
   // Notice banner
   noticeBanner: {
@@ -341,15 +348,15 @@ const styles = StyleSheet.create({
   chatTopRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   chatBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 
-  patientName:     { fontSize: FontSize.base, fontWeight: '600', color: Colors.textPrimary, flex: 1, marginEnd: 6 },
-  patientNameBold: { fontWeight: '800', color: '#0D2B3E' },
+  patientName:     { fontSize: FontSize.base, fontWeight: '600', color: '#0D2B3E', flex: 1, marginEnd: 6 },
+  patientNameBold: { fontWeight: '800' },
 
   timeText:       { fontSize: 11, color: Colors.textMuted },
   timeTextActive: { color: DOC_COLOR, fontWeight: '700' },
 
   lastMsgWrap: { flexDirection: 'row', alignItems: 'center', flex: 1, marginEnd: 8 },
   lastMsg:     { fontSize: 13, color: Colors.textMuted, flex: 1 },
-  lastMsgBold: { color: Colors.textPrimary, fontWeight: '600' },
+  lastMsgBold: { color: '#0D2B3E', fontWeight: '600' },
 
   // Unread badge
   unreadBadge: {
@@ -372,6 +379,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderWidth: 2, borderColor: DOC_COLOR + '25',
   },
-  emptyTitle:    { fontSize: 18, fontWeight: '800', color: Colors.textPrimary, marginBottom: 10, textAlign: 'center' },
+  emptyTitle:    { fontSize: 18, fontWeight: '800', color: '#0D2B3E', marginBottom: 10, textAlign: 'center' },
   emptySubtitle: { fontSize: 14, color: Colors.textMuted, textAlign: 'center', lineHeight: 22 },
 });

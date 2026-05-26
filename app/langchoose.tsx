@@ -12,6 +12,7 @@ import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useLang, Lang } from '../context/Languagecontext'; // ← عدّل المسار
+
 export default function LangChoose() {
   const router = useRouter();
   const { setLang } = useLang();
@@ -19,7 +20,7 @@ export default function LangChoose() {
 
   const handleContinue = () => {
     setLang(selected);                        // ← بيحفظ اللغة في الـ context
-    router.push('/Doctor/RoleChoose');            // ← بيروح لصفحة اختيار الدور
+    router.replace('/Doctor/RoleChoose');            // ← بيروح لصفحة اختيار الدور
   };
 
   return (
@@ -32,7 +33,7 @@ export default function LangChoose() {
       {/* ── Logo ── */}
       <View style={styles.logoSection}>
         <Image
-          source={require('../../assets/images/logo.png')}
+          source={require('../assets/images/logo.png')}
           style={styles.logo}
           resizeMode="contain"
         />

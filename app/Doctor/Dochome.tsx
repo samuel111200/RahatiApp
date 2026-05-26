@@ -396,7 +396,7 @@ export default function DocHome() {
 
   const handleOpenChat = (patient: Patient) => {
     router.push({
-      pathname: "/Doctor/Docchat",
+      pathname: "/Doctor/Docpatient",
       params: {
         patientId: patient.id,
         patientName: `${patient.firstName} ${patient.lastName}`,
@@ -427,6 +427,7 @@ export default function DocHome() {
   const docName = user ? `${user.firstName || ''}` : '';
 
   return (
+    // ✅ SafeAreaView بيتعامل مع الـ status bar تلقائياً
     <SafeAreaView style={styles.safe}>
       <StatusBar backgroundColor="#F0F7FC" barStyle="dark-content" />
 
@@ -567,6 +568,7 @@ export default function DocHome() {
           </View>
         )}
 
+        {/* ✅ مسافة تحت عشان الـ tab bar */}
         <View style={{ height: 20 }} />
       </ScrollView>
 
@@ -587,8 +589,9 @@ export default function DocHome() {
 
 // ─── Styles ──────────────────────────────────────────────
 const styles = StyleSheet.create({
+  // ✅ SafeAreaView بدل View مع paddingTop يدوي
   safe:    { flex: 1, backgroundColor: '#F0F7FC' },
-  content: { padding: Spacing.xl, paddingBottom: 40 },
+  content: { padding: Spacing.xl, paddingBottom: 20 },
 
   // Header
   header: {

@@ -7,7 +7,6 @@ import { Colors, Spacing, Radius } from '../../constants/Theme';
 import { useLang } from '../../context/Languagecontext';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
-// ─── الـ screens اللي مش المفروض تظهر في الـ tab bar ───────
 const HIDDEN_ROUTES = ['startup', 'notification'];
 
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
@@ -16,6 +15,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const tabConfig: Record<string, { icon: keyof typeof Ionicons.glyphMap; iconActive: keyof typeof Ionicons.glyphMap; label: string }> = {
     home:      { icon: 'home-outline',             iconActive: 'home',             label: t.home },
     tasks:     { icon: 'checkmark-circle-outline', iconActive: 'checkmark-circle', label: t.tasks },
+    doctors:   { icon: 'medical-outline',          iconActive: 'medical',          label: isRTL ? 'دكتوري' : 'Doctor' },
     exercises: { icon: 'fitness-outline',          iconActive: 'fitness',          label: t.exercisesTab },
     more:      { icon: 'grid-outline',             iconActive: 'grid',             label: t.more },
   };
@@ -26,31 +26,14 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   return (
     <View style={styles.container}>
       <View style={[styles.bar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-        {visibleRoutes.map((route, visualIndex) => {
+        {visibleRoutes.map((route) => {
           const realIndex = state.routes.findIndex(r => r.key === route.key);
           const focused = state.index === realIndex;
           const cfg = tabConfig[route.name];
 
-          const elements = [];
-          if (visualIndex === 2) {
-            elements.push(
-              <TouchableOpacity
-                key="fab"
-                style={styles.fabWrap}
-                onPress={() => navigation.navigate('tasks')}
-                activeOpacity={0.85}
-              >
-                <View style={styles.fab}>
-                  <Ionicons name="add" size={30} color={Colors.white} />
-                </View>
-              </TouchableOpacity>
-            );
-          }
+          if (!cfg) return null;
 
-          // ✅ لو الـ route مش موجود في tabConfig، مش بنرسمه
-          if (!cfg) return elements.length > 0 ? elements : null;
-
-          elements.push(
+          return (
             <TouchableOpacity
               key={route.key}
               onPress={() => navigation.navigate(route.name)}
@@ -71,7 +54,6 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
               </View>
             </TouchableOpacity>
           );
-          return elements;
         })}
       </View>
     </View>
@@ -88,6 +70,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="home" />
       <Tabs.Screen name="tasks" />
       <Tabs.Screen name="exercises" />
+      <Tabs.Screen name="doctors" />
       <Tabs.Screen name="more" />
       <Tabs.Screen name="notification" />
     </Tabs>
@@ -133,26 +116,5 @@ const styles = StyleSheet.create({
   tabLabelActive: {
     color: Colors.primary,
     fontWeight: '700',
-  },
-  fabWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -26,
-  },
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 100,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 4,
-    borderColor: Colors.white,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 12,
-    elevation: 6,
   },
 });
