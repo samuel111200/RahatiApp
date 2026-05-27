@@ -118,7 +118,7 @@ export default function DocSignInScreen() {
             </View>
           </View>
 
-          <TouchableOpacity onPress={() => router.push('/auth/sign-up-1')} style={styles.signUpRow} activeOpacity={0.7}>
+          <TouchableOpacity onPress={() => router.push('/Doctor/DocsignUp1')} style={styles.signUpRow} activeOpacity={0.7}>
             <Text style={styles.signUpText}>
               {t.noAccount}{' '}
               <Text style={styles.signUpLink}>{t.signUp}</Text>

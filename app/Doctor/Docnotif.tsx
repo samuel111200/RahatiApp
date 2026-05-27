@@ -1,4 +1,4 @@
-// app/Doctor/DocNotif.tsx
+// app/Doctor/Docnotif.tsx
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
@@ -10,14 +10,16 @@ import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 import { useLang } from '../../context/Languagecontext';
-import { AppNotification, markAllRead, clearAllNotifications } from '../tabs/notificationService';
+import { AppNotification } from '../tabs/notificationService';
 
 const { width } = Dimensions.get('window');
-const DOC_COLOR       = Colors.primary;
-const DOC_COLOR_LIGHT = Colors.primaryUltraLight;
+const DOC_COLOR       = '#7C5CBF';
+const DOC_COLOR_LIGHT = '#F0EBFA';
 
-// ─── Type for translations ────────────────────────────────
 type Translations = ReturnType<typeof useLang>['t'];
+
+// ─── Doctor notification storage key (separate from patient) ──
+const DOC_NOTIF_KEY = 'doc_notifications';
 
 // ─── Helpers ─────────────────────────────────────────────
 function timeAgo(timestamp: number, isRTL: boolean): string {
@@ -27,13 +29,13 @@ function timeAgo(timestamp: number, isRTL: boolean): string {
   const days  = Math.floor(diff / 86400000);
 
   if (isRTL) {
-    if (mins < 1)  return 'الآن';
-    if (mins < 60) return `منذ ${mins} دقيقة`;
+    if (mins < 1)   return 'الآن';
+    if (mins < 60)  return `منذ ${mins} دقيقة`;
     if (hours < 24) return `منذ ${hours} ساعة`;
     return `منذ ${days} يوم`;
   } else {
-    if (mins < 1)  return 'Just now';
-    if (mins < 60) return `${mins}m ago`;
+    if (mins < 1)   return 'Just now';
+    if (mins < 60)  return `${mins}m ago`;
     if (hours < 24) return `${hours}h ago`;
     return `${days}d ago`;
   }
@@ -62,6 +64,30 @@ const TYPE_BG: Record<AppNotification['type'], string> = {
   delete: Colors.dangerLight,
   update: Colors.warningLight,
 };
+
+// ─── Helper: save doctor notification ────────────────────
+export async function saveDocNotification(
+  notif: Omit<AppNotification, 'id' | 'timestamp' | 'read'>
+) {
+  const raw = await AsyncStorage.getItem(DOC_NOTIF_KEY);
+  const list: AppNotification[] = raw ? JSON.parse(raw) : [];
+  const newNotif: AppNotification = {
+    ...notif,
+    id: `doc_notif_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+    timestamp: Date.now(),
+    read: false,
+  };
+  const updated = [newNotif, ...list].slice(0, 50);
+  await AsyncStorage.setItem(DOC_NOTIF_KEY, JSON.stringify(updated));
+  return newNotif;
+}
+
+export async function getDocUnreadCount(): Promise<number> {
+  const raw = await AsyncStorage.getItem(DOC_NOTIF_KEY);
+  if (!raw) return 0;
+  const list: AppNotification[] = JSON.parse(raw);
+  return list.filter(n => !n.read).length;
+}
 
 // ─── Section Header ───────────────────────────────────────
 function SectionHeader({ title, count, color }: { title: string; count: number; color: string }) {
@@ -148,7 +174,11 @@ const detailStyles = StyleSheet.create({
 });
 
 // ─── Notification Card ───────────────────────────────────
-function NotifCard({ notif, onPress, isRTL }: { notif: AppNotification; onPress: (n: AppNotification) => void; isRTL: boolean }) {
+function NotifCard({ notif, onPress, isRTL }: {
+  notif: AppNotification;
+  onPress: (n: AppNotification) => void;
+  isRTL: boolean;
+}) {
   const color = TYPE_COLORS[notif.type];
   const bg    = TYPE_BG[notif.type];
 
@@ -157,8 +187,10 @@ function NotifCard({ notif, onPress, isRTL }: { notif: AppNotification; onPress:
       onPress={() => onPress(notif)} activeOpacity={0.8}
       style={[
         styles.card,
-        { borderLeftColor: isRTL ? 'transparent' : color, borderLeftWidth: isRTL ? 0 : 4,
-          borderRightColor: isRTL ? color : 'transparent', borderRightWidth: isRTL ? 4 : 0 },
+        {
+          borderLeftColor:  isRTL ? 'transparent' : color, borderLeftWidth:  isRTL ? 0 : 4,
+          borderRightColor: isRTL ? color : 'transparent', borderRightWidth: isRTL ? 4 : 0,
+        },
         !notif.read && styles.cardUnread,
       ]}
     >
@@ -167,10 +199,14 @@ function NotifCard({ notif, onPress, isRTL }: { notif: AppNotification; onPress:
       </View>
       <View style={styles.cardBody}>
         <View style={[styles.cardTop, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <Text style={[styles.cardTitle, { color, textAlign: isRTL ? 'right' : 'left' }]}>{notif.title}</Text>
+          <Text style={[styles.cardTitle, { color, textAlign: isRTL ? 'right' : 'left' }]} numberOfLines={1}>
+            {notif.title}
+          </Text>
           {!notif.read && <View style={styles.unreadDot} />}
         </View>
-        <Text style={[styles.cardMsg, { textAlign: isRTL ? 'right' : 'left' }]} numberOfLines={2}>{notif.body}</Text>
+        <Text style={[styles.cardMsg, { textAlign: isRTL ? 'right' : 'left' }]} numberOfLines={2}>
+          {notif.body}
+        </Text>
         <View style={[styles.cardFooter, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <Text style={styles.cardTime}>{timeAgo(notif.timestamp, isRTL)}</Text>
           <View style={[styles.tapHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -187,7 +223,9 @@ function NotifCard({ notif, onPress, isRTL }: { notif: AppNotification; onPress:
 function EmptyState({ t, isRTL }: { t: Translations; isRTL: boolean }) {
   return (
     <View style={styles.emptyWrap}>
-      <Text style={{ fontSize: 60 }}>🔔</Text>
+      <View style={styles.emptyIconCircle}>
+        <Ionicons name="notifications-outline" size={48} color={DOC_COLOR} />
+      </View>
       <Text style={styles.emptyTitle}>{t.docNoNotifs}</Text>
       <Text style={[styles.emptySubtitle, { textAlign: 'center' }]}>{t.docNoNotifsSubtitle}</Text>
     </View>
@@ -203,32 +241,60 @@ export default function DocNotifScreen() {
   const [showDetail,    setShowDetail]    = useState(false);
 
   const loadNotifications = async () => {
-    const raw = await AsyncStorage.getItem('doc_notifications');
+    const raw = await AsyncStorage.getItem(DOC_NOTIF_KEY);
     if (raw) {
       setNotifications(JSON.parse(raw));
     } else {
-      // إنشاء إشعارات تجريبية للدكتور عند أول تشغيل
+      // Demo notifications for first run
       const demo: AppNotification[] = [
-        { id: 'dn1', title: t.docNotifNewRequest,      body: `${isRTL ? 'محمد حسن' : 'Mohamed Hassan'} ${isRTL ? 'أرسل طلب انضمام' : 'sent a join request'}`,      emoji: '🆕', type: 'add',    timestamp: Date.now() - 600000,   read: false },
-        { id: 'dn2', title: t.docNotifRequestAccepted, body: `${isRTL ? 'سارة علي' : 'Sara Ali'} ${isRTL ? 'اتقبلت بنجاح' : 'was accepted successfully'}`,           emoji: '✅', type: 'update', timestamp: Date.now() - 3600000,  read: false },
-        { id: 'dn3', title: t.docNotifNewMessage,      body: `${isRTL ? 'أحمد: كيف حالك يا دكتور؟' : 'Ahmed: How are you doctor?'}`,                                 emoji: '💬', type: 'task',   timestamp: Date.now() - 7200000,  read: true  },
-        { id: 'dn4', title: t.docNotifExerciseAssigned,body: `${isRTL ? 'تمرين مشي مُعيَّن لفاطمة' : 'Walking exercise assigned to Fatima'}`,                         emoji: '🏋️', type: 'break',  timestamp: Date.now() - 86400000, read: true  },
+        {
+          id: 'dn1',
+          title: t.docNotifNewRequest,
+          body: `${isRTL ? 'محمد حسن' : 'Mohamed Hassan'} ${isRTL ? 'أرسل طلب انضمام' : 'sent a join request'}`,
+          emoji: '🆕', type: 'add',
+          timestamp: Date.now() - 600000, read: false,
+        },
+        {
+          id: 'dn2',
+          title: t.docNotifRequestAccepted,
+          body: `${isRTL ? 'سارة علي' : 'Sara Ali'} ${isRTL ? 'اتقبلت بنجاح' : 'was accepted successfully'}`,
+          emoji: '✅', type: 'update',
+          timestamp: Date.now() - 3600000, read: false,
+        },
+        {
+          id: 'dn3',
+          title: t.docNotifNewMessage,
+          body: `${isRTL ? 'أحمد: كيف حالك يا دكتور؟' : 'Ahmed: How are you doctor?'}`,
+          emoji: '💬', type: 'task',
+          timestamp: Date.now() - 7200000, read: true,
+        },
+        {
+          id: 'dn4',
+          title: t.docNotifExerciseAssigned,
+          body: `${isRTL ? 'تمرين مشي مُعيَّن لفاطمة' : 'Walking exercise assigned to Fatima'}`,
+          emoji: '🏋️', type: 'break',
+          timestamp: Date.now() - 86400000, read: true,
+        },
       ];
-      await AsyncStorage.setItem('doc_notifications', JSON.stringify(demo));
+      await AsyncStorage.setItem(DOC_NOTIF_KEY, JSON.stringify(demo));
       setNotifications(demo);
     }
   };
 
   useFocusEffect(useCallback(() => {
     loadNotifications();
+
+    // Mark all as read after 2 seconds
     const timer = setTimeout(async () => {
-      const raw = await AsyncStorage.getItem('doc_notifications');
+      const raw = await AsyncStorage.getItem(DOC_NOTIF_KEY);
       if (raw) {
         const list: AppNotification[] = JSON.parse(raw);
         const updated = list.map(n => ({ ...n, read: true }));
-        await AsyncStorage.setItem('doc_notifications', JSON.stringify(updated));
+        await AsyncStorage.setItem(DOC_NOTIF_KEY, JSON.stringify(updated));
+        setNotifications(updated);
       }
     }, 2000);
+
     return () => clearTimeout(timer);
   }, [isRTL]));
 
@@ -239,7 +305,7 @@ export default function DocNotifScreen() {
   };
 
   const handleClear = async () => {
-    await AsyncStorage.removeItem('doc_notifications');
+    await AsyncStorage.removeItem(DOC_NOTIF_KEY);
     setNotifications([]);
   };
 
@@ -252,9 +318,17 @@ export default function DocNotifScreen() {
 
       {/* ── Navbar ── */}
       <View style={[styles.navbar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.navBtn}>
-          <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={22} color={DOC_COLOR} />
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.navBtn}
+        >
+          <Ionicons
+            name={isRTL ? 'chevron-forward' : 'chevron-back'}
+            size={22}
+            color={DOC_COLOR}
+          />
         </TouchableOpacity>
+
         <View style={styles.navCenter}>
           <Text style={styles.navTitle}>{t.docNotificationsTitle}</Text>
           {unreadNotifs.length > 0 && (
@@ -263,6 +337,7 @@ export default function DocNotifScreen() {
             </View>
           )}
         </View>
+
         {notifications.length > 0 && (
           <TouchableOpacity onPress={handleClear} style={styles.navBtn}>
             <Ionicons name="trash-outline" size={20} color={Colors.danger} />
@@ -270,11 +345,14 @@ export default function DocNotifScreen() {
         )}
       </View>
 
+      {/* ── Summary ── */}
       {notifications.length > 0 && (
         <View style={styles.summary}>
           <Text style={styles.summaryText}>
             {notifications.length} {isRTL ? 'إشعار' : 'notifications'}
-            {unreadNotifs.length > 0 ? ` · ${unreadNotifs.length} ${isRTL ? 'غير مقروء' : 'unread'}` : ''}
+            {unreadNotifs.length > 0
+              ? ` · ${unreadNotifs.length} ${isRTL ? 'غير مقروء' : 'unread'}`
+              : ''}
           </Text>
         </View>
       )}
@@ -282,13 +360,25 @@ export default function DocNotifScreen() {
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[DOC_COLOR]} tintColor={DOC_COLOR} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[DOC_COLOR]}
+            tintColor={DOC_COLOR}
+          />
+        }
       >
         {notifications.length === 0 ? (
           <EmptyState t={t} isRTL={isRTL} />
         ) : (
           <>
-            <SectionHeader title={t.docNotifUnread} count={unreadNotifs.length} color={DOC_COLOR} />
+            {/* ── Unread ── */}
+            <SectionHeader
+              title={t.docNotifUnread}
+              count={unreadNotifs.length}
+              color={DOC_COLOR}
+            />
             {unreadNotifs.length === 0 ? (
               <View style={styles.emptySectionWrap}>
                 <Text style={styles.emptySectionText}>{t.allRead}</Text>
@@ -296,18 +386,26 @@ export default function DocNotifScreen() {
             ) : (
               unreadNotifs.map(notif => (
                 <NotifCard
-                  key={notif.id} notif={notif}
+                  key={notif.id}
+                  notif={notif}
                   onPress={n => { setSelectedNotif(n); setShowDetail(true); }}
                   isRTL={isRTL}
                 />
               ))
             )}
+
+            {/* ── Read ── */}
             {readNotifs.length > 0 && (
               <>
-                <SectionHeader title={t.docNotifRead} count={readNotifs.length} color={Colors.textMuted} />
+                <SectionHeader
+                  title={t.docNotifRead}
+                  count={readNotifs.length}
+                  color={Colors.textMuted}
+                />
                 {readNotifs.map(notif => (
                   <NotifCard
-                    key={notif.id} notif={notif}
+                    key={notif.id}
+                    notif={notif}
                     onPress={n => { setSelectedNotif(n); setShowDetail(true); }}
                     isRTL={isRTL}
                   />
@@ -319,44 +417,86 @@ export default function DocNotifScreen() {
       </ScrollView>
 
       <NotifDetailModal
-        notif={selectedNotif} visible={showDetail}
+        notif={selectedNotif}
+        visible={showDetail}
         onClose={() => { setShowDetail(false); setSelectedNotif(null); }}
-        isRTL={isRTL} t={t}
+        isRTL={isRTL}
+        t={t}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe:       { flex: 1, backgroundColor: Colors.background, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
-  navbar:     { alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, backgroundColor: Colors.background },
-  navBtn:     { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.12, shadowRadius: 4, elevation: 2 },
-  navCenter:  { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  navTitle:   { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
-  badge:      { backgroundColor: Colors.danger, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2, minWidth: 20, alignItems: 'center' },
-  badgeText:  { fontSize: 11, color: '#fff', fontWeight: '700' },
-  summary:    { paddingHorizontal: 20, paddingBottom: 8 },
-  summaryText:{ fontSize: 12, color: Colors.textMuted },
-  scroll:     { padding: 16, paddingBottom: 100 },
+  safe: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  },
+  navbar: {
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: Colors.background,
+  },
+  navBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#fff',
+    shadowColor: DOC_COLOR,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12, shadowRadius: 4, elevation: 2,
+  },
+  navCenter: {
+    flex: 1, flexDirection: 'row',
+    alignItems: 'center', justifyContent: 'center', gap: 8,
+  },
+  navTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
+  badge: {
+    backgroundColor: Colors.danger, borderRadius: 10,
+    paddingHorizontal: 7, paddingVertical: 2,
+    minWidth: 20, alignItems: 'center',
+  },
+  badgeText: { fontSize: 11, color: '#fff', fontWeight: '700' },
+
+  summary:     { paddingHorizontal: 20, paddingBottom: 8 },
+  summaryText: { fontSize: 12, color: Colors.textMuted },
+
+  scroll: { padding: 16, paddingBottom: 100 },
+
   card: {
     flexDirection: 'row', backgroundColor: '#fff', borderRadius: 16,
     padding: 14, marginBottom: 12, alignItems: 'flex-start',
-    shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 2,
+    shadowColor: DOC_COLOR,
+    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 2,
   },
-  cardUnread:       { backgroundColor: Colors.primaryUltraLight },
-  emojiWrap:        { width: 46, height: 46, borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  cardBody:         { flex: 1 },
-  cardTop:          { alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  cardTitle:        { fontSize: 14, fontWeight: '700', flex: 1 },
-  unreadDot:        { width: 8, height: 8, borderRadius: 4, backgroundColor: DOC_COLOR, marginLeft: 8 },
-  cardMsg:          { fontSize: 13, color: '#555', lineHeight: 20 },
-  cardFooter:       { alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
-  cardTime:         { fontSize: 11, color: '#bbb' },
-  tapHint:          { alignItems: 'center', gap: 3 },
-  tapHintText:      { fontSize: 10, color: '#ccc' },
-  emptyWrap:        { alignItems: 'center', paddingTop: 100, gap: 14 },
-  emptyTitle:       { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
-  emptySubtitle:    { fontSize: 13, color: '#aaa', lineHeight: 22, paddingHorizontal: 40 },
-  emptySectionWrap: { alignItems: 'center', paddingVertical: 20, backgroundColor: '#fff', borderRadius: 14, marginBottom: 12, borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed' },
+  cardUnread:  { backgroundColor: DOC_COLOR_LIGHT },
+  emojiWrap:   { width: 46, height: 46, borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  cardBody:    { flex: 1 },
+  cardTop:     { alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  cardTitle:   { fontSize: 14, fontWeight: '700', flex: 1 },
+  unreadDot:   { width: 8, height: 8, borderRadius: 4, backgroundColor: DOC_COLOR, marginLeft: 8 },
+  cardMsg:     { fontSize: 13, color: '#555', lineHeight: 20 },
+  cardFooter:  { alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
+  cardTime:    { fontSize: 11, color: '#bbb' },
+  tapHint:     { alignItems: 'center', gap: 3 },
+  tapHintText: { fontSize: 10, color: '#ccc' },
+
+  emptyWrap: { alignItems: 'center', paddingTop: 80, gap: 14 },
+  emptyIconCircle: {
+    width: 90, height: 90, borderRadius: 45,
+    backgroundColor: DOC_COLOR_LIGHT,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 4,
+    borderWidth: 2, borderColor: DOC_COLOR + '25',
+  },
+  emptyTitle:    { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
+  emptySubtitle: { fontSize: 13, color: '#aaa', lineHeight: 22, paddingHorizontal: 40 },
+
+  emptySectionWrap: {
+    alignItems: 'center', paddingVertical: 20,
+    backgroundColor: '#fff', borderRadius: 14, marginBottom: 12,
+    borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed',
+  },
   emptySectionText: { fontSize: 13, color: '#bbb' },
 });

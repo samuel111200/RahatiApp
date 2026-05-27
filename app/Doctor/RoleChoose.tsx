@@ -23,15 +23,10 @@ export default function RoleChoose() {
   const handleContinue = async () => {
     if (!selectedRole) return;
     await AsyncStorage.setItem("app_role", selectedRole);
-    console.log("Role saved:", selectedRole);
-    console.log(
-      "Going to:",
-      selectedRole === "doctor" ? "/Doctor/Docsignin" : "/auth/sign-in",
-    );
     if (selectedRole === "doctor") {
-      router.replace("/Doctor/Docsignin");
+      router.push("/Doctor/Docsignin");
     } else {
-      router.replace("/auth/sign-in");
+      router.push("/auth/sign-in");
     }
   };
 

@@ -32,7 +32,7 @@ export default function DocSignUp1Screen() {
 
   const handleContinue = () => {
     if (!validate()) return;
-    router.push({ pathname: '/auth/sign-up-2', params: { firstName, lastName, age, gender } });
+    router.push({ pathname: '/Doctor/Docsignup2', params: { firstName, lastName, age, gender } });
   };
 
   const handleBack = () => {
@@ -85,7 +85,7 @@ export default function DocSignUp1Screen() {
 
           <PrimaryButton title={t.continueBtn} onPress={handleContinue} style={styles.btn} />
 
-          <TouchableOpacity onPress={() => router.push('/auth/sign-up-2')} style={styles.loginRow}>
+          <TouchableOpacity onPress={() => router.push('/Doctor/Docsignup2')} style={styles.loginRow}>
             <Text style={styles.loginText}>{t.haveAccount} <Text style={styles.loginLink}>{t.signIn}</Text></Text>
           </TouchableOpacity>
         </ScrollView>
