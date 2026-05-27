@@ -114,11 +114,11 @@ const tabStyles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: '#F0EBFA',
+    borderTopColor: DOC_COLOR_LIGHT,
     paddingBottom: 12,
     paddingTop: 10,
     paddingHorizontal: 16,
-    shadowColor: '#7C5CBF',
+    shadowColor: DOC_COLOR,
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.10,
     shadowRadius: 12,
@@ -132,8 +132,8 @@ const tabStyles = StyleSheet.create({
   },
   iconWrap: {
     width: 48,
-    height: 36,
-    borderRadius: 18,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',
@@ -358,6 +358,7 @@ export default function DocHome() {
   const [tab,          setTab]         = useState<'all' | 'pending' | 'accepted'>('all');
   const [pendingModal, setPendingModal] = useState<Patient | null>(null);
   const [loading,      setLoading]     = useState(true);
+  const [notifCount,   setNotifCount]  = useState(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -376,6 +377,14 @@ export default function DocHome() {
           await savePatients(list);
         }
         setPatients(list);
+
+        // load notif count
+        const raw = await AsyncStorage.getItem('doc_notifications');
+        if (raw) {
+          const notifs = JSON.parse(raw);
+          setNotifCount(notifs.filter((n: any) => !n.read).length);
+        }
+
         setLoading(false);
       };
       init();
@@ -445,11 +454,14 @@ export default function DocHome() {
               {isRTL ? 'إدارة المرضى والطلبات' : 'Manage patients & requests'}
             </Text>
           </View>
-          <TouchableOpacity style={styles.notifBtn} onPress={() => router.push('/Doctor/DocNotif' as any)}>
+          <TouchableOpacity
+            style={styles.notifBtn}
+            onPress={() => router.push('/Doctor/Docnotif' as any)}
+          >
             <Ionicons name="notifications-outline" size={22} color={DOC_COLOR} />
-            {pendingCount > 0 && (
+            {notifCount > 0 && (
               <View style={styles.notifDot}>
-                <Text style={styles.notifDotText}>{pendingCount}</Text>
+                <Text style={styles.notifDotText}>{notifCount > 9 ? '9+' : notifCount}</Text>
               </View>
             )}
           </TouchableOpacity>

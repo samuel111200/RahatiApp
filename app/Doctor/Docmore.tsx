@@ -15,8 +15,12 @@ import { PrimaryButton, OutlineButton } from '../../components/UI';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 import { notify } from '../tabs/notificationService';
 
-// ─── Sub-components ────────────────────────────────────────
+// ─── Doctor color (unified) ───────────────────────────────
+const DOC_COLOR       = '#7C5CBF';
+const DOC_COLOR_MID   = '#E8DFFA';
+const DOC_COLOR_LIGHT = '#F0EBFA';
 
+// ─── Sub-components ────────────────────────────────────────
 function InfoRow({ label, value, isRTL }: { label: string; value: string; isRTL: boolean }) {
   return (
     <View style={[styles.infoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -45,11 +49,6 @@ function MenuRow({ icon, label, value, color, onPress, isLast, isRTL }: {
     </TouchableOpacity>
   );
 }
-
-// ─── Doctor color ──────────────────────────────────────────
-const DOC_COLOR     = '#1A7EBD';
-const DOC_COLOR_MID = '#D6EAF8';
-const DOC_COLOR_LIGHT = '#EAF4FB';
 
 // ─── ProfileField ──────────────────────────────────────────
 type ProfileFieldProps = {
@@ -109,7 +108,7 @@ function AvatarActionSheet({ visible, onClose, onPickNew, onDelete, hasAvatar, t
           <View style={styles.actionHeader}>
             <Text style={styles.actionEmoji}>📸</Text>
             <Text style={styles.actionTitle}>{t.photoTitle || 'صورتك الشخصية'}</Text>
-            <Text style={styles.actionSubtitle}>{t.photoSubtitle || 'صورة احترافية تعكس ثقتك! 🩺'}</Text>
+            <Text style={styles.actionSubtitle}>{t.docPhotoSubtitle || 'صورة احترافية تعكس ثقتك! 🩺'}</Text>
           </View>
           <View style={styles.actionDivider} />
           <TouchableOpacity style={styles.actionBtn} onPress={() => { onClose(); setTimeout(onPickNew, 300); }} activeOpacity={0.7}>
@@ -166,7 +165,7 @@ function EditProfileModal({ visible, onClose, user, onSave, t, isRTL }: {
       gender: user?.gender || '',
       specialty: user?.specialty || '', licenseNumber: user?.licenseNumber || '',
     });
-  }, [visible]);
+  }, [visible, user]);
 
   const handleFirstName     = useCallback((v: string) => setForm(p => ({ ...p, firstName: v })),     []);
   const handleLastName      = useCallback((v: string) => setForm(p => ({ ...p, lastName: v })),      []);
@@ -182,7 +181,6 @@ function EditProfileModal({ visible, onClose, user, onSave, t, isRTL }: {
     }
     setSaving(true);
     try {
-      await AsyncStorage.setItem('user_profile', JSON.stringify(form));
       onSave(form);
       onClose();
       notify({
@@ -334,7 +332,6 @@ function HelpModal({ visible, onClose, t, isRTL }: {
 // ─── Main Screen ──────────────────────────────────────────
 type ModalKey = 'logout' | 'editProfile' | 'language' | 'help' | null;
 
-// ✅ FIX: Extended User type to include doctor-specific fields
 type DoctorUser = {
   firstName?: string;
   lastName?: string;
@@ -349,14 +346,15 @@ export default function DocMoreScreen() {
   const { user, logout, updateProfile } = useAuth();
   const { t, isRTL, setLang }           = useLang();
 
-  // ✅ FIX: Cast user to DoctorUser to safely access doctor-specific fields
   const doctorUser = user as DoctorUser | null;
 
   const [activeModal,     setActiveModal]     = useState<ModalKey>(null);
   const [avatarUri,       setAvatarUri]       = useState<string | null>(null);
   const [showAvatarSheet, setShowAvatarSheet] = useState(false);
+  // ── local state for doctor extra fields ──
+  const [specialty,      setSpecialty]      = useState('');
+  const [licenseNumber,  setLicenseNumber]  = useState('');
 
-  // ── Doctor stats ──
   const [totalPatients,  setTotalPatients]  = useState(0);
   const [activePatients, setActivePatients] = useState(0);
   const [totalSessions,  setTotalSessions]  = useState(0);
@@ -365,6 +363,14 @@ export default function DocMoreScreen() {
 
   React.useEffect(() => {
     AsyncStorage.getItem('user_avatar').then(uri => { if (uri) setAvatarUri(uri); });
+    // load doctor extra fields
+    AsyncStorage.getItem('doctor_extra_fields').then(raw => {
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setSpecialty(parsed.specialty || '');
+        setLicenseNumber(parsed.licenseNumber || '');
+      }
+    });
   }, []);
 
   useFocusEffect(
@@ -376,8 +382,16 @@ export default function DocMoreScreen() {
           const patients: any[] = patientsRaw ? JSON.parse(patientsRaw) : [];
           const sessions: any[] = sessionsRaw ? JSON.parse(sessionsRaw) : [];
           setTotalPatients(patients.length);
-          setActivePatients(patients.filter((p: any) => p.active).length);
+          setActivePatients(patients.filter((p: any) => p.status === 'accepted').length);
           setTotalSessions(sessions.length);
+
+          // reload extra fields
+          const extraRaw = await AsyncStorage.getItem('doctor_extra_fields');
+          if (extraRaw) {
+            const parsed = JSON.parse(extraRaw);
+            setSpecialty(parsed.specialty || '');
+            setLicenseNumber(parsed.licenseNumber || '');
+          }
         } catch (e) {
           console.warn('[DocMoreScreen] Stats error:', e);
         }
@@ -389,30 +403,27 @@ export default function DocMoreScreen() {
   const open  = (key: ModalKey) => setActiveModal(key);
   const close = ()              => setActiveModal(null);
 
-  // ✅ FIX: Use type assertion when calling updateProfile so TypeScript
-  //         doesn't complain about specialty / licenseNumber not being
-  //         in the base User type that Partial<User> is derived from.
+  // ── FIX: handleSaveProfile now updates everything correctly ──
   const handleSaveProfile = async (data: DoctorFields) => {
+    // 1. update base user fields via AuthContext
     await updateProfile({
-      firstName:     data.firstName,
-      lastName:      data.lastName,
-      email:         data.email,
-      age:           data.age,
-      gender:        data.gender,
-    } as Parameters<typeof updateProfile>[0]);
+      firstName: data.firstName,
+      lastName:  data.lastName,
+      email:     data.email,
+      age:       data.age,
+      gender:    data.gender,
+    } as any);
 
-    // Persist the extra doctor fields separately so they survive across sessions
-    try {
-      const stored = await AsyncStorage.getItem('user_profile');
-      const parsed = stored ? JSON.parse(stored) : {};
-      await AsyncStorage.setItem('user_profile', JSON.stringify({
-        ...parsed,
-        specialty:     data.specialty,
-        licenseNumber: data.licenseNumber,
-      }));
-    } catch (e) {
-      console.warn('[DocMoreScreen] Failed to persist doctor fields:', e);
-    }
+    // 2. save doctor-specific fields separately
+    const extraFields = {
+      specialty:     data.specialty,
+      licenseNumber: data.licenseNumber,
+    };
+    await AsyncStorage.setItem('doctor_extra_fields', JSON.stringify(extraFields));
+
+    // 3. update local state so InfoRow updates immediately
+    setSpecialty(data.specialty || '');
+    setLicenseNumber(data.licenseNumber || '');
   };
 
   const handleLanguageSelect = async (lang: 'ar' | 'en') => {
@@ -456,6 +467,13 @@ export default function DocMoreScreen() {
 
   const docTitle = isRTL ? 'د.' : 'Dr.';
 
+  // build combined user data for EditProfileModal
+  const combinedUser = {
+    ...user,
+    specialty,
+    licenseNumber,
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar backgroundColor={Colors.background} barStyle="dark-content" />
@@ -475,7 +493,6 @@ export default function DocMoreScreen() {
 
         {/* ── Avatar Card ── */}
         <View style={styles.avatarCard}>
-          {/* Badge دكتور */}
           <View style={styles.docBadge}>
             <Ionicons name="medical" size={12} color="#fff" />
             <Text style={styles.docBadgeText}>{isRTL ? 'دكتور' : 'Doctor'}</Text>
@@ -495,8 +512,7 @@ export default function DocMoreScreen() {
           </TouchableOpacity>
 
           <Text style={styles.avatarName}>{docTitle} {user?.firstName} {user?.lastName}</Text>
-          {/* ✅ FIX: Use doctorUser to access specialty safely */}
-          <Text style={styles.avatarSpecialty}>{doctorUser?.specialty || (isRTL ? 'التخصص غير محدد' : 'Specialty not set')}</Text>
+          <Text style={styles.avatarSpecialty}>{specialty || (isRTL ? 'التخصص غير محدد' : 'Specialty not set')}</Text>
           <Text style={styles.avatarEmail}>{user?.email}</Text>
           <Text style={styles.avatarHint}>{isRTL ? '👆 اضغط مطوّل لخيارات الصورة' : '👆 Long press for photo options'}</Text>
         </View>
@@ -533,10 +549,9 @@ export default function DocMoreScreen() {
           <View style={styles.divider} />
           <InfoRow label={t.age         || 'العمر'}         value={user?.age ? `${user.age} ${t.years || 'سنة'}` : ''} isRTL={isRTL} />
           <View style={styles.divider} />
-          {/* ✅ FIX: Use doctorUser to access specialty and licenseNumber safely */}
-          <InfoRow label={isRTL ? 'التخصص' : 'Specialty'}      value={doctorUser?.specialty     || ''} isRTL={isRTL} />
+          <InfoRow label={isRTL ? 'التخصص' : 'Specialty'}      value={specialty}      isRTL={isRTL} />
           <View style={styles.divider} />
-          <InfoRow label={isRTL ? 'رقم الترخيص' : 'License'}   value={doctorUser?.licenseNumber || ''} isRTL={isRTL} />
+          <InfoRow label={isRTL ? 'رقم الترخيص' : 'License'}   value={licenseNumber}  isRTL={isRTL} />
           <View style={styles.divider} />
           <InfoRow
             label={t.gender || 'الجنس'}
@@ -551,10 +566,10 @@ export default function DocMoreScreen() {
         </Text>
         <View style={styles.quickLinksRow}>
           {[
-            { label: isRTL ? 'المرضى'    : 'Patients',    icon: 'people-outline',        color: DOC_COLOR,  bg: DOC_COLOR_LIGHT, route: '/Doctor/Patients'   },
-            { label: isRTL ? 'التمارين'  : 'Exercises',   icon: 'fitness-outline',        color: '#4CAF82',  bg: '#E8F5EF',       route: '/Doctor/DocExercises' },
-            { label: isRTL ? 'الجلسات'   : 'Sessions',    icon: 'calendar-outline',       color: '#F4A32B',  bg: '#FEF3E2',       route: '/Doctor/Sessions'   },
-            { label: isRTL ? 'إشعارات'   : 'Alerts',      icon: 'notifications-outline',  color: '#E05C5C',  bg: '#FDEAEA',       route: '/Doctor/DocNotif'   },
+            { label: isRTL ? 'المرضى'    : 'Patients',    icon: 'people-outline',        color: DOC_COLOR,  bg: DOC_COLOR_LIGHT, route: '/Doctor/Dochome'   },
+            { label: isRTL ? 'الشاتات'   : 'Chats',       icon: 'chatbubbles-outline',    color: '#4CAF82',  bg: '#E8F5EF',       route: '/Doctor/Docchat'  },
+            { label: isRTL ? 'الجلسات'   : 'Sessions',    icon: 'calendar-outline',       color: '#F4A32B',  bg: '#FEF3E2',       route: '/Doctor/Dochome'  },
+            { label: isRTL ? 'إشعارات'   : 'Alerts',      icon: 'notifications-outline',  color: '#E05C5C',  bg: '#FDEAEA',       route: '/Doctor/Docnotif' },
           ].map((item, i) => (
             <TouchableOpacity key={i} style={[styles.quickLink, { backgroundColor: item.bg }]}
               onPress={() => router.push(item.route as any)} activeOpacity={0.8}>
@@ -592,8 +607,14 @@ export default function DocMoreScreen() {
       <AvatarActionSheet visible={showAvatarSheet} onClose={() => setShowAvatarSheet(false)}
         onPickNew={handlePickAvatar} onDelete={handleDeleteAvatar} hasAvatar={!!avatarUri} t={t} />
 
-      <EditProfileModal visible={activeModal === 'editProfile'} onClose={close}
-        user={doctorUser} onSave={handleSaveProfile} t={t} isRTL={isRTL} />
+      <EditProfileModal
+        visible={activeModal === 'editProfile'}
+        onClose={close}
+        user={combinedUser}
+        onSave={handleSaveProfile}
+        t={t}
+        isRTL={isRTL}
+      />
 
       <LanguageModal visible={activeModal === 'language'} onClose={close}
         isRTL={isRTL} t={t} onSelect={handleLanguageSelect} />
@@ -637,7 +658,6 @@ const styles = StyleSheet.create({
   },
   pageTitle: { flex: 1, fontSize: 22, fontWeight: '800', color: Colors.textPrimary, textAlign: 'center' },
 
-  // ── Avatar Card ──
   avatarCard: {
     backgroundColor: DOC_COLOR, borderRadius: Radius.xxl, padding: Spacing.xl,
     alignItems: 'center', marginBottom: Spacing.xl,
@@ -669,7 +689,6 @@ const styles = StyleSheet.create({
   avatarEmail:     { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.65)' },
   avatarHint:      { fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 6, marginBottom: 4 },
 
-  // ── Stats ──
   statsRow: { flexDirection: 'row', gap: 10, marginBottom: Spacing.xl },
   statCard: { flex: 1, borderRadius: 14, paddingVertical: 14, alignItems: 'center', gap: 4 },
   statIcon:  { fontSize: 20 },
