@@ -117,16 +117,7 @@ export default function DoctorsScreen() {
     setSelectedDoc(doc);
     setShowModal(true);
   };
-
-  const handleCall = (phone: string) => {
-    Linking.openURL(`tel:${phone}`);
-  };
-
-  const handleWhatsApp = (phone: string) => {
-    Linking.openURL(`https://wa.me/${phone.replace('+', '')}`);
-  };
-
-  // ── الشات الداخلي: روح لصفحة الشات وبعّت بيانات الدكتور كـ params ──
+  // ─ الشات الداخلي: روح لصفحة الشات وبعّت بيانات الدكتور كـ params ──
   const handleInAppChat = (doc: typeof DOCTORS[0]) => {
     setShowModal(false);
     router.push({
@@ -318,43 +309,6 @@ export default function DoctorsScreen() {
               </View>
               <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={Colors.primary} />
             </TouchableOpacity>
-
-            {/* ── واتساب ── */}
-            <TouchableOpacity
-              style={[styles.contactOption, { borderColor: '#25D366' }]}
-              onPress={() => { setShowModal(false); handleWhatsApp(selectedDoc.phone); }}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.contactOptionIcon, { backgroundColor: '#E8FBF0' }]}>
-                <Ionicons name="logo-whatsapp" size={24} color="#25D366" />
-              </View>
-              <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-                <Text style={[styles.contactOptionTitle, { color: '#25D366' }]}>WhatsApp</Text>
-                <Text style={styles.contactOptionSub}>
-                  {isRTL ? 'تواصل عبر واتساب' : 'Chat on WhatsApp'}
-                </Text>
-              </View>
-              <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color="#25D366" />
-            </TouchableOpacity>
-
-            {/* ── اتصال ── */}
-            <TouchableOpacity
-              style={[styles.contactOption, { borderColor: selectedDoc.color }]}
-              onPress={() => { setShowModal(false); handleCall(selectedDoc.phone); }}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.contactOptionIcon, { backgroundColor: selectedDoc.bg }]}>
-                <Ionicons name="call-outline" size={24} color={selectedDoc.color} />
-              </View>
-              <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-                <Text style={[styles.contactOptionTitle, { color: selectedDoc.color }]}>
-                  {isRTL ? 'اتصال مباشر' : 'Direct Call'}
-                </Text>
-                <Text style={styles.contactOptionSub}>{selectedDoc.phone}</Text>
-              </View>
-              <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={selectedDoc.color} />
-            </TouchableOpacity>
-
             <TouchableOpacity
               style={styles.cancelBtn}
               onPress={() => setShowModal(false)}
