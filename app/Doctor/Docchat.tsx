@@ -1,18 +1,19 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  SafeAreaView, StatusBar, TextInput, Animated,
+  StatusBar, TextInput, Animated, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Spacing, FontSize } from '../../constants/Theme';
 import { useLang } from '../../context/Languagecontext';
 
-// ─── Constants ────────────────────────────────────────────
 const DOC_COLOR       = '#7C5CBF';
 const DOC_COLOR_LIGHT = '#F0EBFA';
 
-// ─── Types ────────────────────────────────────────────────
 type ChatPreview = {
   patientId: string;
   patientName: string;
@@ -24,15 +25,14 @@ type ChatPreview = {
   status: 'read' | 'delivered' | 'sent';
 };
 
-// ─── Mock Data ────────────────────────────────────────────
-const MOCK_CHATS: ChatPreview[] = [
+const INITIAL_CHATS: ChatPreview[] = [
   {
     patientId: 'p1',
     patientName: 'أحمد محمد علي',
     lastMessage: 'حسناً، ده غالباً من الجلوس الطويل. حاول تمشي كل ساعة',
     lastMessageTime: '10:26 ص',
     lastMessageSender: 'doctor',
-    unreadCount: 0,
+    unreadCount: 2,
     isOnline: true,
     status: 'read',
   },
@@ -78,37 +78,24 @@ const MOCK_CHATS: ChatPreview[] = [
   },
 ];
 
-// ─── Helpers ──────────────────────────────────────────────
+const READ_KEY = 'doc_chats_read';
+
 function getInitials(name: string) {
-  return name
-    .split(' ')
-    .map(w => w[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
+  return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 }
 
-// ─── Chat Row Item ────────────────────────────────────────
 function ChatItem({
-  item,
-  index,
-  onPress,
+  item, index, onPress,
 }: {
-  item: ChatPreview;
-  index: number;
-  onPress: () => void;
+  item: ChatPreview; index: number; onPress: () => void;
 }) {
   const fadeAnim  = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1, duration: 300, delay: index * 60, useNativeDriver: true,
-      }),
-      Animated.spring(slideAnim, {
-        toValue: 0, tension: 100, friction: 10, delay: index * 60, useNativeDriver: true,
-      }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 300, delay: index * 60, useNativeDriver: true }),
+      Animated.spring(slideAnim, { toValue: 0, tension: 100, friction: 10, delay: index * 60, useNativeDriver: true }),
     ]).start();
   }, []);
 
@@ -121,7 +108,6 @@ function ChatItem({
         style={[styles.chatRow, hasUnread && styles.chatRowUnread]}
         activeOpacity={0.75}
       >
-        {/* Avatar */}
         <View style={styles.avatarWrap}>
           <View style={[styles.avatar, hasUnread && styles.avatarActive]}>
             <Text style={styles.avatarText}>{getInitials(item.patientName)}</Text>
@@ -129,7 +115,6 @@ function ChatItem({
           {item.isOnline && <View style={styles.onlineBadge} />}
         </View>
 
-        {/* Content */}
         <View style={styles.chatContent}>
           <View style={styles.chatTopRow}>
             <Text style={[styles.patientName, hasUnread && styles.patientNameBold]} numberOfLines={1}>
@@ -139,7 +124,6 @@ function ChatItem({
               {item.lastMessageTime}
             </Text>
           </View>
-
           <View style={styles.chatBottomRow}>
             <View style={styles.lastMsgWrap}>
               {item.lastMessageSender === 'doctor' && (
@@ -150,21 +134,15 @@ function ChatItem({
                   style={{ marginEnd: 3 }}
                 />
               )}
-              <Text
-                style={[styles.lastMsg, hasUnread && styles.lastMsgBold]}
-                numberOfLines={1}
-              >
+              <Text style={[styles.lastMsg, hasUnread && styles.lastMsgBold]} numberOfLines={1}>
                 {item.lastMessage}
               </Text>
             </View>
-
-            {hasUnread ? (
+            {hasUnread && (
               <View style={styles.unreadBadge}>
-                <Text style={styles.unreadText}>
-                  {item.unreadCount > 9 ? '9+' : item.unreadCount}
-                </Text>
+                <Text style={styles.unreadText}>{item.unreadCount > 9 ? '9+' : item.unreadCount}</Text>
               </View>
-            ) : null}
+            )}
           </View>
         </View>
       </TouchableOpacity>
@@ -172,7 +150,6 @@ function ChatItem({
   );
 }
 
-// ─── Empty State ─────────────────────────────────────────
 function EmptyChats() {
   return (
     <View style={styles.emptyWrap}>
@@ -180,49 +157,82 @@ function EmptyChats() {
         <Ionicons name="chatbubbles-outline" size={48} color={DOC_COLOR} />
       </View>
       <Text style={styles.emptyTitle}>لا توجد محادثات بعد</Text>
-      <Text style={styles.emptySubtitle}>
-        المحادثات ستظهر هنا فقط للمرضى الذين قبلت طلباتهم
-      </Text>
+      <Text style={styles.emptySubtitle}>المحادثات ستظهر هنا فقط للمرضى الذين قبلت طلباتهم</Text>
     </View>
   );
 }
 
-// ─── Main Screen ──────────────────────────────────────────
 export default function ChatsListScreen() {
   const { isRTL } = useLang();
-  const [search, setSearch] = useState('');
+  const insets = useSafeAreaInsets();
+  const [search, setSearch]   = useState('');
+  const [chats,  setChats]    = useState<ChatPreview[]>(INITIAL_CHATS);
 
-  const filtered = MOCK_CHATS.filter(c =>
-    c.patientName.includes(search) || c.lastMessage.includes(search)
+  useFocusEffect(
+    useCallback(() => {
+      const syncRead = async () => {
+        try {
+          const raw = await AsyncStorage.getItem(READ_KEY);
+          const readSet: string[] = raw ? JSON.parse(raw) : [];
+          if (readSet.length === 0) return;
+
+          setChats(prev =>
+            prev.map(c =>
+              readSet.includes(c.patientId)
+                ? { ...c, unreadCount: 0, status: 'read' }
+                : c
+            )
+          );
+        } catch {}
+      };
+      syncRead();
+    }, [])
   );
 
-  const totalUnread = MOCK_CHATS.reduce((sum, c) => sum + c.unreadCount, 0);
+  const handleOpenChat = async (item: ChatPreview) => {
+    try {
+      const raw = await AsyncStorage.getItem(READ_KEY);
+      const readSet: string[] = raw ? JSON.parse(raw) : [];
+      if (!readSet.includes(item.patientId)) {
+        readSet.push(item.patientId);
+        await AsyncStorage.setItem(READ_KEY, JSON.stringify(readSet));
+      }
+    } catch {}
 
-  const handleOpenChat = (item: ChatPreview) => {
     router.push({
       pathname: '/Doctor/Docpatient',
       params: { patientId: item.patientId, patientName: item.patientName },
     });
   };
 
+  const filtered = chats.filter(c =>
+    c.patientName.includes(search) || c.lastMessage.includes(search)
+  );
+
+  const totalUnread = chats.reduce((sum, c) => sum + c.unreadCount, 0);
+
+  // حساب الـ paddingTop: على Android نستخدم StatusBar.currentHeight كـ fallback
+  const topPadding = insets.top > 0
+    ? insets.top
+    : Platform.OS === 'android'
+      ? (StatusBar.currentHeight ?? 0)
+      : 0;
+
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar backgroundColor="#F8F5FF" barStyle="dark-content" />
+    <View style={[styles.safe, { paddingTop: topPadding }]}>
+      <StatusBar backgroundColor="#F8F5FF" barStyle="dark-content" translucent />
 
       {/* ── Header ── */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.8}>
           <Ionicons name="arrow-back" size={22} color={DOC_COLOR} />
         </TouchableOpacity>
-        <View style={{ flex: 1 }}>
+        <View style={styles.headerTitleWrap} pointerEvents="none">
           <Text style={styles.headerTitle}>المحادثات</Text>
           {totalUnread > 0 && (
             <Text style={styles.headerSub}>{totalUnread} رسالة غير مقروءة</Text>
           )}
         </View>
-        <TouchableOpacity style={styles.headerIconBtn} activeOpacity={0.8}>
-          <Ionicons name="create-outline" size={22} color={DOC_COLOR} />
-        </TouchableOpacity>
       </View>
 
       {/* ── Search Bar ── */}
@@ -245,9 +255,7 @@ export default function ChatsListScreen() {
       {/* ── Notice ── */}
       <View style={styles.noticeBanner}>
         <Ionicons name="information-circle-outline" size={15} color={DOC_COLOR} />
-        <Text style={styles.noticeText}>
-          تظهر هنا محادثات المرضى المقبولين فقط
-        </Text>
+        <Text style={styles.noticeText}>تظهر هنا محادثات المرضى المقبولين فقط</Text>
       </View>
 
       {/* ── List ── */}
@@ -262,11 +270,10 @@ export default function ChatsListScreen() {
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#F8F5FF' },
 
@@ -284,18 +291,20 @@ const styles = StyleSheet.create({
     backgroundColor: DOC_COLOR_LIGHT,
     alignItems: 'center', justifyContent: 'center',
   },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: Colors.textPrimary },
-  headerSub:   { fontSize: 12, color: DOC_COLOR, fontWeight: '600', marginTop: 2 },
-  headerIconBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: DOC_COLOR_LIGHT,
+  headerTitleWrap: {
+    position: 'absolute', left: 0, right: 0,
     alignItems: 'center', justifyContent: 'center',
   },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: Colors.textPrimary, textAlign: 'center' },
+  headerSub:   { fontSize: 12, color: DOC_COLOR, fontWeight: '600', marginTop: 2 },
+
 
   searchWrap: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#fff',
-    marginHorizontal: Spacing.base, marginTop: 12, marginBottom: 6,
+    marginHorizontal: Spacing.base,
+    marginTop: 14,
+    marginBottom: 10,
     borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10,
     borderWidth: 1.5, borderColor: '#E8DFFA',
     shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 1 },
@@ -306,9 +315,10 @@ const styles = StyleSheet.create({
 
   noticeBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    marginHorizontal: Spacing.base, marginBottom: 10,
+    marginHorizontal: Spacing.base,
+    marginBottom: 12,
     backgroundColor: DOC_COLOR_LIGHT,
-    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7,
+    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8,
     borderWidth: 1, borderColor: DOC_COLOR + '25',
   },
   noticeText: { fontSize: 12, color: DOC_COLOR, fontWeight: '500', flex: 1 },

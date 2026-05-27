@@ -1,11 +1,17 @@
 // app/(tabs)/_layout.tsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../constants/Theme';
 import { useLang } from '../../context/Languagecontext';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import {
+  setupNotifications,
+  registerBackgroundTask,
+  startAllWatchers,
+  stopAllWatchers,
+} from './notificationService';
 
 const HIDDEN_ROUTES = ['startup', 'notification', 'doctorchat'];
 
@@ -62,6 +68,22 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
 }
 
 export default function TabsLayout() {
+  useEffect(() => {
+    // 1. اطلب إذن الإشعارات وجهّز الـ channels
+    setupNotifications();
+
+    // 2. سجّل الـ background task (لو الأبلكيشن في الخلفية)
+    registerBackgroundTask();
+
+    // 3. شغّل الـ watchers (timing / completion / energy / missed)
+    startAllWatchers();
+
+    // 4. وقّف الـ watchers لما الـ layout يتدمّر (احتياط)
+    return () => {
+      stopAllWatchers();
+    };
+  }, []);
+
   return (
     <Tabs
       tabBar={(props) => <CustomTabBar {...props} />}
@@ -100,7 +122,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 20,
     elevation: 8,
-    // paddingTop: 8,
   },
   tabItem: { alignItems: 'center', paddingHorizontal: 4 },
   tabInner: {

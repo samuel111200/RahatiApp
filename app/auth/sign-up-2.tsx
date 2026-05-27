@@ -44,7 +44,7 @@ export default function DocSignUp2Screen() {
         { email, password }
       );
       setLoading(false);
-      router.replace('/Doctor/Dochome');
+      router.replace('/tabs/home');
     }, 900);
   };
 

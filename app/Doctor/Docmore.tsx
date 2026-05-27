@@ -357,7 +357,6 @@ export default function DocMoreScreen() {
 
   const [totalPatients,  setTotalPatients]  = useState(0);
   const [activePatients, setActivePatients] = useState(0);
-  const [totalSessions,  setTotalSessions]  = useState(0);
 
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -378,12 +377,9 @@ export default function DocMoreScreen() {
       const loadStats = async () => {
         try {
           const patientsRaw  = await AsyncStorage.getItem('doc_patients');
-          const sessionsRaw  = await AsyncStorage.getItem('doc_sessions');
           const patients: any[] = patientsRaw ? JSON.parse(patientsRaw) : [];
-          const sessions: any[] = sessionsRaw ? JSON.parse(sessionsRaw) : [];
           setTotalPatients(patients.length);
           setActivePatients(patients.filter((p: any) => p.status === 'accepted').length);
-          setTotalSessions(sessions.length);
 
           // reload extra fields
           const extraRaw = await AsyncStorage.getItem('doctor_extra_fields');
@@ -529,11 +525,6 @@ export default function DocMoreScreen() {
             <Text style={[styles.statValue, { color: '#4CAF82' }]}>{activePatients}</Text>
             <Text style={styles.statLabel}>{isRTL ? 'مرضى نشطون' : 'Active Patients'}</Text>
           </View>
-          <View style={[styles.statCard, { backgroundColor: '#FEF3E2' }]}>
-            <Text style={styles.statIcon}>📋</Text>
-            <Text style={[styles.statValue, { color: '#F4A32B' }]}>{totalSessions}</Text>
-            <Text style={styles.statLabel}>{isRTL ? 'الجلسات' : 'Sessions'}</Text>
-          </View>
         </View>
 
         {/* ── Account Info ── */}
@@ -568,7 +559,6 @@ export default function DocMoreScreen() {
           {[
             { label: isRTL ? 'المرضى'    : 'Patients',    icon: 'people-outline',        color: DOC_COLOR,  bg: DOC_COLOR_LIGHT, route: '/Doctor/Dochome'   },
             { label: isRTL ? 'الشاتات'   : 'Chats',       icon: 'chatbubbles-outline',    color: '#4CAF82',  bg: '#E8F5EF',       route: '/Doctor/Docchat'  },
-            { label: isRTL ? 'الجلسات'   : 'Sessions',    icon: 'calendar-outline',       color: '#F4A32B',  bg: '#FEF3E2',       route: '/Doctor/Dochome'  },
             { label: isRTL ? 'إشعارات'   : 'Alerts',      icon: 'notifications-outline',  color: '#E05C5C',  bg: '#FDEAEA',       route: '/Doctor/Docnotif' },
           ].map((item, i) => (
             <TouchableOpacity key={i} style={[styles.quickLink, { backgroundColor: item.bg }]}

@@ -29,7 +29,6 @@ const STORAGE_KEYS = {
   REMIND_MIN:   'notif_reminder_min',
 };
 
-// ─── Default reminder time ─────────────────────────────────
 const DEFAULT_REMIND_HOUR = 8;
 const DEFAULT_REMIND_MIN  = 0;
 
@@ -84,7 +83,7 @@ function MiniStat({ icon, value, label, color, bg }: {
   );
 }
 
-// ─── ProfileField (خارج EditProfileModal تمامًا لتجنب إعادة الإنشاء) ────────
+// ─── ProfileField ────────────────────────────────────────
 type ProfileFieldProps = {
   label: string;
   value: string;
@@ -178,11 +177,13 @@ function AvatarActionSheet({ visible, onClose, onPickNew, onDelete, hasAvatar, t
 }
 
 // ─── Edit Profile Modal ────────────────────────────────────
+// ✅ FIX: أُزيل AsyncStorage.setItem من هنا تماماً
+//    الحفظ بيتم فقط عن طريق onSave → updateProfile في AuthContext
 type UserFields = { firstName: string; lastName: string; email: string; age: string; gender: string; };
 
 function EditProfileModal({ visible, onClose, user, onSave, t, isRTL }: {
   visible: boolean; onClose: () => void; user: any;
-  onSave: (data: UserFields) => void; t: any; isRTL: boolean;
+  onSave: (data: UserFields) => Promise<void>; t: any; isRTL: boolean;
 }) {
   const [form, setForm] = useState<UserFields>({
     firstName: user?.firstName || '', lastName: user?.lastName || '',
@@ -195,9 +196,8 @@ function EditProfileModal({ visible, onClose, user, onSave, t, isRTL }: {
       firstName: user?.firstName || '', lastName: user?.lastName || '',
       email: user?.email || '', age: user?.age ? String(user.age) : '', gender: user?.gender || '',
     });
-  }, [visible]);
+  }, [visible, user]); // ✅ FIX: أضفنا user كـ dependency عشان يتحدث لو اتغير
 
-  // ── handlers مستقرة بـ useCallback لتجنب re-render الـ ProfileField ──
   const handleFirstName  = useCallback((v: string) => setForm(p => ({ ...p, firstName: v })),  []);
   const handleLastName   = useCallback((v: string) => setForm(p => ({ ...p, lastName: v })),   []);
   const handleEmail      = useCallback((v: string) => setForm(p => ({ ...p, email: v })),      []);
@@ -210,11 +210,12 @@ function EditProfileModal({ visible, onClose, user, onSave, t, isRTL }: {
     }
     setSaving(true);
     try {
-      await AsyncStorage.setItem('user_profile', JSON.stringify(form));
-      onSave(form);
-      onClose(); // ← أغلق الـ modal أولاً لسرعة الاستجابة
+      // ✅ FIX: بنكال onSave بس وهو اللي يتولى الحفظ في AuthContext
+      //    مفيش AsyncStorage.setItem هنا خالص
+      await onSave(form);
 
-      // ── إشعار بعد الإغلاق بدون await حتى لا يبطّئ الـ UI ──
+      onClose();
+
       notify({
         title: isRTL ? 'تم تحديث الملف الشخصي ✅' : 'Profile Updated ✅',
         body: isRTL
@@ -241,14 +242,12 @@ function EditProfileModal({ visible, onClose, user, onSave, t, isRTL }: {
         style={{ flex: 1 }}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        {/* خلفية شفافة للإغلاق */}
         <TouchableOpacity
           style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }}
           activeOpacity={1}
           onPress={onClose}
         />
 
-        {/* محتوى المودال */}
         <View style={styles.slideModal}>
           <View style={[styles.modalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}>
@@ -263,35 +262,10 @@ function EditProfileModal({ visible, onClose, user, onSave, t, isRTL }: {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="none"
           >
-            {/* ── الحقول تستخدم ProfileField المعرّفة خارج الـ modal ── */}
-            <ProfileField
-              label={t.firstName}
-              value={form.firstName}
-              onChangeText={handleFirstName}
-              isRTL={isRTL}
-            />
-            <ProfileField
-              label={t.lastName}
-              value={form.lastName}
-              onChangeText={handleLastName}
-              isRTL={isRTL}
-            />
-            <ProfileField
-              label={t.email}
-              value={form.email}
-              onChangeText={handleEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              isRTL={isRTL}
-            />
-            <ProfileField
-              label={t.age}
-              value={form.age}
-              onChangeText={handleAge}
-              keyboardType="numeric"
-              autoCapitalize="none"
-              isRTL={isRTL}
-            />
+            <ProfileField label={t.firstName} value={form.firstName} onChangeText={handleFirstName} isRTL={isRTL} />
+            <ProfileField label={t.lastName}  value={form.lastName}  onChangeText={handleLastName}  isRTL={isRTL} />
+            <ProfileField label={t.email}     value={form.email}     onChangeText={handleEmail}     keyboardType="email-address" autoCapitalize="none" isRTL={isRTL} />
+            <ProfileField label={t.age}       value={form.age}       onChangeText={handleAge}       keyboardType="numeric"       autoCapitalize="none" isRTL={isRTL} />
 
             <View style={styles.fieldWrap}>
               <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.gender}</Text>
@@ -613,7 +587,6 @@ export default function MoreScreen() {
   const [avatarUri,       setAvatarUri]       = useState<string | null>(null);
   const [showAvatarSheet, setShowAvatarSheet] = useState(false);
 
-  // ── Stats ──
   const [taskTotal, setTaskTotal] = useState(0);
   const [taskDone,  setTaskDone]  = useState(0);
   const [exTotal,   setExTotal]   = useState(0);
@@ -685,6 +658,8 @@ export default function MoreScreen() {
   const open  = (key: ModalKey) => setActiveModal(key);
   const close = ()              => setActiveModal(null);
 
+  // ✅ FIX: handleSaveProfile بيكال updateProfile من AuthContext مباشرة
+  //    updateProfile بيعمل setUser + يحفظ في rahati_current_user + يحدّث rahati_accounts
   const handleSaveProfile = async (data: UserFields) => {
     await updateProfile({
       firstName: data.firstName,
@@ -1056,7 +1031,6 @@ const styles = StyleSheet.create({
   modalBody:  { fontSize:FontSize.base, color:Colors.textSecondary, textAlign:'center', marginBottom:Spacing.xl },
   modalBtns:  { flexDirection:'row', gap:12, width:'100%' },
 
-  // ── Slide Modal ──
   slideModalSafe: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',

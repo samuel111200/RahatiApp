@@ -1053,6 +1053,7 @@ export default function ExercisesScreen() {
   }
 
   async function handleConvertExercise(item: Exercise, targetType: SectionKey) {
+    
     const converted: Exercise = { ...item, type: targetType };
     const [oldList, oldSetter, oldKey] = getListAndSetter(item.type);
     const updatedOld = oldList.filter(e => e.key !== item.key);

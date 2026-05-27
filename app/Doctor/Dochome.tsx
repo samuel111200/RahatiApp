@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  SafeAreaView, StatusBar, TextInput, Modal, FlatList,
-  Animated, Alert, Image,
+  StatusBar, TextInput, Modal, FlatList,
+  Animated, Alert, Image, Platform,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
@@ -58,31 +59,18 @@ type TabItem = {
 };
 
 const TABS: TabItem[] = [
-  {
-    label: 'الرئيسية',
-    icon: 'home-outline',
-    iconActive: 'home',
-    route: '/Doctor/Dochome',
-  },
-  {
-    label: 'الشاتات',
-    icon: 'chatbubbles-outline',
-    iconActive: 'chatbubbles',
-    route: '/Doctor/Docchat',
-  },
-  {
-    label: 'المزيد',
-    icon: 'grid-outline',
-    iconActive: 'grid',
-    route: '/Doctor/Docmore',
-  },
+  { label: 'الرئيسية', icon: 'home-outline',       iconActive: 'home',        route: '/Doctor/Dochome' },
+  { label: 'الشاتات',  icon: 'chatbubbles-outline', iconActive: 'chatbubbles', route: '/Doctor/Docchat' },
+  { label: 'المزيد',   icon: 'grid-outline',         iconActive: 'grid',        route: '/Doctor/Docmore' },
 ];
 
 function DocTabBar() {
   const pathname = usePathname();
+  const insets   = useSafeAreaInsets();
+  const bottomPad = Math.max(insets.bottom, 8);
 
   return (
-    <View style={tabStyles.container}>
+    <View style={[tabStyles.container, { paddingBottom: bottomPad }]}>
       {TABS.map((tab) => {
         const isActive = pathname.startsWith(tab.route);
         return (
@@ -113,16 +101,19 @@ const tabStyles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: DOC_COLOR_LIGHT,
-    paddingBottom: 12,
+    borderRadius: 28,           // ← مش مربع خالص، طايف
+    marginHorizontal: 16,
+    marginBottom: 16,
+    paddingBottom: 10,
     paddingTop: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     shadowColor: DOC_COLOR,
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.10,
-    shadowRadius: 12,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    elevation: 14,
+    borderWidth: 0.5,
+    borderColor: '#E8DFFA',
   },
   tab: {
     flex: 1,
@@ -133,7 +124,7 @@ const tabStyles = StyleSheet.create({
   iconWrap: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: 24,           // ← دايرة تماماً
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',
@@ -378,7 +369,6 @@ export default function DocHome() {
         }
         setPatients(list);
 
-        // load notif count
         const raw = await AsyncStorage.getItem('doc_notifications');
         if (raw) {
           const notifs = JSON.parse(raw);
@@ -436,7 +426,8 @@ export default function DocHome() {
   const docName = user ? `${user.firstName || ''}` : '';
 
   return (
-    <SafeAreaView style={styles.safe}>
+    // ✅ edges={['top']} — بيخلي SafeAreaView يحسب top فقط، والـ bottom بياخده TabBar
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <StatusBar backgroundColor="#F8F5FF" barStyle="dark-content" />
 
       <ScrollView
@@ -663,10 +654,7 @@ const styles = StyleSheet.create({
     shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 2,
     borderWidth: 1.5, borderColor: 'transparent',
   },
-  patientCardPending: {
-    borderColor: '#F4A32B30',
-    backgroundColor: '#FFFDF7',
-  },
+  patientCardPending: { borderColor: '#F4A32B30', backgroundColor: '#FFFDF7' },
 
   rankBadge: {
     width: 28, height: 28, borderRadius: 14,
@@ -708,7 +696,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#4CAF82', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 8, elevation: 4,
   },
-
   chatBtn: {
     width: 44, height: 44, borderRadius: 22,
     backgroundColor: DOC_COLOR_LIGHT,

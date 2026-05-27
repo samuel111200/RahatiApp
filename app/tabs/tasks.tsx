@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView,
-  Modal, TextInput, KeyboardAvoidingView, Platform, TouchableWithoutFeedback,
+  Modal, TextInput, KeyboardAvoidingView, Platform,
   Keyboard, StatusBar, Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -48,18 +48,6 @@ function todayKey() {
   return `${y}-${m}-${dd}`;
 }
 
-function nowInMinutes(): number {
-  const now = new Date();
-  return now.getHours() * 60 + now.getMinutes();
-}
-
-function timeToMinutes(timeStr: string): number {
-  if (!timeStr) return -1;
-  const parsed = parseArabicTime(timeStr);
-  if (!parsed) return -1;
-  return parsed.hours * 60 + parsed.minutes;
-}
-
 // ─── Main Screen ─────────────────────────────────────────
 export default function TasksScreen() {
   const { t, isRTL } = useLang();
@@ -96,16 +84,11 @@ export default function TasksScreen() {
   const [nameError,     setNameError]     = useState(false);
   const [saving,        setSaving]        = useState(false);
 
-  const longPressTimers  = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  const upcomingInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const longPressTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   // ── Load from AsyncStorage ──
   useFocusEffect(useCallback(() => {
     loadAllTasks();
-    startUpcomingWatcher();
-    return () => {
-      stopUpcomingWatcher();
-    };
   }, []));
 
   async function loadAllTasks() {
@@ -132,92 +115,13 @@ export default function TasksScreen() {
     }
   }
 
-  // ── Upcoming watcher (10 min before) ──
-  function startUpcomingWatcher() {
-    if (upcomingInterval.current) return;
-    upcomingInterval.current = setInterval(checkUpcomingTasks, 60_000);
-    checkUpcomingTasks();
-  }
-
-  function stopUpcomingWatcher() {
-    if (upcomingInterval.current) {
-      clearInterval(upcomingInterval.current);
-      upcomingInterval.current = null;
-    }
-  }
-
-  async function checkUpcomingTasks() {
-    try {
-      const todayStr = todayKey();
-      const nowMin   = nowInMinutes();
-
-      const [coreRaw, extraRaw] = await Promise.all([
-        AsyncStorage.getItem(CORE_TASKS_KEY),
-        AsyncStorage.getItem(EXTRA_TASKS_KEY),
-      ]);
-
-      const core: Task[]  = coreRaw  ? JSON.parse(coreRaw)  : [];
-      const extra: Task[] = extraRaw ? JSON.parse(extraRaw) : [];
-      const allTasks      = [...core, ...extra];
-
-      for (const task of allTasks) {
-        if (task.done) continue;
-
-        const timeParts = (task.time ?? '').split(' - ');
-        const startStr  = timeParts[0]?.trim() ?? '';
-        if (!startStr || startStr === '--:--') continue;
-
-        const startMin = timeToMinutes(startStr);
-        if (startMin < 0) continue;
-
-        const diffMin = startMin - nowMin;
-
-        if (diffMin > 9 && diffMin <= 11) {
-          const storageKey = `task_upcoming_10min_${task.key}_${todayStr}`;
-          const already    = await AsyncStorage.getItem(storageKey);
-          if (!already) {
-            const label = task.name ?? task.key;
-            await notify(
-              {
-                title: isRTL ? 'موعد مهمة قريب ⏰' : 'Task coming up ⏰',
-                body: isRTL
-                  ? `${task.icon} "${label}" هتبدأ بعد 10 دقايق`
-                  : `${task.icon} "${label}" starts in 10 minutes`,
-                emoji: '⏰',
-                type: 'task',
-              },
-              'tasks'
-            );
-            await AsyncStorage.setItem(storageKey, '1');
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('checkUpcomingTasks error:', e);
-    }
-  }
-
   // ── Derived ──
   const SECTION_TASKS = activeSection === 'core' ? coreTasks : extraTasks;
   const visible       = filter === 'all'
     ? SECTION_TASKS
     : SECTION_TASKS.filter(tk => tk.cat === filter);
-  const done          = SECTION_TASKS.filter(tk => tk.done).length;
 
   const getLabel = (task: Task) => task.name ?? task.key;
-
-  // ── Toggle done ──
-  const toggle = async (k: string) => {
-    if (activeSection === 'core') {
-      const updated = coreTasks.map(tk => tk.key === k ? { ...tk, done: !tk.done } : tk);
-      setCoreTasks(updated);
-      await AsyncStorage.setItem(CORE_TASKS_KEY, JSON.stringify(updated));
-    } else {
-      const updated = extraTasks.map(tk => tk.key === k ? { ...tk, done: !tk.done } : tk);
-      setExtraTasks(updated);
-      await AsyncStorage.setItem(EXTRA_TASKS_KEY, JSON.stringify(updated));
-    }
-  };
 
   // ── Long press handlers ──
   function handleLongPressStart(task: Task) {
@@ -261,26 +165,25 @@ export default function TasksScreen() {
     };
 
     if (task.type === 'core') {
-      const updatedCore = coreTasks.filter(tk => tk.key !== task.key);
+      const updatedCore  = coreTasks.filter(tk => tk.key !== task.key);
       const updatedExtra = [...extraTasks, convertedTask];
       setCoreTasks(updatedCore);
       setExtraTasks(updatedExtra);
-      await AsyncStorage.setItem(CORE_TASKS_KEY, JSON.stringify(updatedCore));
+      await AsyncStorage.setItem(CORE_TASKS_KEY,  JSON.stringify(updatedCore));
       await AsyncStorage.setItem(EXTRA_TASKS_KEY, JSON.stringify(updatedExtra));
     } else {
       const updatedExtra = extraTasks.filter(tk => tk.key !== task.key);
-      const updatedCore = [...coreTasks, convertedTask];
+      const updatedCore  = [...coreTasks, convertedTask];
       setExtraTasks(updatedExtra);
       setCoreTasks(updatedCore);
       await AsyncStorage.setItem(EXTRA_TASKS_KEY, JSON.stringify(updatedExtra));
-      await AsyncStorage.setItem(CORE_TASKS_KEY, JSON.stringify(updatedCore));
+      await AsyncStorage.setItem(CORE_TASKS_KEY,  JSON.stringify(updatedCore));
     }
 
     await AsyncStorage.setItem('data_changed_at', Date.now().toString());
     setActiveSection(newTaskType);
     setFilter('all');
 
-    suppressTaskListNotifOnce();
     await notify({
       title: isRTL ? 'تم التحويل ✅' : 'Task Moved ✅',
       body: isRTL
@@ -288,13 +191,12 @@ export default function TasksScreen() {
         : `"${getLabel(task)}" moved to ${newTaskType === 'core' ? 'Core' : 'Extra'}`,
       emoji: task.icon,
       type: 'add',
+      dedupKey: `task_convert_${task.key}_${newTaskType}_${todayKey()}`,
     });
   }
 
   // ── Delete task ──
   async function handleDeleteTask(task: Task) {
-    suppressTaskListNotifOnce();
-
     if (task.type === 'core') {
       const updated = coreTasks.filter(tk => tk.key !== task.key);
       setCoreTasks(updated);
@@ -314,6 +216,7 @@ export default function TasksScreen() {
         : `"${getLabel(task)}" has been deleted`,
       emoji: task.icon,
       type: 'delete',
+      dedupKey: `task_deleted_${task.key}_${Date.now()}`,
     });
   }
 
@@ -390,6 +293,16 @@ export default function TasksScreen() {
       await AsyncStorage.setItem('data_changed_at', Date.now().toString());
       setActiveSection(newType);
 
+      await notify({
+        title: isRTL ? 'تمت إضافة مهمة جديدة ✅' : 'New Task Added ✅',
+        body: isRTL
+          ? `${newTask.icon} "${newTask.name}" اتضافت${newType === 'extra' ? ' لليوم ده' : ' للمهام الأساسية'}`
+          : `${newTask.icon} "${newTask.name}" added to ${newType === 'extra' ? 'today' : 'core tasks'}`,
+        emoji: '✅',
+        type: 'add',
+        dedupKey: `task_added_${newTask.key}`,
+      });
+
     } catch (e) {
       console.warn('addTask error:', e);
       setSaving(false);
@@ -419,8 +332,8 @@ export default function TasksScreen() {
             <Text style={styles.title}>{t.myTasks}</Text>
             <Text style={styles.subtitle}>
               {isRTL
-                ? `${done} ${t.from} ${SECTION_TASKS.length} ${t.completedOf}`
-                : `${done} ${t.completedOf} ${t.from} ${SECTION_TASKS.length}`}
+                ? `${SECTION_TASKS.length} ${t.from ?? 'مهمة'}`
+                : `${SECTION_TASKS.length} task${SECTION_TASKS.length !== 1 ? 's' : ''}`}
             </Text>
           </View>
 
@@ -488,7 +401,7 @@ export default function TasksScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={[
             styles.filters,
-            { flexDirection: isRTL ? 'row-reverse' : 'row', alignContent: isRTL ? 'flex-end' : 'flex-start' },
+            { flexDirection: isRTL ? 'row-reverse' : 'row' },
           ]}
           style={{ marginBottom: Spacing.base }}
           keyboardShouldPersistTaps="handled"
@@ -518,21 +431,20 @@ export default function TasksScreen() {
           ) : visible.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={{ fontSize: 36 }}>📭</Text>
-              <Text style={styles.emptyText}>{isRTL ? 'لا توجد مهام في هذا التصنيف' : 'No tasks in this category'}</Text>
+              <Text style={styles.emptyText}>
+                {isRTL ? 'لا توجد مهام في هذا التصنيف' : 'No tasks in this category'}
+              </Text>
             </View>
           ) : (
             visible.map((task) => (
               <TouchableOpacity
                 key={task.key}
-                onPress={() => toggle(task.key)}
                 onPressIn={() => handleLongPressStart(task)}
                 onPressOut={() => handleLongPressEnd(task.key)}
-                delayLongPress={600}
                 activeOpacity={0.85}
                 style={[
                   styles.taskCard,
                   { flexDirection: isRTL ? 'row-reverse' : 'row' },
-                  task.done && styles.taskCardDone,
                 ]}
               >
                 {/* Icon */}
@@ -543,7 +455,7 @@ export default function TasksScreen() {
                 {/* Info */}
                 <View style={[styles.taskInfo, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
                   <View style={[styles.taskTitleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <Text style={[styles.taskTitle, task.done && styles.taskTitleDone]}>
+                    <Text style={styles.taskTitle}>
                       {getLabel(task)}
                     </Text>
                     <View style={[styles.typeBadge, { backgroundColor: task.type === 'core' ? '#7C5CBF22' : '#F4A32B22' }]}>
@@ -796,13 +708,11 @@ const styles = StyleSheet.create({
     shadowColor: Colors.shadowDark,
     shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 6, elevation: 2,
   },
-  taskCardDone: { opacity: 0.55 },
 
   taskIcon:     { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
   taskInfo:     { flex: 1, gap: 4 },
   taskTitleRow: { alignItems: 'center', gap: 6 },
   taskTitle:    { fontSize: FontSize.base, fontWeight: '700', color: Colors.textPrimary },
-  taskTitleDone:{ textDecorationLine: 'line-through', color: Colors.textMuted },
   typeBadge:    { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
   typeBadgeText:{ fontSize: 11 },
   taskMetaRow:  { alignItems: 'center', gap: 2 },
@@ -831,9 +741,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 20,
   },
-  modalTitle: {
-    fontSize: 18, fontWeight: '800', color: Colors.textPrimary,
-  },
+  modalTitle:   { fontSize: 18, fontWeight: '800', color: Colors.textPrimary },
   modalCloseBtn: {
     width: 32, height: 32, borderRadius: 16,
     backgroundColor: '#F0F0F0',
