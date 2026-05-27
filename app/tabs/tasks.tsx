@@ -60,27 +60,12 @@ function timeToMinutes(timeStr: string): number {
   return parsed.hours * 60 + parsed.minutes;
 }
 
-// ─── Default core tasks ───────────────────────────────────
-const DEFAULT_CORE_TASKS: Task[] = [
-  { key: 'coding',   icon: '💻', cat: 'work',  energy: 25, color: '#5B9BD5', bg: '#E8F1FB', time: '09:00 - 10:30', done: false, type: 'core' },
-  { key: 'reading',  icon: '📚', cat: 'study', energy: 20, color: '#4CAF82', bg: '#E8F5EF', time: '11:00 - 12:00', done: false, type: 'core' },
-  { key: 'cooking',  icon: '🍲', cat: 'home',  energy: 30, color: '#C97B3A', bg: '#FEF3E2', time: '01:00 - 02:00', done: false, type: 'core' },
-  { key: 'cleaning', icon: '🧹', cat: 'home',  energy: 15, color: '#D15DBF', bg: '#FAE8F8', time: '03:00 - 04:00', done: false, type: 'core' },
-];
-
 // ─── Main Screen ─────────────────────────────────────────
 export default function TasksScreen() {
   const { t, isRTL } = useLang();
   const navigation   = useNavigation();
 
   const TODAY = todayKey();
-
-  const CORE_LABELS: Record<string, string> = {
-    coding:   t.taskCoding,
-    reading:  t.taskReading,
-    cooking:  t.taskCooking,
-    cleaning: t.taskCleaning,
-  };
 
   const FILTERS = [
     { k: 'all',   l: t.all    },
@@ -128,8 +113,8 @@ export default function TasksScreen() {
     if (storedCore) {
       setCoreTasks(JSON.parse(storedCore));
     } else {
-      await AsyncStorage.setItem(CORE_TASKS_KEY, JSON.stringify(DEFAULT_CORE_TASKS));
-      setCoreTasks(DEFAULT_CORE_TASKS);
+      await AsyncStorage.setItem(CORE_TASKS_KEY, JSON.stringify([]));
+      setCoreTasks([]);
     }
 
     const storedExtra = await AsyncStorage.getItem(EXTRA_TASKS_KEY);
@@ -151,7 +136,6 @@ export default function TasksScreen() {
   function startUpcomingWatcher() {
     if (upcomingInterval.current) return;
     upcomingInterval.current = setInterval(checkUpcomingTasks, 60_000);
-    // شغّلها مرة فور ما الصفحة تتفتح
     checkUpcomingTasks();
   }
 
@@ -179,7 +163,6 @@ export default function TasksScreen() {
       for (const task of allTasks) {
         if (task.done) continue;
 
-        // استخرج وقت البداية من الـ time string  "09:00 - 10:30"
         const timeParts = (task.time ?? '').split(' - ');
         const startStr  = timeParts[0]?.trim() ?? '';
         if (!startStr || startStr === '--:--') continue;
@@ -189,12 +172,11 @@ export default function TasksScreen() {
 
         const diffMin = startMin - nowMin;
 
-        // بين 9 و 11 دقيقة قبل الموعد
         if (diffMin > 9 && diffMin <= 11) {
           const storageKey = `task_upcoming_10min_${task.key}_${todayStr}`;
           const already    = await AsyncStorage.getItem(storageKey);
           if (!already) {
-            const label = task.name ?? CORE_LABELS[task.key] ?? task.key;
+            const label = task.name ?? task.key;
             await notify(
               {
                 title: isRTL ? 'موعد مهمة قريب ⏰' : 'Task coming up ⏰',
@@ -222,7 +204,7 @@ export default function TasksScreen() {
     : SECTION_TASKS.filter(tk => tk.cat === filter);
   const done          = SECTION_TASKS.filter(tk => tk.done).length;
 
-  const getLabel = (task: Task) => task.name ?? CORE_LABELS[task.key] ?? task.key;
+  const getLabel = (task: Task) => task.name ?? task.key;
 
   // ── Toggle done ──
   const toggle = async (k: string) => {
@@ -500,31 +482,13 @@ export default function TasksScreen() {
           </Text>
         </View>
 
-        {/* ── Progress ── */}
-        <View style={styles.progressCard}>
-          <View style={styles.progressRow}>
-            <Text style={styles.progressPct}>
-              {SECTION_TASKS.length > 0 ? Math.round((done / SECTION_TASKS.length) * 100) : 0}%
-            </Text>
-            <Text style={styles.progressLabel}>{t.todayProgress}</Text>
-          </View>
-          <View style={styles.progressTrack}>
-            <View
-              style={[
-                styles.progressFill,
-                { width: `${SECTION_TASKS.length > 0 ? (done / SECTION_TASKS.length) * 100 : 0}%` as any },
-              ]}
-            />
-          </View>
-        </View>
-
         {/* ── Filters ── */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={[
             styles.filters,
-            { flexDirection: isRTL ? 'row-reverse' : 'row' , alignContent: isRTL ? 'flex-end' : 'flex-start' },
+            { flexDirection: isRTL ? 'row-reverse' : 'row', alignContent: isRTL ? 'flex-end' : 'flex-start' },
           ]}
           style={{ marginBottom: Spacing.base }}
           keyboardShouldPersistTaps="handled"
@@ -568,13 +532,15 @@ export default function TasksScreen() {
                 style={[
                   styles.taskCard,
                   { flexDirection: isRTL ? 'row-reverse' : 'row' },
-                  task.done && { opacity: 0.65 },
+                  task.done && styles.taskCardDone,
                 ]}
               >
+                {/* Icon */}
                 <View style={[styles.taskIcon, { backgroundColor: task.bg }]}>
                   <Text style={{ fontSize: 28 }}>{task.icon}</Text>
                 </View>
 
+                {/* Info */}
                 <View style={[styles.taskInfo, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
                   <View style={[styles.taskTitleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                     <Text style={[styles.taskTitle, task.done && styles.taskTitleDone]}>
@@ -598,10 +564,6 @@ export default function TasksScreen() {
                       <Text style={[styles.energyPct, { color: task.color }]}>{task.energy}%</Text>
                     </View>
                   </View>
-                </View>
-
-                <View style={[styles.checkbox, task.done && { backgroundColor: Colors.success, borderColor: Colors.success }]}>
-                  {task.done && <Ionicons name="checkmark" size={14} color="#fff" />}
                 </View>
               </TouchableOpacity>
             ))
@@ -816,18 +778,6 @@ const styles = StyleSheet.create({
   },
   sectionHintText: { fontSize: 11, color: '#7C5CBF99', fontStyle: 'italic' },
 
-  progressCard: {
-    backgroundColor: Colors.white, borderRadius: Radius.xl,
-    padding: Spacing.base, marginBottom: Spacing.xl,
-    shadowColor: Colors.shadowDark,
-    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 6, elevation: 2,
-  },
-  progressRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  progressLabel: { fontSize: FontSize.sm, fontWeight: '500', color: Colors.textSecondary },
-  progressPct:   { fontSize: FontSize.md, fontWeight: '800', color: Colors.primary },
-  progressTrack: { height: 8, backgroundColor: Colors.border, borderRadius: 4, overflow: 'hidden' },
-  progressFill:  { height: '100%', backgroundColor: Colors.primary, borderRadius: 4 },
-
   filters: { gap: 8, paddingVertical: 4 },
 
   taskList: { gap: 14 },
@@ -846,6 +796,8 @@ const styles = StyleSheet.create({
     shadowColor: Colors.shadowDark,
     shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 6, elevation: 2,
   },
+  taskCardDone: { opacity: 0.55 },
+
   taskIcon:     { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
   taskInfo:     { flex: 1, gap: 4 },
   taskTitleRow: { alignItems: 'center', gap: 6 },
@@ -860,11 +812,6 @@ const styles = StyleSheet.create({
   energyFill:   { height: '100%', borderRadius: 2 },
   energyBadge:  { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
   energyPct:    { fontSize: 10, fontWeight: '700' },
-  checkbox: {
-    width: 28, height: 28, borderRadius: 14,
-    borderWidth: 2, borderColor: Colors.border,
-    alignItems: 'center', justifyContent: 'center',
-  },
 
   // ── Modal ──
   modalSheet: {

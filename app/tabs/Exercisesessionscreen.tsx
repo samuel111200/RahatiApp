@@ -19,22 +19,39 @@ import { useLang } from '../../context/Languagecontext';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 
 const EXERCISE_VIDEOS: Record<string, any> = {
-  childsPose:   require('../../assets/videos/2.mp4'),
-  warriorTwo:   require('../../assets/videos/3.mp4'),
-  jabPunches:   require('../../assets/videos/4.mp4'),
-  comboPunches: require('../../assets/videos/5.mp4'),
-  wristCurls:  require('../../assets/videos/first.mp4'),
-  armRaise:    require('../../assets/videos/first.mp4'),
-  rollUp:      require('../../assets/videos/first.mp4'),
-  sway:        require('../../assets/videos/first.mp4'),
-  bounce:      require('../../assets/videos/first.mp4'),
-  legCurl:     require('../../assets/videos/first.mp4'),
-  wallSit:     require('../../assets/videos/first.mp4'),
-  calfRaise:   require('../../assets/videos/first.mp4'),
-  plankKnee:   require('../../assets/videos/first.mp4'),
+  // ── Therapy ──────────────────────────────────────────────
+  wristCurls:        require("../../assets/videos/first.mp4"),
+
+  // ── Yoga ─────────────────────────────────────────────────
+  childsPose:        require("../../assets/videos/2.mp4"),
+  warriorTwo:        require("../../assets/videos/3.mp4"),
+  jabPunches:        require("../../assets/videos/4.mp4"),
+  comboPunches:      require("../../assets/videos/5.mp4"),
+
+  // ── Aerobic ──────────────────────────────────────────────
+  singleLegStand:    require("../../assets/videos/6.mp4"),
+
+  // ── Endurance ────────────────────────────────────────────
+  armBottles:        require("../../assets/videos/7.mp4"),
+  seatedEndurance:   require("../../assets/videos/8.mp4"),
+  neckFlexibility:   require("../../assets/videos/9.mp4"),
+  standUpStrength:   require("../../assets/videos/10.mp4"),
+  upperBodyStretch:  require("../../assets/videos/11.mp4"),
+
+  // ── Strength Training ─────────────────────────────────────
+  // TODO: ضع اسم الفيديو الصح بدل "REPLACE_ME_XX.mp4"
+  marchingInPlace:   require("../../assets/videos/12.mp4"),
+  chairSquat:        require("../../assets/videos/13.mp4"),
+  hipStrength:       require("../../assets/videos/14.mp4"),
+  seatedTwistKnee:   require("../../assets/videos/15.mp4"),
+  armLegStrength:    require("../../assets/videos/16.mp4"),
+  standingArmTrunk:  require("../../assets/videos/17.mp4"),
+  lyingTwistArms:    require("../../assets/videos/18.mp4"),
+  backBridgeLying:   require("../../assets/videos/19.mp4"),
+  upperFlexArmStrength: require("../../assets/videos/20.mp4"),
+  trunkBackFlexibility: require("../../assets/videos/21.mp4"),
 };
 
-const DEFAULT_VIDEO = require('../../assets/videos/first.mp4');
 
 const { width } = Dimensions.get('window');
 
@@ -63,7 +80,6 @@ export default function ExerciseSessionScreen() {
   const { isRTL } = useLang();
   const router = useRouter();
 
-  // ✅ التعديل الرئيسي: استخدام useLocalSearchParams بدل useRoute
   const params = useLocalSearchParams<Record<string, string>>();
 
   const exerciseKey     = params.exerciseKey ?? '';
@@ -75,11 +91,10 @@ export default function ExerciseSessionScreen() {
   const accent          = params.accent ?? '#D0E5F7';
   const durationSeconds = parseInt(params.durationSeconds ?? '300');
 
-  // ✅ الـ arrays بتيجي كـ JSON string — لازم نعمل parse
   const steps   = (() => { try { return JSON.parse(params.steps   ?? '[]'); } catch { return []; } })();
   const stepsEn = (() => { try { return JSON.parse(params.stepsEn ?? '[]'); } catch { return []; } })();
 
-  const videoSource = EXERCISE_VIDEOS[exerciseKey] ?? DEFAULT_VIDEO;
+  const videoSource = EXERCISE_VIDEOS[exerciseKey] || null;
 
   const [timeLeft,    setTimeLeft]    = useState(durationSeconds);
   const [isPaused,    setIsPaused]    = useState(false);
