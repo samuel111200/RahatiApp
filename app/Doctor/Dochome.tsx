@@ -13,7 +13,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/Languagecontext';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 import { usePathname } from 'expo-router';
-import { notifyPatientAccepted } from "./DocNotifService";
+import { getDocNotifUnreadCount } from './DocNotifService';
 
 const DOC_COLOR       = '#7C5CBF';
 const DOC_COLOR_LIGHT = '#F0EBFA';
@@ -209,9 +209,11 @@ export default function DocHome() {
   const [loading,      setLoading]     = useState(true);
   const [notifCount,   setNotifCount]  = useState(0);
 
+  // ─── تحديث الـ badge في كل مرة تتفتح الصفحة ──────────
   useFocusEffect(useCallback(() => {
     const init = async () => {
       setLoading(true);
+
       let list = await loadPatients();
       if (list.length === 0) {
         list = [
@@ -224,39 +226,39 @@ export default function DocHome() {
         await savePatients(list);
       }
       setPatients(list);
-const raw = await AsyncStorage.getItem('doc_notifications');
-if (raw) { const notifs = JSON.parse(raw); setNotifCount(notifs.filter((n:any)=>!n.read).length);  }
+
+      // ✅ حساب الـ badge من doc_notifications في كل فتح للصفحة
+      const count = await getDocNotifUnreadCount();
+      setNotifCount(count);
+
       setLoading(false);
     };
     init();
   }, []));
 
-const handleAcceptConfirm = async () => {
-  if (!pendingModal) return;
-  const updated = patients.map((p) =>
-    p.id === pendingModal.id
-      ? {
-          ...p,
-          status: "accepted" as PatientStatus,
-          acceptedAt: new Date().toISOString(),
-        }
-      : p,
-  );
-  setPatients(updated);
-  await savePatients(updated);
+  // ─── قبول المريض ──────────────────────────────────────
+  const handleAcceptConfirm = async () => {
+    if (!pendingModal) return;
+    const updated = patients.map((p) =>
+      p.id === pendingModal.id
+        ? { ...p, status: 'accepted' as PatientStatus, acceptedAt: new Date().toISOString() }
+        : p,
+    );
+    setPatients(updated);
+    await savePatients(updated);
 
-  const { notifyPatientAccepted } = await import("./DocNotifService");
-  await notifyPatientAccepted(
-    `${pendingModal.firstName} ${pendingModal.lastName}`,
-    pendingModal.id,
-  );
+    const { notifyPatientAccepted } = await import('./DocNotifService');
+    await notifyPatientAccepted(
+      `${pendingModal.firstName} ${pendingModal.lastName}`,
+      pendingModal.id,
+    );
 
-  // ← أضف السطرين دول
-  const raw = await AsyncStorage.getItem("doc_notifications");
-  if (raw) setNotifCount(JSON.parse(raw).filter((n: any) => !n.read).length);
+    // ✅ أعد حساب الـ badge فوراً بعد إضافة الإشعار
+    const count = await getDocNotifUnreadCount();
+    setNotifCount(count);
 
-  setPendingModal(null);
-};
+    setPendingModal(null);
+  };
 
   const handleOpenChat = (patient: Patient) => {
     router.push({ pathname:'/Doctor/Docpatient', params:{ patientId:patient.id, patientName:`${patient.firstName} ${patient.lastName}` } });
@@ -270,7 +272,6 @@ const handleAcceptConfirm = async () => {
   const acceptedCount = patients.filter(p=>p.status==='accepted').length;
   const docName = user?.firstName || '';
 
-  // ─── Label ديناميكي: لو في pending → "مرضى مقبولون"، لو مفيش → "مرضى"
   const acceptedLabel = pendingCount > 0
     ? (isRTL ? 'مرضى مقبولون' : 'Accepted')
     : (isRTL ? 'مرضى'         : 'Patients');
@@ -288,7 +289,11 @@ const handleAcceptConfirm = async () => {
           </View>
           <TouchableOpacity style={styles.notifBtn} onPress={() => router.push('/Doctor/Docnotif' as any)}>
             <Ionicons name="notifications-outline" size={22} color={DOC_COLOR} />
-            {notifCount > 0 && <View style={styles.notifDot}><Text style={styles.notifDotText}>{notifCount>9?'9+':notifCount}</Text></View>}
+            {notifCount > 0 && (
+              <View style={styles.notifDot}>
+                <Text style={styles.notifDotText}>{notifCount > 9 ? '9+' : notifCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 

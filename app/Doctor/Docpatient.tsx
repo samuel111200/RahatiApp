@@ -11,10 +11,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Spacing, FontSize } from '../../constants/Theme';
 import { useLang } from '../../context/Languagecontext';
 import { useChats } from '../../context/Chatscontext';
+import { notifyMessageSent, notifyIncomingMessage } from './DocNotifService';
 
 const DOC_COLOR       = '#7C5CBF';
 const DOC_COLOR_LIGHT = '#F0EBFA';
-const MESSAGES_KEY    = 'doc_messages'; // نفس الـ key في Docchat
+const MESSAGES_KEY    = 'doc_messages';
+
+// ─── مفتاح لتتبع آخر رسالة مريض شوفناها (لمنع التكرار) ──
+const LAST_SEEN_KEY = 'doc_last_seen_msg';
 
 type Message = {
   id: string;
@@ -140,6 +144,50 @@ export default function Docpatient() {
 
   const [messages, setMessages] = useState<Message[]>([]);
 
+  // ─── Polling: شايف رسايل جديدة من المريض كل 5 ثواني ──
+  const lastSeenMsgIdRef = useRef<string>('');
+
+  const checkForNewPatientMessages = useCallback(async () => {
+    if (!patientId) return;
+    try {
+      const raw = await AsyncStorage.getItem(`doc_chat_${patientId}`);
+      if (!raw) return;
+      const msgs: Message[] = JSON.parse(raw);
+      if (!msgs.length) return;
+
+      // آخر رسالة من المريض
+      const patientMsgs = msgs.filter(m => m.sender === 'patient');
+      if (!patientMsgs.length) return;
+
+      const latestPatientMsg = patientMsgs[patientMsgs.length - 1];
+
+      // لو رسالة جديدة مش شوفناها → ولّد notification
+      if (latestPatientMsg.id !== lastSeenMsgIdRef.current) {
+        // أول مرة نشتغل → خزّن بدون notification
+        if (lastSeenMsgIdRef.current === '') {
+          lastSeenMsgIdRef.current = latestPatientMsg.id;
+          return;
+        }
+        lastSeenMsgIdRef.current = latestPatientMsg.id;
+        await notifyIncomingMessage(patientName || 'مريض', patientId, latestPatientMsg.text);
+
+        // حدّث الـ UI لو فيه رسايل جديدة
+        setMessages(msgs);
+        setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+      }
+    } catch {}
+  }, [patientId, patientName]);
+
+  // ── بدء الـ polling لما الشاشة تتفتح ──
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useFocusEffect(useCallback(() => {
+    pollingRef.current = setInterval(checkForNewPatientMessages, 5000);
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, [checkForNewPatientMessages]));
+
   // ── حمّل الرسايل المحفوظة لو موجودة ──
   useEffect(() => {
     const loadMsgs = async () => {
@@ -147,58 +195,57 @@ export default function Docpatient() {
         const raw = await AsyncStorage.getItem(`doc_chat_${patientId}`);
         if (raw) {
           const msgs: Message[] = JSON.parse(raw);
-          const lastMsg = msgs[msgs.length - 1];
-          if (lastMsg?.sender === "patient") {
-            const { notifyNewMessage } = await import("./DocNotifService");
-            await notifyNewMessage(patientName, patientId, lastMsg.text);
+
+          // ✅ خزّن آخر رسالة مريض كـ "شوفناها" (بدون notification عند الفتح)
+          const patientMsgs = msgs.filter(m => m.sender === 'patient');
+          if (patientMsgs.length > 0) {
+            lastSeenMsgIdRef.current = patientMsgs[patientMsgs.length - 1].id;
           }
+
           setMessages(msgs);
         } else {
           const initialMsgs: Message[] = [
             {
-              id: "d1",
-              text: "أهلاً دكتور، أنا عندي ألم في الظهر من يومين",
-              sender: "patient",
-              time: "10:23 ص",
-              status: "read",
+              id: 'd1',
+              text: 'أهلاً دكتور، أنا عندي ألم في الظهر من يومين',
+              sender: 'patient',
+              time: '10:23 ص',
+              status: 'read',
             },
             {
-              id: "d2",
-              text: "أهلاً، هل الألم مستمر ولا بيجي ويروح؟",
-              sender: "doctor",
-              time: "10:24 ص",
-              status: "read",
+              id: 'd2',
+              text: 'أهلاً، هل الألم مستمر ولا بيجي ويروح؟',
+              sender: 'doctor',
+              time: '10:24 ص',
+              status: 'read',
             },
             {
-              id: "d3",
-              text: "بيجي ويروح خصوصاً لما بقعد كتير",
-              sender: "patient",
-              time: "10:25 ص",
-              status: "read",
+              id: 'd3',
+              text: 'بيجي ويروح خصوصاً لما بقعد كتير',
+              sender: 'patient',
+              time: '10:25 ص',
+              status: 'read',
             },
             {
-              id: "d4",
-              text: "حسناً، ده غالباً من الجلوس الطويل. حاول تمشي كل ساعة وخد مسكن خفيف",
-              sender: "doctor",
-              time: "10:26 ص",
-              status: "read",
+              id: 'd4',
+              text: 'حسناً، ده غالباً من الجلوس الطويل. حاول تمشي كل ساعة وخد مسكن خفيف',
+              sender: 'doctor',
+              time: '10:26 ص',
+              status: 'read',
             },
           ];
+          // خزّن آخر رسالة مريض كـ "شوفناها"
+          const patientMsgs = initialMsgs.filter(m => m.sender === 'patient');
+          if (patientMsgs.length > 0) {
+            lastSeenMsgIdRef.current = patientMsgs[patientMsgs.length - 1].id;
+          }
+
           setMessages(initialMsgs);
-          // احفظ الرسايل الابتدائية فوراً عشان Docchat يلاقيها
-          await AsyncStorage.setItem(
-            `doc_chat_${patientId}`,
-            JSON.stringify(initialMsgs),
-          );
-          // حدّث MESSAGES_KEY بآخر رسالة ابتدائية
+          await AsyncStorage.setItem(`doc_chat_${patientId}`, JSON.stringify(initialMsgs));
           const lastMsg = initialMsgs[initialMsgs.length - 1];
           const msgsRaw = await AsyncStorage.getItem(MESSAGES_KEY);
           const store = msgsRaw ? JSON.parse(msgsRaw) : {};
-          store[patientId] = {
-            text: lastMsg.text,
-            time: lastMsg.time,
-            sender: lastMsg.sender,
-          };
+          store[patientId] = { text: lastMsg.text, time: lastMsg.time, sender: lastMsg.sender };
           await AsyncStorage.setItem(MESSAGES_KEY, JSON.stringify(store));
         }
       } catch {}
@@ -210,9 +257,7 @@ export default function Docpatient() {
   const saveMessages = useCallback(async (msgs: Message[]) => {
     if (!patientId) return;
     try {
-      // 1) احفظ كل الرسايل
       await AsyncStorage.setItem(`doc_chat_${patientId}`, JSON.stringify(msgs));
-      // 2) حدّث آخر رسالة في الـ store المشترك مع Docchat
       const last = msgs[msgs.length - 1];
       if (last) {
         const raw   = await AsyncStorage.getItem(MESSAGES_KEY);
@@ -238,6 +283,7 @@ export default function Docpatient() {
     Animated.spring(quickAnim, { toValue: toVal, tension: 120, friction: 8, useNativeDriver: true }).start();
   };
 
+  // ✅ sendMessage + notification إن الدكتور بعت رسالة
   const sendMessage = useCallback((text: string) => {
     if (!text.trim()) return;
     const newMsg: Message = {
@@ -249,10 +295,14 @@ export default function Docpatient() {
       saveMessages(updated);
       return updated;
     });
+
+    // ✅ notification رسالة مُرسلة من الدكتور
+    notifyMessageSent(patientName || 'مريض', patientId || '', text.trim()).catch(() => {});
+
     setInputText('');
     setShowQuick(false);
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-  }, [saveMessages]);
+  }, [saveMessages, patientName, patientId]);
 
   const handleQuickReply = (text: string) => {
     sendMessage(text);

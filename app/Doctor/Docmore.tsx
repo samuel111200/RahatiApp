@@ -14,7 +14,12 @@ import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/Languagecontext';
 import { PrimaryButton, OutlineButton } from '../../components/UI';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
-import { notify } from '../tabs/notificationService';
+import {
+  notifyProfileUpdated,
+  notifyLanguageChanged,
+  notifyAvatarUpdated,
+  notifyLogout,
+} from './DocNotifService';
 
 // ─── Doctor color (unified) ───────────────────────────────
 const DOC_COLOR       = '#7C5CBF';
@@ -242,14 +247,8 @@ function EditProfileModal({ visible, onClose, user, onSave, t, isRTL }: {
     try {
       onSave(form);
       onClose();
-      notify({
-        title: isRTL ? 'تم تحديث الملف الشخصي ✅' : 'Profile Updated ✅',
-        body: isRTL
-          ? `د. ${form.firstName}! تم حفظ بياناتك بنجاح`
-          : `Dr. ${form.firstName}! Your profile has been updated successfully`,
-        emoji: '🩺',
-        type: 'add',
-      });
+      // ✅ إشعار حفظ البروفايل يروح لـ doc_notifications
+      await notifyProfileUpdated(`${form.firstName} ${form.lastName}`);
     } catch {
       Alert.alert(t.error || 'خطأ', t.saveFailed || 'فشل الحفظ، حاول مجدداً');
     } finally { setSaving(false); }
@@ -473,16 +472,20 @@ export default function DocMoreScreen() {
 
     setSpecialty(data.specialty || '');
     setLicenseNumber(data.licenseNumber || '');
+    // الـ notification بيتبعت جوه EditProfileModal عشان يعرف الاسم الجديد
   };
 
+  // ✅ تغيير اللغة + notification
   const handleLanguageSelect = async (lang: 'ar' | 'en') => {
     await AsyncStorage.setItem('app_language', lang);
     setLang(lang);
+    await notifyLanguageChanged(lang);
   };
 
   const handleAvatarPressIn  = () => { longPressTimer.current = setTimeout(() => setShowAvatarSheet(true), 500); };
   const handleAvatarPressOut = () => { if (longPressTimer.current) clearTimeout(longPressTimer.current); };
 
+  // ✅ اختيار صورة + notification
   const handlePickAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -497,12 +500,25 @@ export default function DocMoreScreen() {
       const dataUri = `data:image/jpeg;base64,${result.assets[0].base64}`;
       await AsyncStorage.setItem('user_avatar', dataUri);
       setAvatarUri(dataUri);
+      // ✅ notification رفع الصورة
+      await notifyAvatarUpdated('added');
     }
   };
 
+  // ✅ حذف الصورة + notification
   const handleDeleteAvatar = async () => {
     await AsyncStorage.removeItem('user_avatar');
     setAvatarUri(null);
+    // ✅ notification حذف الصورة
+    await notifyAvatarUpdated('deleted');
+  };
+
+  // ✅ تسجيل الخروج + notification
+  const handleLogout = async () => {
+    close();
+    await notifyLogout();
+    logout();
+    router.replace('/auth/sign-in');
   };
 
   const MENU = [
@@ -522,7 +538,6 @@ export default function DocMoreScreen() {
     licenseNumber,
   };
 
-  // ─── Label ديناميكي: لو في pending → "مرضى مقبولون"، لو مفيش → "مرضى"
   const activePatientsLabel = pendingPatients > 0
     ? (isRTL ? 'مرضى مقبولون' : 'Accepted Patients')
     : (isRTL ? 'مرضى'         : 'Patients');
@@ -684,7 +699,7 @@ export default function DocMoreScreen() {
               <OutlineButton title={t.cancel  || 'إلغاء'} onPress={close} style={{ flex: 1 }} />
               <PrimaryButton
                 title={t.confirm || 'تأكيد'}
-                onPress={() => { close(); logout(); router.replace('/auth/sign-in'); }}
+                onPress={handleLogout}
                 style={{ flex: 1, backgroundColor: Colors.danger }}
               />
             </View>
