@@ -18,7 +18,7 @@ const CARD_W = width * 0.72;
 const CARD_H = height * 0.57;
 
 // ─── Types ────────────────────────────────────────────────
-type ExerciseType = 'therapy' | 'yoga' | 'aerobic' | 'endurance' | 'strength';
+type ExerciseType = 'therapy' | 'yoga' | 'aerobic' | 'endurance' | 'strength' | 'coordination';
 
 type Exercise = {
   key: string;
@@ -41,11 +41,12 @@ type Exercise = {
 };
 
 // ─── Storage Keys ─────────────────────────────────────────
-const THERAPY_KEY   = 'therapy_exercises';
-const YOGA_KEY      = 'yoga_exercises';
-const AEROBIC_KEY   = 'aerobic_exercises';
-const ENDURANCE_KEY = 'endurance_exercises';
-const STRENGTH_KEY  = 'strength_exercises';
+const THERAPY_KEY      = 'therapy_exercises';
+const YOGA_KEY         = 'yoga_exercises';
+const AEROBIC_KEY      = 'aerobic_exercises';
+const ENDURANCE_KEY    = 'endurance_exercises';
+const STRENGTH_KEY     = 'strength_exercises';
+const COORDINATION_KEY = 'coordination_exercises';
 
 // ─── Section Config ───────────────────────────────────────
 type SectionKey = ExerciseType;
@@ -112,15 +113,26 @@ const SECTION_CONFIGS: SectionConfig[] = [
     descEn: 'Muscle & joint strengthening exercises',
     emoji: '🏋️',
   },
+  {
+    key: 'coordination',
+    labelAr: 'تناسق',
+    labelEn: 'Coordination',
+    icon: 'sync-outline',
+    color: '#2A9D8F',
+    descAr: 'تمارين التناسق الحركي والتوازن',
+    descEn: 'Motor coordination & balance exercises',
+    emoji: '🎯',
+  },
 ];
 
 // ─── Section badge styles ─────────────────────────────────
 const SECTION_BADGE: Record<SectionKey, { bg: string; color: string; label: string }> = {
-  therapy:   { bg: '#5B9BD522', color: '#5B9BD5', label: '🩺' },
-  yoga:      { bg: '#4CAF8222', color: '#4CAF82', label: '🧘' },
-  aerobic:   { bg: '#E07B5C22', color: '#E07B5C', label: '🏃' },
-  endurance: { bg: '#D45BAA22', color: '#D45BAA', label: '💪' },
-  strength:  { bg: '#7B5EA722', color: '#7B5EA7', label: '🏋️' },
+  therapy:      { bg: '#5B9BD522', color: '#5B9BD5', label: '🩺' },
+  yoga:         { bg: '#4CAF8222', color: '#4CAF82', label: '🧘' },
+  aerobic:      { bg: '#E07B5C22', color: '#E07B5C', label: '🏃' },
+  endurance:    { bg: '#D45BAA22', color: '#D45BAA', label: '💪' },
+  strength:     { bg: '#7B5EA722', color: '#7B5EA7', label: '🏋️' },
+  coordination: { bg: '#2A9D8F22', color: '#2A9D8F', label: '🎯' },
 };
 
 function speakStep(text: string, isRTL: boolean) {
@@ -858,6 +870,350 @@ const DEFAULT_STRENGTH_EXERCISES: Exercise[] = [
   },
 ];
 
+// ─── Default Coordination Exercises ──────────────────────
+const DEFAULT_COORDINATION_EXERCISES: Exercise[] = [
+  {
+    key: 'towelArmStrength',
+    emoji: '🧣',
+    title: 'تقوية الذراعين بالمنشفة أثناء الجلوس',
+    titleEn: 'Seated Arm Strengthening with Towel',
+    duration: '5 دقائق',
+    durationEn: '5 minutes',
+    durationSeconds: 300,
+    color: '#2A9D8F',
+    bg: '#E6F5F3',
+    accent: '#C8EBE7',
+    desc: 'تقوية عضلات الذراعين وتحسين التنسيق بين الطرفين العلويين باستخدام منشفة',
+    descEn: 'Strengthens arm muscles and improves coordination between upper limbs using a towel',
+    steps: [
+      'اجلس على كرسي باستقامة مع إبقاء قدميك مسطحتين على الأرض',
+      'أمسك منشفة صغيرة بكلتا يديك مع إبقاء ذراعيك ممدودتين للأمام',
+      'اسحب المنشفة ببطء نحو صدرك مع ثني ذراعيك، كأنك تشد حبلاً',
+      'اثبت في الوضع لثانيتين مع شد عضلات الظهر',
+      'ارجع للوضع الممدود ببطء',
+      'ارفع المنشفة أعلى رأسك ببطء مع مد الذراعين بالكامل واثبت 3 ثوانٍ',
+      'أنزل ببطء واكرر من 10 إلى 15 تكراراً',
+    ],
+    stepsEn: [
+      'Sit straight on a chair with feet flat on the floor',
+      'Hold a small towel with both hands, arms extended forward',
+      'Slowly pull the towel toward your chest while bending your arms, as if pulling a rope',
+      'Hold the position for two seconds while engaging back muscles',
+      'Slowly return to the extended position',
+      'Slowly raise the towel above your head with arms fully extended and hold for 3 seconds',
+      'Lower slowly and repeat 10 to 15 times',
+    ],
+    animType: 'armRaise',
+    type: 'coordination',
+  },
+  {
+    key: 'seatedBicycle',
+    emoji: '🚴',
+    title: 'تمرين الدراجة الهوائية أثناء الجلوس',
+    titleEn: 'Seated Bicycle Exercise',
+    duration: '5 دقائق',
+    durationEn: '5 minutes',
+    durationSeconds: 300,
+    color: '#2A9D8F',
+    bg: '#E6F5F3',
+    accent: '#C8EBE7',
+    desc: 'تحسين التنسيق بين الطرفين العلوي والسفلي وتنشيط الدورة الدموية',
+    descEn: 'Improves coordination between upper and lower limbs and boosts circulation',
+    steps: [
+      'اجلس على حافة كرسي باستقامة مع الإمساك بجانبيه للثبات',
+      'ارفع ركبتك اليمنى ببطء نحو صدرك',
+      'أنزل الساق اليمنى ببطء وارفع الركبة اليسرى في نفس الوقت',
+      'استمر في حركة دوران كأنك تركب دراجة هوائية',
+      'أضف حركة ذراعين: حرك يدك اليسرى للأمام مع رفع الركبة اليمنى',
+      'ثم حرك يدك اليمنى للأمام مع رفع الركبة اليسرى',
+      'اعمل من 15 إلى 20 دورة مع تنفس منتظم',
+    ],
+    stepsEn: [
+      'Sit on the edge of a chair upright, holding its sides for stability',
+      'Slowly raise your right knee toward your chest',
+      'Slowly lower your right leg while raising your left knee at the same time',
+      'Continue in a cycling motion as if riding a bicycle',
+      'Add arm movement: move your left hand forward as you raise your right knee',
+      'Then move your right hand forward as you raise your left knee',
+      'Do 15 to 20 cycles with steady breathing',
+    ],
+    animType: 'hipMarch',
+    type: 'coordination',
+  },
+  {
+    key: 'heelTapStanding',
+    emoji: '👣',
+    title: 'النقر بكعب القدم أثناء الوقوف',
+    titleEn: 'Standing Heel Tap Exercise',
+    duration: '5 دقائق',
+    durationEn: '5 minutes',
+    durationSeconds: 300,
+    color: '#2A9D8F',
+    bg: '#E6F5F3',
+    accent: '#C8EBE7',
+    desc: 'تحسين التوازن والتناسق الحركي وتقوية عضلات أسفل الساق أثناء الوقوف',
+    descEn: 'Improves balance and motor coordination, and strengthens lower leg muscles while standing',
+    steps: [
+      'قف مستقيماً بجانب كرسي أو حائط للدعم',
+      'افتح قدميك بعرض الكتفين مع توزيع الوزن بالتساوي',
+      'ارفع قدمك اليمنى ببطء ثم انقرها بكعبها خطوة للأمام',
+      'أعد القدم اليمنى للوضع الأصلي',
+      'كرر نفس الحركة مع القدم اليسرى — هذا تكرار واحد',
+      'ركّز على وضع الكعب بدقة في نفس النقطة في كل مرة',
+      'اعمل من 10 إلى 15 تكراراً لكل قدم مع تنفس منتظم',
+    ],
+    stepsEn: [
+      'Stand straight next to a chair or wall for support',
+      'Open your feet shoulder-width apart with weight evenly distributed',
+      'Slowly lift your right foot then tap its heel one step forward',
+      'Return your right foot to the starting position',
+      'Repeat the same movement with your left foot — this counts as one repetition',
+      'Focus on placing your heel precisely at the same spot each time',
+      'Do 10 to 15 repetitions for each foot with steady breathing',
+    ],
+    animType: 'hipMarch',
+    type: 'coordination',
+  },
+  {
+    key: 'kneeCircleStanding',
+    emoji: '🔵',
+    title: 'دوران الركبة أثناء الوقوف',
+    titleEn: 'Standing Knee Circle Exercise',
+    duration: '5 دقائق',
+    durationEn: '5 minutes',
+    durationSeconds: 300,
+    color: '#2A9D8F',
+    bg: '#E6F5F3',
+    accent: '#C8EBE7',
+    desc: 'تحسين مرونة مفصل الركبة والتناسق الحركي وتقوية عضلات الفخذ أثناء الوقوف',
+    descEn: 'Improves knee joint flexibility, motor coordination, and strengthens thigh muscles while standing',
+    steps: [
+      'قف مستقيماً بجانب كرسي أو حائط للدعم',
+      'ارفع ركبتك اليمنى ببطء حتى مستوى الورك أو أقل إن لزم',
+      'دوّر الركبة في دوائر صغيرة للأمام 5 مرات',
+      'ثم دوّرها للخلف 5 مرات',
+      'أنزل القدم ببطء إلى الأرض',
+      'كرر نفس الحركة مع الركبة اليسرى',
+      'اعمل من 2 إلى 3 مجموعات لكل ركبة مع أخذ استراحة بين المجموعات',
+    ],
+    stepsEn: [
+      'Stand straight next to a chair or wall for support',
+      'Slowly raise your right knee to hip level or lower if needed',
+      'Rotate the knee in small circles forward 5 times',
+      'Then rotate it backward 5 times',
+      'Slowly lower your foot back to the floor',
+      'Repeat the same movement with the left knee',
+      'Do 2 to 3 sets for each knee with rest between sets',
+    ],
+    animType: 'legCurl',
+    type: 'coordination',
+  },
+  {
+    key: 'legSwingBalance',
+    emoji: '🦵',
+    title: 'تأرجح الساق والثبات أثناء الوقوف',
+    titleEn: 'Standing Leg Swing & Balance',
+    duration: '5 دقائق',
+    durationEn: '5 minutes',
+    durationSeconds: 300,
+    color: '#2A9D8F',
+    bg: '#E6F5F3',
+    accent: '#C8EBE7',
+    desc: 'تحسين التوازن الديناميكي والتناسق الحركي من خلال تأرجح الساق المتحكم',
+    descEn: 'Improves dynamic balance and motor coordination through controlled leg swinging',
+    steps: [
+      'قف مستقيماً وامسك ظهر كرسي أو حائط بيد واحدة للدعم',
+      'انقل وزنك على قدمك اليسرى وارفع قدمك اليمنى قليلاً عن الأرض',
+      'أرجح ساقك اليمنى للأمام ببطء بحركة منضبطة',
+      'ثم أرجعها للخلف ببطء بنفس الإيقاع',
+      'ركّز على إبقاء جسمك مستقيماً دون تأرجح الجذع',
+      'اعمل 10 تأرجحات للأمام والخلف ثم انتقل للساق اليسرى',
+      'حاول تقليل الاعتماد على الدعم تدريجياً مع تحسن توازنك',
+    ],
+    stepsEn: [
+      'Stand straight and hold a chair back or wall with one hand for support',
+      'Shift your weight onto your left foot and lift your right foot slightly off the ground',
+      'Slowly swing your right leg forward in a controlled motion',
+      'Then slowly swing it backward at the same rhythm',
+      'Focus on keeping your body upright without swaying your trunk',
+      'Do 10 forward and backward swings then switch to the left leg',
+      'Gradually try to reduce reliance on support as your balance improves',
+    ],
+    animType: 'legCurl',
+    type: 'coordination',
+  },
+  {
+    key: 'pelvisTiltSeated',
+    emoji: '🪑',
+    title: 'إمالة الحوض أثناء الجلوس',
+    titleEn: 'Seated Pelvic Tilt',
+    duration: '5 دقائق',
+    durationEn: '5 minutes',
+    durationSeconds: 300,
+    color: '#2A9D8F',
+    bg: '#E6F5F3',
+    accent: '#C8EBE7',
+    desc: 'تقوية عضلات الجذع وتحسين وضعية الجسم والتناسق الحركي للحوض',
+    descEn: 'Strengthens core muscles and improves posture and pelvic motor coordination',
+    steps: [
+      'اجلس على حافة كرسي باستقامة مع إبقاء قدميك مسطحتين على الأرض',
+      'ضع يديك على وركيك لتشعر بالحركة',
+      'أمِل حوضك ببطء للأمام حتى تشعر بتقوس خفيف في أسفل ظهرك',
+      'اثبت لثانيتين مع تنفس طبيعي',
+      'أمِل حوضك ببطء للخلف حتى يستوي أسفل ظهرك أو يميل للخلف قليلاً',
+      'اثبت لثانيتين ثم عد للوضع المحايد',
+      'اعمل من 10 إلى 15 تكراراً بحركة سلسة ومنتظمة',
+    ],
+    stepsEn: [
+      'Sit on the edge of a chair upright with feet flat on the floor',
+      'Place your hands on your hips to feel the movement',
+      'Slowly tilt your pelvis forward until you feel a gentle arch in your lower back',
+      'Hold for two seconds with natural breathing',
+      'Slowly tilt your pelvis backward until your lower back flattens or tilts slightly back',
+      'Hold for two seconds then return to the neutral position',
+      'Do 10 to 15 repetitions with smooth, steady movement',
+    ],
+    animType: 'sway',
+    type: 'coordination',
+  },
+  {
+    key: 'trunkRotationStanding',
+    emoji: '🔄',
+    title: 'دوران الجذع أثناء الوقوف',
+    titleEn: 'Standing Trunk Rotation',
+    duration: '5 دقائق',
+    durationEn: '5 minutes',
+    durationSeconds: 300,
+    color: '#2A9D8F',
+    bg: '#E6F5F3',
+    accent: '#C8EBE7',
+    desc: 'تحسين مرونة العمود الفقري والتنسيق الحركي وتقوية عضلات الجذع أثناء الوقوف',
+    descEn: 'Improves spinal flexibility, motor coordination, and strengthens trunk muscles while standing',
+    steps: [
+      'قف مستقيماً مع إبقاء قدميك ثابتتين بعرض الكتفين',
+      'ضع ذراعيك أفقياً أمامك على مستوى الكتفين',
+      'أدر جذعك ببطء نحو اليمين بأقصى قدر مريح دون ألم',
+      'اثبت لثانيتين مع إبقاء الوركين والقدمين ثابتتين',
+      'عد للمركز ببطء ثم أدر جذعك نحو اليسار',
+      'اثبت لثانيتين ثم عد للمركز — هذا تكرار واحد',
+      'اعمل من 10 إلى 15 تكراراً مع تنفس منتظم وحركة سلسة',
+    ],
+    stepsEn: [
+      'Stand straight with feet shoulder-width apart and firmly planted',
+      'Hold your arms horizontally in front of you at shoulder level',
+      'Slowly rotate your trunk to the right as far as comfortable without pain',
+      'Hold for two seconds while keeping hips and feet still',
+      'Return to center slowly then rotate your trunk to the left',
+      'Hold for two seconds then return to center — this counts as one repetition',
+      'Do 10 to 15 repetitions with steady breathing and smooth movement',
+    ],
+    animType: 'rollUp',
+    type: 'coordination',
+  },
+  {
+    key: 'lateralBalanceSeated',
+    emoji: '⚖️',
+    title: 'التوازن الجانبي أثناء الجلوس',
+    titleEn: 'Seated Lateral Balance',
+    duration: '5 دقائق',
+    durationEn: '5 minutes',
+    durationSeconds: 300,
+    color: '#2A9D8F',
+    bg: '#E6F5F3',
+    accent: '#C8EBE7',
+    desc: 'تحسين التوازن الجانبي والتنسيق الحركي وتقوية عضلات الجانبين أثناء الجلوس',
+    descEn: 'Improves lateral balance, motor coordination, and strengthens side muscles while seated',
+    steps: [
+      'اجلس على حافة كرسي باستقامة مع إبقاء قدميك مسطحتين على الأرض',
+      'مد ذراعيك للجانبين بشكل أفقي على مستوى الكتفين',
+      'أمِل جذعك ببطء نحو اليمين مع مد يدك اليمنى للأسفل نحو الأرض',
+      'اثبت لثانيتين مع الشعور بالتمديد في جانبك الأيسر',
+      'عد للوضع المستقيم ببطء',
+      'كرر الإمالة نحو اليسار مع مد يدك اليسرى للأسفل',
+      'اعمل من 10 إلى 12 تكراراً لكل جانب مع تنفس منتظم',
+    ],
+    stepsEn: [
+      'Sit on the edge of a chair upright with feet flat on the floor',
+      'Extend your arms out to the sides horizontally at shoulder level',
+      'Slowly tilt your trunk to the right while reaching your right hand down toward the floor',
+      'Hold for two seconds feeling the stretch along your left side',
+      'Slowly return to the upright position',
+      'Repeat the tilt to the left while reaching your left hand downward',
+      'Do 10 to 12 repetitions on each side with steady breathing',
+    ],
+    animType: 'sway',
+    type: 'coordination',
+  },
+  {
+    key: 'toeTipHeelStand',
+    emoji: '🦶',
+    title: 'الوقوف على أطراف الأصابع والكعبين',
+    titleEn: 'Toe Tips and Heel Standing',
+    duration: '5 دقائق',
+    durationEn: '5 minutes',
+    durationSeconds: 300,
+    color: '#2A9D8F',
+    bg: '#E6F5F3',
+    accent: '#C8EBE7',
+    desc: 'تقوية عضلات الساق وتحسين التوازن والتناسق من خلال التناوب بين الوقوف على الأصابع والكعبين',
+    descEn: 'Strengthens leg muscles and improves balance and coordination by alternating between toe and heel standing',
+    steps: [
+      'قف مستقيماً بجانب كرسي أو حائط للدعم عند الحاجة',
+      'ارفع كعبيك ببطء عن الأرض والقف على أطراف أصابع قدميك',
+      'اثبت في القمة لثانيتين إلى ثلاث ثوانٍ',
+      'أنزل كعبيك ببطء إلى الأرض',
+      'ثم ارفع أصابع قدميك عن الأرض والقف على كعبيك فقط',
+      'اثبت لثانيتين إلى ثلاث ثوانٍ ثم أنزل أصابعك',
+      'اعمل من 10 إلى 15 تكراراً بالتناوب بين الوضعيتين',
+    ],
+    stepsEn: [
+      'Stand straight next to a chair or wall for support if needed',
+      'Slowly raise your heels off the floor and stand on your tiptoes',
+      'Hold at the top for two to three seconds',
+      'Slowly lower your heels back to the floor',
+      'Then raise your toes off the floor and stand on your heels only',
+      'Hold for two to three seconds then lower your toes',
+      'Do 10 to 15 repetitions alternating between the two positions',
+    ],
+    animType: 'bounce',
+    type: 'coordination',
+  },
+  {
+    key: 'trunkFlexibilityStanding',
+    emoji: '🌊',
+    title: 'مرونة حركة الجذع أثناء الوقوف',
+    titleEn: 'Standing Trunk Flexibility',
+    duration: '5 دقائق',
+    durationEn: '5 minutes',
+    durationSeconds: 300,
+    color: '#2A9D8F',
+    bg: '#E6F5F3',
+    accent: '#C8EBE7',
+    desc: 'تحسين المرونة الكلية للجذع وتخفيف التيبس مع تعزيز التناسق والتوازن أثناء الوقوف',
+    descEn: 'Improves overall trunk flexibility and reduces stiffness while enhancing coordination and balance while standing',
+    steps: [
+      'قف مستقيماً مع إبقاء قدميك ثابتتين بعرض الكتفين',
+      'ضع يديك على وركيك أو امدد ذراعيك للجانبين',
+      'انحنِ ببطء للأمام من منطقة الخصر حتى الزاوية المريحة',
+      'اثبت 3 ثوانٍ ثم ارجع للوضع المستقيم',
+      'انحنِ ببطء للجانب الأيمن واثبت 3 ثوانٍ ثم عد للمركز',
+      'انحنِ للجانب الأيسر واثبت 3 ثوانٍ ثم عد',
+      'أدر الجذع يميناً ويساراً 5 مرات لكل جانب وكرر كل الحركات من 5 إلى 8 مرات',
+    ],
+    stepsEn: [
+      'Stand straight with feet firmly planted shoulder-width apart',
+      'Place your hands on your hips or extend your arms to the sides',
+      'Slowly bend forward from the waist to a comfortable angle',
+      'Hold for 3 seconds then return to upright',
+      'Slowly bend to the right side and hold for 3 seconds then return to center',
+      'Bend to the left side and hold for 3 seconds then return',
+      'Rotate trunk right and left 5 times each side, and repeat all movements 5 to 8 times',
+    ],
+    animType: 'sway',
+    type: 'coordination',
+  },
+];
+
 // ════════════════════════════════════════════════════════════
 // ─── Main Screen ──────────────────────────────────────────
 // ════════════════════════════════════════════════════════════
@@ -865,11 +1221,12 @@ export default function ExercisesScreen() {
   const { t, isRTL } = useLang();
   const router = useRouter();
 
-  const [therapyList,   setTherapyList]   = useState<Exercise[]>([]);
-  const [yogaList,      setYogaList]      = useState<Exercise[]>([]);
-  const [aerobicList,   setAerobicList]   = useState<Exercise[]>([]);
-  const [enduranceList, setEnduranceList] = useState<Exercise[]>([]);
-  const [strengthList,  setStrengthList]  = useState<Exercise[]>([]);
+  const [therapyList,      setTherapyList]      = useState<Exercise[]>([]);
+  const [yogaList,         setYogaList]         = useState<Exercise[]>([]);
+  const [aerobicList,      setAerobicList]      = useState<Exercise[]>([]);
+  const [enduranceList,    setEnduranceList]    = useState<Exercise[]>([]);
+  const [strengthList,     setStrengthList]     = useState<Exercise[]>([]);
+  const [coordinationList, setCoordinationList] = useState<Exercise[]>([]);
 
   const [selected,      setSelected]      = useState('wristCurls');
   const [activeSection, setActiveSection] = useState<SectionKey>('therapy');
@@ -888,16 +1245,17 @@ export default function ExercisesScreen() {
 
   function getListAndSetter(type: SectionKey): [Exercise[], React.Dispatch<React.SetStateAction<Exercise[]>>, string] {
     switch (type) {
-      case 'therapy':   return [therapyList,   setTherapyList,   THERAPY_KEY];
-      case 'yoga':      return [yogaList,       setYogaList,      YOGA_KEY];
-      case 'aerobic':   return [aerobicList,    setAerobicList,   AEROBIC_KEY];
-      case 'endurance': return [enduranceList,  setEnduranceList, ENDURANCE_KEY];
-      case 'strength':  return [strengthList,   setStrengthList,  STRENGTH_KEY];
+      case 'therapy':      return [therapyList,      setTherapyList,      THERAPY_KEY];
+      case 'yoga':         return [yogaList,          setYogaList,         YOGA_KEY];
+      case 'aerobic':      return [aerobicList,       setAerobicList,      AEROBIC_KEY];
+      case 'endurance':    return [enduranceList,     setEnduranceList,    ENDURANCE_KEY];
+      case 'strength':     return [strengthList,      setStrengthList,     STRENGTH_KEY];
+      case 'coordination': return [coordinationList,  setCoordinationList, COORDINATION_KEY];
     }
   }
 
   function getAllExercises(): Exercise[] {
-    return [...therapyList, ...yogaList, ...aerobicList, ...enduranceList, ...strengthList];
+    return [...therapyList, ...yogaList, ...aerobicList, ...enduranceList, ...strengthList, ...coordinationList];
   }
 
   useFocusEffect(useCallback(() => {
@@ -940,7 +1298,7 @@ export default function ExercisesScreen() {
       await AsyncStorage.multiRemove([
         'core_exercises', 'extra_exercises', 'therapy_exercises',
         'yoga_exercises', 'aerobic_exercises', 'endurance_exercises',
-        'strength_exercises',
+        'strength_exercises', 'coordination_exercises',
       ]);
       await AsyncStorage.setItem('exercises_v7_migrated', '1');
     }
@@ -962,15 +1320,21 @@ export default function ExercisesScreen() {
     await AsyncStorage.removeItem(STRENGTH_KEY);
     await AsyncStorage.setItem(STRENGTH_KEY, JSON.stringify(DEFAULT_STRENGTH_EXERCISES));
     setStrengthList(DEFAULT_STRENGTH_EXERCISES);
+
+    // coordination — 10 fixed exercises
+    await AsyncStorage.removeItem(COORDINATION_KEY);
+    await AsyncStorage.setItem(COORDINATION_KEY, JSON.stringify(DEFAULT_COORDINATION_EXERCISES));
+    setCoordinationList(DEFAULT_COORDINATION_EXERCISES);
   }
 
   const SECTION_EXERCISES = (() => {
     switch (activeSection) {
-      case 'therapy':   return therapyList;
-      case 'yoga':      return yogaList;
-      case 'aerobic':   return aerobicList;
-      case 'endurance': return enduranceList;
-      case 'strength':  return strengthList;
+      case 'therapy':      return therapyList;
+      case 'yoga':         return yogaList;
+      case 'aerobic':      return aerobicList;
+      case 'endurance':    return enduranceList;
+      case 'strength':     return strengthList;
+      case 'coordination': return coordinationList;
     }
   })();
 
@@ -1053,7 +1417,6 @@ export default function ExercisesScreen() {
   }
 
   async function handleConvertExercise(item: Exercise, targetType: SectionKey) {
-    
     const converted: Exercise = { ...item, type: targetType };
     const [oldList, oldSetter, oldKey] = getListAndSetter(item.type);
     const updatedOld = oldList.filter(e => e.key !== item.key);
@@ -1256,11 +1619,12 @@ export default function ExercisesScreen() {
             const isActive = activeSection === section.key;
             const count = (() => {
               switch (section.key) {
-                case 'therapy':   return therapyList.length;
-                case 'yoga':      return yogaList.length;
-                case 'aerobic':   return aerobicList.length;
-                case 'endurance': return enduranceList.length;
-                case 'strength':  return strengthList.length;
+                case 'therapy':      return therapyList.length;
+                case 'yoga':         return yogaList.length;
+                case 'aerobic':      return aerobicList.length;
+                case 'endurance':    return enduranceList.length;
+                case 'strength':     return strengthList.length;
+                case 'coordination': return coordinationList.length;
               }
             })();
             return (

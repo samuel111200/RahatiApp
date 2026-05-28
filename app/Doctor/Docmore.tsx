@@ -518,7 +518,7 @@ export default function DocMoreScreen() {
     close();
     await notifyLogout();
     logout();
-    router.replace('/auth/sign-in');
+    router.replace('/Doctor/Docsignin');
   };
 
   const MENU = [

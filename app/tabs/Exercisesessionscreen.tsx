@@ -39,17 +39,29 @@ const EXERCISE_VIDEOS: Record<string, any> = {
   upperBodyStretch:  require("../../assets/videos/11.mp4"),
 
   // ── Strength Training ─────────────────────────────────────
-  // TODO: ضع اسم الفيديو الصح بدل "REPLACE_ME_XX.mp4"
-  marchingInPlace:   require("../../assets/videos/12.mp4"),
-  chairSquat:        require("../../assets/videos/13.mp4"),
-  hipStrength:       require("../../assets/videos/14.mp4"),
-  seatedTwistKnee:   require("../../assets/videos/15.mp4"),
-  armLegStrength:    require("../../assets/videos/16.mp4"),
-  standingArmTrunk:  require("../../assets/videos/17.mp4"),
-  lyingTwistArms:    require("../../assets/videos/18.mp4"),
-  backBridgeLying:   require("../../assets/videos/19.mp4"),
+  marchingInPlace:      require("../../assets/videos/12.mp4"),
+  chairSquat:           require("../../assets/videos/13.mp4"),
+  hipStrength:          require("../../assets/videos/14.mp4"),
+  seatedTwistKnee:      require("../../assets/videos/15.mp4"),
+  armLegStrength:       require("../../assets/videos/16.mp4"),
+  standingArmTrunk:     require("../../assets/videos/17.mp4"),
+  lyingTwistArms:       require("../../assets/videos/18.mp4"),
+  backBridgeLying:      require("../../assets/videos/19.mp4"),
   upperFlexArmStrength: require("../../assets/videos/20.mp4"),
   trunkBackFlexibility: require("../../assets/videos/21.mp4"),
+
+  // ── Coordination ─────────────────────────────────────────
+  // TODO: ضع اسم الفيديو الصح بدل "REPLACE_ME_XX.mp4"
+  towelArmStrength:       require("../../assets/videos/22.mp4"),
+  seatedBicycle:          require("../../assets/videos/23.mp4"),
+  heelTapStanding:        require("../../assets/videos/24.mp4"),
+  kneeCircleStanding:     require("../../assets/videos/25.mp4"),
+  legSwingBalance:        require("../../assets/videos/26.mp4"),
+  pelvisTiltSeated:       require("../../assets/videos/27.mp4"),
+  trunkRotationStanding:  require("../../assets/videos/28.mp4"),
+  lateralBalanceSeated:   require("../../assets/videos/29.mp4"),
+  toeTipHeelStand:        require("../../assets/videos/30.mp4"),
+  trunkFlexibilityStanding: require("../../assets/videos/31.mp4"),
 };
 
 
