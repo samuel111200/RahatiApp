@@ -13,6 +13,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/Languagecontext';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 import { usePathname } from 'expo-router';
+import { notifyPatientAccepted } from "./DocNotifService";
 
 const DOC_COLOR       = '#7C5CBF';
 const DOC_COLOR_LIGHT = '#F0EBFA';
@@ -223,18 +224,39 @@ export default function DocHome() {
         await savePatients(list);
       }
       setPatients(list);
-      const raw = await AsyncStorage.getItem('doc_notifications');
-      if (raw) { const notifs = JSON.parse(raw); setNotifCount(notifs.filter((n:any)=>!n.read).length); }
+const raw = await AsyncStorage.getItem('doc_notifications');
+if (raw) { const notifs = JSON.parse(raw); setNotifCount(notifs.filter((n:any)=>!n.read).length);  }
       setLoading(false);
     };
     init();
   }, []));
 
-  const handleAcceptConfirm = async () => {
-    if (!pendingModal) return;
-    const updated = patients.map(p => p.id===pendingModal.id ? {...p,status:'accepted' as PatientStatus,acceptedAt:new Date().toISOString()} : p);
-    setPatients(updated); await savePatients(updated); setPendingModal(null);
-  };
+const handleAcceptConfirm = async () => {
+  if (!pendingModal) return;
+  const updated = patients.map((p) =>
+    p.id === pendingModal.id
+      ? {
+          ...p,
+          status: "accepted" as PatientStatus,
+          acceptedAt: new Date().toISOString(),
+        }
+      : p,
+  );
+  setPatients(updated);
+  await savePatients(updated);
+
+  const { notifyPatientAccepted } = await import("./DocNotifService");
+  await notifyPatientAccepted(
+    `${pendingModal.firstName} ${pendingModal.lastName}`,
+    pendingModal.id,
+  );
+
+  // ← أضف السطرين دول
+  const raw = await AsyncStorage.getItem("doc_notifications");
+  if (raw) setNotifCount(JSON.parse(raw).filter((n: any) => !n.read).length);
+
+  setPendingModal(null);
+};
 
   const handleOpenChat = (patient: Patient) => {
     router.push({ pathname:'/Doctor/Docpatient', params:{ patientId:patient.id, patientName:`${patient.firstName} ${patient.lastName}` } });

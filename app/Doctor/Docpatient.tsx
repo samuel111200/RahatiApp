@@ -146,22 +146,59 @@ export default function Docpatient() {
       try {
         const raw = await AsyncStorage.getItem(`doc_chat_${patientId}`);
         if (raw) {
-          setMessages(JSON.parse(raw));
+          const msgs: Message[] = JSON.parse(raw);
+          const lastMsg = msgs[msgs.length - 1];
+          if (lastMsg?.sender === "patient") {
+            const { notifyNewMessage } = await import("./DocNotifService");
+            await notifyNewMessage(patientName, patientId, lastMsg.text);
+          }
+          setMessages(msgs);
         } else {
           const initialMsgs: Message[] = [
-            { id: 'd1', text: 'أهلاً دكتور، أنا عندي ألم في الظهر من يومين',                         sender: 'patient', time: '10:23 ص', status: 'read' },
-            { id: 'd2', text: 'أهلاً، هل الألم مستمر ولا بيجي ويروح؟',                                sender: 'doctor',  time: '10:24 ص', status: 'read' },
-            { id: 'd3', text: 'بيجي ويروح خصوصاً لما بقعد كتير',                                       sender: 'patient', time: '10:25 ص', status: 'read' },
-            { id: 'd4', text: 'حسناً، ده غالباً من الجلوس الطويل. حاول تمشي كل ساعة وخد مسكن خفيف', sender: 'doctor',  time: '10:26 ص', status: 'read' },
+            {
+              id: "d1",
+              text: "أهلاً دكتور، أنا عندي ألم في الظهر من يومين",
+              sender: "patient",
+              time: "10:23 ص",
+              status: "read",
+            },
+            {
+              id: "d2",
+              text: "أهلاً، هل الألم مستمر ولا بيجي ويروح؟",
+              sender: "doctor",
+              time: "10:24 ص",
+              status: "read",
+            },
+            {
+              id: "d3",
+              text: "بيجي ويروح خصوصاً لما بقعد كتير",
+              sender: "patient",
+              time: "10:25 ص",
+              status: "read",
+            },
+            {
+              id: "d4",
+              text: "حسناً، ده غالباً من الجلوس الطويل. حاول تمشي كل ساعة وخد مسكن خفيف",
+              sender: "doctor",
+              time: "10:26 ص",
+              status: "read",
+            },
           ];
           setMessages(initialMsgs);
           // احفظ الرسايل الابتدائية فوراً عشان Docchat يلاقيها
-          await AsyncStorage.setItem(`doc_chat_${patientId}`, JSON.stringify(initialMsgs));
+          await AsyncStorage.setItem(
+            `doc_chat_${patientId}`,
+            JSON.stringify(initialMsgs),
+          );
           // حدّث MESSAGES_KEY بآخر رسالة ابتدائية
           const lastMsg = initialMsgs[initialMsgs.length - 1];
           const msgsRaw = await AsyncStorage.getItem(MESSAGES_KEY);
-          const store   = msgsRaw ? JSON.parse(msgsRaw) : {};
-          store[patientId] = { text: lastMsg.text, time: lastMsg.time, sender: lastMsg.sender };
+          const store = msgsRaw ? JSON.parse(msgsRaw) : {};
+          store[patientId] = {
+            text: lastMsg.text,
+            time: lastMsg.time,
+            sender: lastMsg.sender,
+          };
           await AsyncStorage.setItem(MESSAGES_KEY, JSON.stringify(store));
         }
       } catch {}

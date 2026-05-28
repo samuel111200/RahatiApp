@@ -1,8 +1,14 @@
 // app/Doctor/_layout.tsx
 import { Stack } from 'expo-router';
 import { ChatsProvider } from '../../context/Chatscontext';
+import { setupDocNotifications } from './DocNotifService';
+import { useEffect } from 'react';
 
 export default function DoctorLayout() {
+    useEffect(() => {
+      setupDocNotifications();
+    }, []);
+
   return (
     <ChatsProvider>
       <Stack screenOptions={{ headerShown: false }}>
