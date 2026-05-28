@@ -6,9 +6,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router } from 'expo-router';
+import { router, usePathname } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/Languagecontext';
 import { PrimaryButton, OutlineButton } from '../../components/UI';
@@ -19,6 +20,64 @@ import { notify } from '../tabs/notificationService';
 const DOC_COLOR       = '#7C5CBF';
 const DOC_COLOR_MID   = '#E8DFFA';
 const DOC_COLOR_LIGHT = '#F0EBFA';
+
+// ─── DocTabBar ────────────────────────────────────────────
+type TabItem = { label: string; icon: keyof typeof Ionicons.glyphMap; iconActive: keyof typeof Ionicons.glyphMap; route: string; };
+const TABS: TabItem[] = [
+  { label: 'الرئيسية', icon: 'home-outline',       iconActive: 'home',        route: '/Doctor/Dochome' },
+  { label: 'الشاتات',  icon: 'chatbubbles-outline', iconActive: 'chatbubbles', route: '/Doctor/Docchat' },
+  { label: 'المزيد',   icon: 'grid-outline',        iconActive: 'grid',        route: '/Doctor/Docmore' },
+];
+
+const ICON_SIZE = 48;
+
+function DocTabBar() {
+  const pathname  = usePathname();
+  const insets    = useSafeAreaInsets();
+  const bottomPad = Math.max(insets.bottom, 8);
+
+  return (
+    <View style={[tabStyles.wrapper, { paddingBottom: bottomPad }]}>
+      <View style={tabStyles.container}>
+        {TABS.map((tab) => {
+          const isActive = pathname.startsWith(tab.route);
+          return (
+            <TouchableOpacity key={tab.route} style={tabStyles.tab} onPress={() => router.push(tab.route as any)} activeOpacity={0.7}>
+              <View style={[tabStyles.iconWrap, isActive && tabStyles.iconWrapActive]}>
+                <Ionicons name={isActive ? tab.iconActive : tab.icon} size={22} color={isActive ? '#fff' : '#B0BEC5'} />
+              </View>
+              <Text style={[tabStyles.label, isActive && tabStyles.labelActive]}>{tab.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+const tabStyles = StyleSheet.create({
+  wrapper:   { backgroundColor: 'transparent', paddingHorizontal: 16 },
+  container: {
+    flexDirection: 'row', backgroundColor: '#fff', borderRadius: 28,
+    paddingTop: 8, paddingBottom: 8, paddingHorizontal: 8,
+    shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18, shadowRadius: 24, elevation: 14,
+    borderWidth: 0.5, borderColor: '#E8DFFA', marginBottom: 8,
+  },
+  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4 },
+  iconWrap: {
+    width: ICON_SIZE, height: ICON_SIZE, borderRadius: ICON_SIZE / 2,
+    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+    backgroundColor: 'transparent',
+  },
+  iconWrapActive: {
+    backgroundColor: DOC_COLOR,
+    shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.40, shadowRadius: 10, elevation: 6,
+  },
+  label:       { fontSize: 11, fontWeight: '600', color: '#B0BEC5' },
+  labelActive: { color: DOC_COLOR, fontWeight: '700' },
+});
 
 // ─── Sub-components ────────────────────────────────────────
 function InfoRow({ label, value, isRTL }: { label: string; value: string; isRTL: boolean }) {
@@ -351,18 +410,16 @@ export default function DocMoreScreen() {
   const [activeModal,     setActiveModal]     = useState<ModalKey>(null);
   const [avatarUri,       setAvatarUri]       = useState<string | null>(null);
   const [showAvatarSheet, setShowAvatarSheet] = useState(false);
-  // ── local state for doctor extra fields ──
-  const [specialty,      setSpecialty]      = useState('');
-  const [licenseNumber,  setLicenseNumber]  = useState('');
-
-  const [totalPatients,  setTotalPatients]  = useState(0);
-  const [activePatients, setActivePatients] = useState(0);
+  const [specialty,       setSpecialty]       = useState('');
+  const [licenseNumber,   setLicenseNumber]   = useState('');
+  const [totalPatients,   setTotalPatients]   = useState(0);
+  const [activePatients,  setActivePatients]  = useState(0);
+  const [pendingPatients, setPendingPatients] = useState(0);
 
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
     AsyncStorage.getItem('user_avatar').then(uri => { if (uri) setAvatarUri(uri); });
-    // load doctor extra fields
     AsyncStorage.getItem('doctor_extra_fields').then(raw => {
       if (raw) {
         const parsed = JSON.parse(raw);
@@ -380,8 +437,8 @@ export default function DocMoreScreen() {
           const patients: any[] = patientsRaw ? JSON.parse(patientsRaw) : [];
           setTotalPatients(patients.length);
           setActivePatients(patients.filter((p: any) => p.status === 'accepted').length);
+          setPendingPatients(patients.filter((p: any) => p.status === 'pending').length);
 
-          // reload extra fields
           const extraRaw = await AsyncStorage.getItem('doctor_extra_fields');
           if (extraRaw) {
             const parsed = JSON.parse(extraRaw);
@@ -399,9 +456,7 @@ export default function DocMoreScreen() {
   const open  = (key: ModalKey) => setActiveModal(key);
   const close = ()              => setActiveModal(null);
 
-  // ── FIX: handleSaveProfile now updates everything correctly ──
   const handleSaveProfile = async (data: DoctorFields) => {
-    // 1. update base user fields via AuthContext
     await updateProfile({
       firstName: data.firstName,
       lastName:  data.lastName,
@@ -410,14 +465,12 @@ export default function DocMoreScreen() {
       gender:    data.gender,
     } as any);
 
-    // 2. save doctor-specific fields separately
     const extraFields = {
       specialty:     data.specialty,
       licenseNumber: data.licenseNumber,
     };
     await AsyncStorage.setItem('doctor_extra_fields', JSON.stringify(extraFields));
 
-    // 3. update local state so InfoRow updates immediately
     setSpecialty(data.specialty || '');
     setLicenseNumber(data.licenseNumber || '');
   };
@@ -463,16 +516,20 @@ export default function DocMoreScreen() {
 
   const docTitle = isRTL ? 'د.' : 'Dr.';
 
-  // build combined user data for EditProfileModal
   const combinedUser = {
     ...user,
     specialty,
     licenseNumber,
   };
 
+  // ─── Label ديناميكي: لو في pending → "مرضى مقبولون"، لو مفيش → "مرضى"
+  const activePatientsLabel = pendingPatients > 0
+    ? (isRTL ? 'مرضى مقبولون' : 'Accepted Patients')
+    : (isRTL ? 'مرضى'         : 'Patients');
+
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar backgroundColor={Colors.background} barStyle="dark-content" />
+      <StatusBar backgroundColor='#F8F5FF' barStyle="dark-content" />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
@@ -517,13 +574,13 @@ export default function DocMoreScreen() {
         <View style={styles.statsRow}>
           <View style={[styles.statCard, { backgroundColor: DOC_COLOR_LIGHT }]}>
             <Text style={styles.statIcon}>👥</Text>
-            <Text style={[styles.statValue, { color: DOC_COLOR }]}>{totalPatients}</Text>
-            <Text style={styles.statLabel}>{isRTL ? 'إجمالي المرضى' : 'Total Patients'}</Text>
+            <Text style={[styles.statValue, { color: DOC_COLOR }]}>{activePatients}</Text>
+            <Text style={styles.statLabel}>{activePatientsLabel}</Text>
           </View>
           <View style={[styles.statCard, { backgroundColor: '#E8F5EF' }]}>
             <Text style={styles.statIcon}>✅</Text>
-            <Text style={[styles.statValue, { color: '#4CAF82' }]}>{activePatients}</Text>
-            <Text style={styles.statLabel}>{isRTL ? 'مرضى نشطون' : 'Active Patients'}</Text>
+            <Text style={[styles.statValue, { color: '#4CAF82' }]}>{totalPatients}</Text>
+            <Text style={styles.statLabel}>{isRTL ? 'إجمالي المرضى' : 'Total Patients'}</Text>
           </View>
         </View>
 
@@ -590,8 +647,11 @@ export default function DocMoreScreen() {
         </TouchableOpacity>
 
         <Text style={styles.versionText}>{t.version || 'الإصدار 1.0.0'}</Text>
-        <View style={{ height: 100 }} />
+        <View style={{ height: 20 }} />
       </ScrollView>
+
+      {/* ── Tab Bar ── */}
+      <DocTabBar />
 
       {/* ── Modals ── */}
       <AvatarActionSheet visible={showAvatarSheet} onClose={() => setShowAvatarSheet(false)}
@@ -637,7 +697,7 @@ export default function DocMoreScreen() {
 
 // ─── Styles ───────────────────────────────────────────────
 const styles = StyleSheet.create({
-  safe:    { flex: 1, backgroundColor: Colors.background },
+  safe:    { flex: 1, backgroundColor: '#F8F5FF' },
   content: { padding: Spacing.xl },
 
   topBar: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.xl },
