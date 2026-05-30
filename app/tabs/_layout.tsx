@@ -13,7 +13,7 @@ import {
   stopAllWatchers,
 } from './notificationService';
 
-const HIDDEN_ROUTES = ['startup', 'notification', 'doctorchat'];
+const HIDDEN_ROUTES = ['startup', 'notification', 'doctorchat', 'Exercisesessionscreen'];
 
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const { t, isRTL } = useLang();

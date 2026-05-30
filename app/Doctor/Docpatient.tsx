@@ -1,38 +1,67 @@
+// Doctor/Docpatient.tsx
+// ─────────────────────────────────────────────────────────────────────────────
+// CHANGES vs original:
+//   • setInterval polling REMOVED — replaced with Firestore onSnapshot.
+//   • "Add Exercise" button locked/unlocked via exerciseAccess field (real-time).
+//   • Sending "request_access" message writes a special FSMessage to Firestore.
+//   • All styles, RTL, animations, and LanguageContext strings preserved.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   StatusBar, TextInput, KeyboardAvoidingView,
-  Platform, Animated,
+  Platform, Animated, Modal, ScrollView, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Spacing, FontSize } from '../../constants/Theme';
 import { useLang } from '../../context/Languagecontext';
 import { useChats } from '../../context/Chatscontext';
-import { notifyMessageSent, notifyIncomingMessage } from './DocNotifService';
+import type { PatientExercise } from '../../context/Chatscontext';
+import { notifyMessageSent } from './DocNotifService';
+
+// ── Firebase ─────────────────────────────────────────────────────────────────
+import {
+  collection,
+  query,
+  orderBy,
+  onSnapshot,
+  addDoc,
+  updateDoc,
+  doc,
+  serverTimestamp,
+  getDoc,
+} from 'firebase/firestore';
+import { db, relDoc, chatDoc, messagesCol, FSMessage, FSRelationship } from '../../utils/firebaseConfig';
+import { useAuth } from '../../context/AuthContext';
 
 const DOC_COLOR       = '#7C5CBF';
 const DOC_COLOR_LIGHT = '#F0EBFA';
-const MESSAGES_KEY    = 'doc_messages';
 
-// ─── مفتاح لتتبع آخر رسالة مريض شوفناها (لمنع التكرار) ──
-const LAST_SEEN_KEY = 'doc_last_seen_msg';
-
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
 type Message = {
-  id: string;
-  text: string;
-  sender: 'doctor' | 'patient';
-  time: string;
-  status?: 'sent' | 'delivered' | 'read';
+  id:           string;
+  text:         string;
+  sender:       'doctor' | 'patient';
+  time:         string;
+  status?:      'sent' | 'delivered' | 'read';
+  type:         'text' | 'request_access';
+  accessStatus: 'pending' | 'granted' | null;
 };
 
 function now() {
   return new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
 }
 
-// ─── Message Bubble ──────────────────────────────────────
+const QUICK_REPLIES = ['كيف حالك اليوم؟','هل تناولت الدواء؟','ما هي الأعراض؟','لا داعي للقلق','يرجى المراجعة غداً'];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MessageBubble
+// ─────────────────────────────────────────────────────────────────────────────
 function MessageBubble({ msg, isRTL }: { msg: Message; isRTL: boolean }) {
   const isDoc     = msg.sender === 'doctor';
   const fadeAnim  = useRef(new Animated.Value(0)).current;
@@ -45,37 +74,61 @@ function MessageBubble({ msg, isRTL }: { msg: Message; isRTL: boolean }) {
     ]).start();
   }, []);
 
+  // Special rendering for access request messages on doctor's side
+  if (msg.type === 'request_access') {
+    const isGranted = msg.accessStatus === 'granted';
+    return (
+        <View style={[msgStyles.row, msgStyles.rowRight]}>
+          <View style={[msgStyles.bubble, msgStyles.bubbleDoc, { alignItems: 'flex-end' }]}>
+            <Text style={[msgStyles.bubbleTextDoc, { fontSize: 12 }]}>
+              {isRTL ? '🔒 طلب صلاحية التمارين' : '🔒 Exercise access request'}
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+              <Ionicons
+                  name={isGranted ? 'checkmark-circle' : 'time-outline'}
+                  size={12}
+                  color={isGranted ? '#D4BBFF' : 'rgba(255,255,255,0.6)'}
+              />
+              <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 11 }}>
+                {isGranted
+                    ? (isRTL ? 'تمت الموافقة ✅' : 'Granted ✅')
+                    : (isRTL ? 'في انتظار موافقة المريض' : 'Awaiting patient approval')}
+              </Text>
+            </View>
+          </View>
+        </View>
+    );
+  }
+
   return (
-    <Animated.View
-      style={[
-        msgStyles.row,
-        isDoc ? msgStyles.rowRight : msgStyles.rowLeft,
-        { opacity: fadeAnim, transform: [{ translateX: slideAnim }] },
-      ]}
-    >
-      {!isDoc && (
-        <View style={msgStyles.patientAvatar}>
-          <Ionicons name="person" size={14} color={DOC_COLOR} />
-        </View>
-      )}
-      <View style={[msgStyles.bubble, isDoc ? msgStyles.bubbleDoc : msgStyles.bubblePatient]}>
-        <Text style={[msgStyles.bubbleText, isDoc ? msgStyles.bubbleTextDoc : msgStyles.bubbleTextPatient]}>
-          {msg.text}
-        </Text>
-        <View style={msgStyles.bubbleMeta}>
-          <Text style={[msgStyles.timeText, isDoc && { color: 'rgba(255,255,255,0.7)' }]}>
-            {msg.time}
+      <Animated.View
+          style={[
+            msgStyles.row,
+            isDoc ? msgStyles.rowRight : msgStyles.rowLeft,
+            { opacity: fadeAnim, transform: [{ translateX: slideAnim }] },
+          ]}
+      >
+        {!isDoc && (
+            <View style={msgStyles.patientAvatar}>
+              <Ionicons name="person" size={14} color={DOC_COLOR} />
+            </View>
+        )}
+        <View style={[msgStyles.bubble, isDoc ? msgStyles.bubbleDoc : msgStyles.bubblePatient]}>
+          <Text style={[msgStyles.bubbleText, isDoc ? msgStyles.bubbleTextDoc : msgStyles.bubbleTextPatient]}>
+            {msg.text}
           </Text>
-          {isDoc && (
-            <Ionicons
-              name={msg.status === 'read' ? 'checkmark-done' : 'checkmark-done-outline'}
-              size={13}
-              color={msg.status === 'read' ? '#D4BBFF' : 'rgba(255,255,255,0.6)'}
-            />
-          )}
+          <View style={msgStyles.bubbleMeta}>
+            <Text style={[msgStyles.timeText, isDoc && { color: 'rgba(255,255,255,0.7)' }]}>{msg.time}</Text>
+            {isDoc && (
+                <Ionicons
+                    name={msg.status === 'read' ? 'checkmark-done' : 'checkmark-done-outline'}
+                    size={13}
+                    color={msg.status === 'read' ? '#D4BBFF' : 'rgba(255,255,255,0.6)'}
+                />
+            )}
+          </View>
         </View>
-      </View>
-    </Animated.View>
+      </Animated.View>
   );
 }
 
@@ -83,24 +136,10 @@ const msgStyles = StyleSheet.create({
   row:      { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginBottom: 6 },
   rowRight: { justifyContent: 'flex-end' },
   rowLeft:  { justifyContent: 'flex-start' },
-  patientAvatar: {
-    width: 30, height: 30, borderRadius: 15,
-    backgroundColor: DOC_COLOR_LIGHT,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1.5, borderColor: DOC_COLOR + '30',
-  },
+  patientAvatar: { width: 30, height: 30, borderRadius: 15, backgroundColor: DOC_COLOR_LIGHT, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: DOC_COLOR + '30' },
   bubble: { maxWidth: '75%', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 },
-  bubbleDoc: {
-    backgroundColor: DOC_COLOR, borderBottomRightRadius: 4,
-    shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25, shadowRadius: 6, elevation: 3,
-  },
-  bubblePatient: {
-    backgroundColor: '#fff', borderBottomLeftRadius: 4,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.07, shadowRadius: 4, elevation: 1,
-    borderWidth: 1, borderColor: Colors.border,
-  },
+  bubbleDoc: { backgroundColor: DOC_COLOR, borderBottomRightRadius: 4, shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 6, elevation: 3 },
+  bubblePatient: { backgroundColor: '#fff', borderBottomLeftRadius: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 4, elevation: 1, borderWidth: 1, borderColor: Colors.border },
   bubbleText:        { fontSize: FontSize.base, lineHeight: 22 },
   bubbleTextDoc:     { color: '#fff', fontWeight: '500' },
   bubbleTextPatient: { color: Colors.textPrimary },
@@ -108,365 +147,408 @@ const msgStyles = StyleSheet.create({
   timeText:          { fontSize: 10, color: Colors.textMuted },
 });
 
-// ─── Date Divider ─────────────────────────────────────────
 function DateDivider({ label }: { label: string }) {
   return (
-    <View style={divStyles.wrap}>
-      <View style={divStyles.line} />
-      <Text style={divStyles.text}>{label}</Text>
-      <View style={divStyles.line} />
-    </View>
+      <View style={divStyles.wrap}>
+        <View style={divStyles.line} />
+        <Text style={divStyles.text}>{label}</Text>
+        <View style={divStyles.line} />
+      </View>
   );
 }
-
 const divStyles = StyleSheet.create({
   wrap: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 14, paddingHorizontal: 8 },
   line: { flex: 1, height: 1, backgroundColor: Colors.border },
   text: { fontSize: 11, color: Colors.textMuted, fontWeight: '600', backgroundColor: '#F8F5FF', paddingHorizontal: 8, borderRadius: 8 },
 });
 
-const QUICK_REPLIES = ['كيف حالك اليوم؟', 'هل تناولت الدواء؟', 'ما هي الأعراض؟', 'لا داعي للقلق', 'يرجى المراجعة غداً'];
-
-// ─── Main Screen ──────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Screen
+// ─────────────────────────────────────────────────────────────────────────────
 export default function Docpatient() {
-  const { patientId, patientName, isOnline: isOnlineParam } =
-    useLocalSearchParams<{ patientId: string; patientName: string; isOnline: string }>();
+  const params = useLocalSearchParams<{
+    patientId: string; patientName: string; isOnline: string; chatId: string;
+  }>();
+  const patientId   = params.patientId   ?? '';
+  const patientName = params.patientName ?? '';
+  const chatId      = params.chatId      ?? '';
+  const isOnline    = params.isOnline === '1';
 
-  const { isRTL }      = useLang();
-  const { markAsRead } = useChats();
-  const insets         = useSafeAreaInsets();
+  const { isRTL }                               = useLang();
+  const { markAsRead, assignExercise, removeExercise, subscribeToExercises } = useChats();
+  const { user }                                = useAuth();
+  const insets                                  = useSafeAreaInsets();
 
-  const isOnline = isOnlineParam === '1';
+  const [messages,      setMessages]      = useState<Message[]>([]);
+  const [inputText,     setInputText]     = useState('');
+  const [showQuick,     setShowQuick]     = useState(false);
+  const [exercises,     setExercises]     = useState<PatientExercise[]>([]);
+  const [showExModal,   setShowExModal]   = useState(false);
+  const [exerciseAccess, setExerciseAccess] = useState<'locked' | 'granted'>('locked');
+  const [requestSent,   setRequestSent]   = useState(false);
+  const [newEx,         setNewEx]         = useState({ title: '', emoji: '🏋️', durationMin: '', description: '' });
 
+  const listRef         = useRef<FlatList>(null);
+  const quickAnim       = useRef(new Animated.Value(0)).current;
+  const seenMessageIds  = useRef(new Set<string>());
+
+  // ── Mark as read on focus ─────────────────────────────────────────────────
   useFocusEffect(useCallback(() => {
     if (patientId) markAsRead(patientId);
   }, [patientId]));
 
-  const [messages, setMessages] = useState<Message[]>([]);
-
-  // ─── Polling: شايف رسايل جديدة من المريض كل 5 ثواني ──
-  const lastSeenMsgIdRef = useRef<string>('');
-
-  const checkForNewPatientMessages = useCallback(async () => {
-    if (!patientId) return;
-    try {
-      const raw = await AsyncStorage.getItem(`doc_chat_${patientId}`);
-      if (!raw) return;
-      const msgs: Message[] = JSON.parse(raw);
-      if (!msgs.length) return;
-
-      // آخر رسالة من المريض
-      const patientMsgs = msgs.filter(m => m.sender === 'patient');
-      if (!patientMsgs.length) return;
-
-      const latestPatientMsg = patientMsgs[patientMsgs.length - 1];
-
-      // لو رسالة جديدة مش شوفناها → ولّد notification
-      if (latestPatientMsg.id !== lastSeenMsgIdRef.current) {
-        // أول مرة نشتغل → خزّن بدون notification
-        if (lastSeenMsgIdRef.current === '') {
-          lastSeenMsgIdRef.current = latestPatientMsg.id;
-          return;
-        }
-        lastSeenMsgIdRef.current = latestPatientMsg.id;
-        await notifyIncomingMessage(patientName || 'مريض', patientId, latestPatientMsg.text);
-
-        // حدّث الـ UI لو فيه رسايل جديدة
-        setMessages(msgs);
-        setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-      }
-    } catch {}
-  }, [patientId, patientName]);
-
-  // ── بدء الـ polling لما الشاشة تتفتح ──
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useFocusEffect(useCallback(() => {
-    pollingRef.current = setInterval(checkForNewPatientMessages, 5000);
-    return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
-    };
-  }, [checkForNewPatientMessages]));
-
-  // ── حمّل الرسايل المحفوظة لو موجودة ──
+  // ── Subscribe to relationship (exerciseAccess field) ──────────────────────
   useEffect(() => {
-    const loadMsgs = async () => {
-      try {
-        const raw = await AsyncStorage.getItem(`doc_chat_${patientId}`);
-        if (raw) {
-          const msgs: Message[] = JSON.parse(raw);
-
-          // ✅ خزّن آخر رسالة مريض كـ "شوفناها" (بدون notification عند الفتح)
-          const patientMsgs = msgs.filter(m => m.sender === 'patient');
-          if (patientMsgs.length > 0) {
-            lastSeenMsgIdRef.current = patientMsgs[patientMsgs.length - 1].id;
-          }
-
-          setMessages(msgs);
-        } else {
-          const initialMsgs: Message[] = [
-            {
-              id: 'd1',
-              text: 'أهلاً دكتور، أنا عندي ألم في الظهر من يومين',
-              sender: 'patient',
-              time: '10:23 ص',
-              status: 'read',
-            },
-            {
-              id: 'd2',
-              text: 'أهلاً، هل الألم مستمر ولا بيجي ويروح؟',
-              sender: 'doctor',
-              time: '10:24 ص',
-              status: 'read',
-            },
-            {
-              id: 'd3',
-              text: 'بيجي ويروح خصوصاً لما بقعد كتير',
-              sender: 'patient',
-              time: '10:25 ص',
-              status: 'read',
-            },
-            {
-              id: 'd4',
-              text: 'حسناً، ده غالباً من الجلوس الطويل. حاول تمشي كل ساعة وخد مسكن خفيف',
-              sender: 'doctor',
-              time: '10:26 ص',
-              status: 'read',
-            },
-          ];
-          // خزّن آخر رسالة مريض كـ "شوفناها"
-          const patientMsgs = initialMsgs.filter(m => m.sender === 'patient');
-          if (patientMsgs.length > 0) {
-            lastSeenMsgIdRef.current = patientMsgs[patientMsgs.length - 1].id;
-          }
-
-          setMessages(initialMsgs);
-          await AsyncStorage.setItem(`doc_chat_${patientId}`, JSON.stringify(initialMsgs));
-          const lastMsg = initialMsgs[initialMsgs.length - 1];
-          const msgsRaw = await AsyncStorage.getItem(MESSAGES_KEY);
-          const store = msgsRaw ? JSON.parse(msgsRaw) : {};
-          store[patientId] = { text: lastMsg.text, time: lastMsg.time, sender: lastMsg.sender };
-          await AsyncStorage.setItem(MESSAGES_KEY, JSON.stringify(store));
-        }
-      } catch {}
-    };
-    if (patientId) loadMsgs();
-  }, [patientId]);
-
-  // ── احفظ الرسايل وحدّث آخر رسالة في الـ MESSAGES_KEY ──
-  const saveMessages = useCallback(async (msgs: Message[]) => {
-    if (!patientId) return;
-    try {
-      await AsyncStorage.setItem(`doc_chat_${patientId}`, JSON.stringify(msgs));
-      const last = msgs[msgs.length - 1];
-      if (last) {
-        const raw   = await AsyncStorage.getItem(MESSAGES_KEY);
-        const store = raw ? JSON.parse(raw) : {};
-        store[patientId] = { text: last.text, time: last.time, sender: last.sender };
-        await AsyncStorage.setItem(MESSAGES_KEY, JSON.stringify(store));
+    if (!user?.uid || !patientId) return;
+    const unsub = onSnapshot(relDoc(user.uid, patientId), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data() as FSRelationship;
+        setExerciseAccess(data.exerciseAccess ?? 'locked');
       }
-    } catch {}
-  }, [patientId]);
-
-  const [inputText, setInputText] = useState('');
-  const [showQuick, setShowQuick] = useState(false);
-  const listRef   = useRef<FlatList>(null);
-  const quickAnim = useRef(new Animated.Value(0)).current;
-
-  const initials = patientName
-    ? patientName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
-    : '??';
-
-  const toggleQuick = () => {
-    const toVal = showQuick ? 0 : 1;
-    setShowQuick(!showQuick);
-    Animated.spring(quickAnim, { toValue: toVal, tension: 120, friction: 8, useNativeDriver: true }).start();
-  };
-
-  // ✅ sendMessage + notification إن الدكتور بعت رسالة
-  const sendMessage = useCallback((text: string) => {
-    if (!text.trim()) return;
-    const newMsg: Message = {
-      id: Date.now().toString(), text: text.trim(),
-      sender: 'doctor', time: now(), status: 'sent',
-    };
-    setMessages(prev => {
-      const updated = [...prev, newMsg];
-      saveMessages(updated);
-      return updated;
     });
+    return () => unsub();
+  }, [user?.uid, patientId]);
 
-    // ✅ notification رسالة مُرسلة من الدكتور
-    notifyMessageSent(patientName || 'مريض', patientId || '', text.trim()).catch(() => {});
+  // ── Subscribe to messages ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (!chatId) return;
+    const q = query(messagesCol(chatId), orderBy('timestamp', 'asc'));
+    const unsub = onSnapshot(q, (snap) => {
+      const msgs: Message[] = snap.docs.map(d => {
+        const data = d.data() as FSMessage;
+        return {
+          id:           d.id,
+          text:         data.text,
+          sender:       data.sender,
+          time:         data.time,
+          status:       'delivered',
+          type:         data.type ?? 'text',
+          accessStatus: data.accessStatus ?? null,
+        };
+      });
 
+      // Detect new incoming patient messages → notify
+      const incoming = msgs.filter(m => m.sender === 'patient');
+      const newest   = incoming.filter(m => !seenMessageIds.current.has(m.id));
+      if (newest.length > 0 && seenMessageIds.current.size > 0) {
+        import('./DocNotifService').then(({ notifyIncomingMessage }) => {
+          notifyIncomingMessage(patientName, patientId, newest[newest.length - 1].text).catch(() => {});
+        });
+      }
+      seenMessageIds.current = new Set(msgs.map(m => m.id));
+
+      // Check if any request_access message has been granted → update local state
+      const grantedMsg = msgs.find(m => m.type === 'request_access' && m.accessStatus === 'granted');
+      if (grantedMsg) setExerciseAccess('granted');
+      const pendingMsg = msgs.find(m => m.type === 'request_access' && m.accessStatus === 'pending');
+      if (pendingMsg) setRequestSent(true);
+
+      setMessages(msgs);
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 100);
+    });
+    return () => unsub();
+  }, [chatId]);
+
+  // ── Subscribe to exercises ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!patientId) return;
+    const unsub = subscribeToExercises(patientId, setExercises);
+    return () => unsub();
+  }, [patientId, subscribeToExercises]);
+
+  // ── Send text message ─────────────────────────────────────────────────────
+  const sendMessage = useCallback(async (text: string) => {
+    if (!text.trim() || !chatId) return;
+    const timeStr = now();
     setInputText('');
     setShowQuick(false);
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-  }, [saveMessages, patientName, patientId]);
 
-  const handleQuickReply = (text: string) => {
-    sendMessage(text);
-    Animated.timing(quickAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start();
-    setShowQuick(false);
+    try {
+      await addDoc(messagesCol(chatId), {
+        text:         text.trim(),
+        sender:       'doctor',
+        time:         timeStr,
+        timestamp:    serverTimestamp(),
+        type:         'text',
+        accessStatus: null,
+      });
+      await updateDoc(chatDoc(chatId), {
+        lastMessage:       text.trim(),
+        lastMessageTime:   serverTimestamp(),
+        lastMessageSender: 'doctor',
+      }).catch(() => {});
+
+      notifyMessageSent(patientName, patientId, text).catch(() => {});
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+    } catch (err) {
+      console.warn('[Docpatient.sendMessage]', err);
+    }
+  }, [chatId, patientId, patientName]);
+
+  // ── Request exercise access (writes special message) ─────────────────────
+  const handleRequestAccess = useCallback(async () => {
+    if (!chatId || requestSent) return;
+    const timeStr = now();
+    try {
+      await addDoc(messagesCol(chatId), {
+        text:         isRTL ? 'طلب إضافة تمارين' : 'Exercise access request',
+        sender:       'doctor',
+        time:         timeStr,
+        timestamp:    serverTimestamp(),
+        type:         'request_access',
+        accessStatus: 'pending',
+      });
+      setRequestSent(true);
+    } catch (err) {
+      console.warn('[Docpatient.handleRequestAccess]', err);
+    }
+  }, [chatId, requestSent, isRTL]);
+
+  // ── Assign exercise ───────────────────────────────────────────────────────
+  const handleSaveExercise = useCallback(async () => {
+    const durMin = parseInt(newEx.durationMin, 10);
+    if (!newEx.title.trim() || isNaN(durMin) || durMin <= 0) return;
+
+    await assignExercise(patientId, {
+      title:       newEx.title.trim(),
+      emoji:       newEx.emoji || '🏋️',
+      durationMin: durMin,
+      description: newEx.description.trim(),
+      completed:   false,
+    });
+
+    setNewEx({ title: '', emoji: '🏋️', durationMin: '', description: '' });
+    setShowExModal(false);
+  }, [newEx, patientId, assignExercise]);
+
+  const toggleQuick = () => {
+    const v = showQuick ? 0 : 1;
+    setShowQuick(!showQuick);
+    Animated.spring(quickAnim, { toValue: v, tension: 120, friction: 8, useNativeDriver: true }).start();
   };
 
-  const HEADER_HEIGHT  = 68;
-  const keyboardOffset = HEADER_HEIGHT + insets.top;
+  const isLocked = exerciseAccess === 'locked';
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <StatusBar backgroundColor="#F8F5FF" barStyle="dark-content" />
+      <SafeAreaView style={styles.safe} edges={['top','bottom']}>
+        <StatusBar backgroundColor="#F8F5FF" barStyle="dark-content" />
 
-      {/* ── Header ── */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.8}>
-          <Ionicons name="arrow-back" size={22} color={DOC_COLOR} />
-        </TouchableOpacity>
-
-        <View style={styles.headerInfo}>
-          <View style={[styles.headerAvatar, isOnline && styles.headerAvatarOnline]}>
-            <Text style={styles.headerInitials}>{initials}</Text>
-          </View>
-          <View>
-            <Text style={styles.headerName} numberOfLines={1}>{patientName || 'مريض'}</Text>
-            <View style={styles.onlineRow}>
-              <View style={[styles.onlineDot, !isOnline && styles.offlineDot]} />
-              <Text style={[styles.onlineText, !isOnline && styles.offlineText]}>
-                {isOnline ? 'نشط الآن' : 'غير متصل'}
+        {/* ── Header ── */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.8}>
+            <Ionicons name="arrow-back" size={22} color={DOC_COLOR} />
+          </TouchableOpacity>
+          <View style={styles.headerInfo}>
+            <View style={styles.headerAvatar}>
+              <Ionicons name="person" size={20} color={DOC_COLOR} />
+              {isOnline && <View style={styles.onlineDot} />}
+            </View>
+            <View>
+              <Text style={styles.headerName} numberOfLines={1}>{patientName}</Text>
+              <Text style={styles.headerSub}>
+                {isOnline ? (isRTL ? 'نشط الآن' : 'Active now') : (isRTL ? 'غير متصل' : 'Offline')}
               </Text>
             </View>
           </View>
+
+          {/* Exercise Access button */}
+          <TouchableOpacity
+              style={[styles.exerciseBtn, isLocked ? styles.exerciseBtnLocked : styles.exerciseBtnActive]}
+              onPress={isLocked ? handleRequestAccess : () => setShowExModal(true)}
+              activeOpacity={0.8}
+              disabled={requestSent && isLocked}
+          >
+            <Ionicons
+                name={isLocked ? (requestSent ? 'time-outline' : 'lock-closed-outline') : 'fitness-outline'}
+                size={16}
+                color={isLocked ? '#F4A32B' : '#fff'}
+            />
+            <Text style={[styles.exerciseBtnText, isLocked && { color: '#F4A32B' }]}>
+              {isLocked
+                  ? (requestSent
+                      ? (isRTL ? 'في الانتظار' : 'Pending')
+                      : (isRTL ? 'طلب صلاحية' : 'Request'))
+                  : (isRTL ? 'تمارين +' : '+ Exercise')}
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.exerciseBtn} activeOpacity={0.8}>
-          <Ionicons name="barbell-outline" size={20} color={DOC_COLOR} />
-        </TouchableOpacity>
-      </View>
-
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? keyboardOffset : 0}
-      >
-        <FlatList
-          ref={listRef}
-          data={messages}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
-          ListHeaderComponent={<DateDivider label="اليوم" />}
-          renderItem={({ item }) => <MessageBubble msg={item} isRTL={isRTL} />}
-        />
-
-        {showQuick && (
-          <Animated.ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={[styles.quickWrap, {
-              opacity: quickAnim,
-              transform: [{ translateY: quickAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
-            }]}
-            contentContainerStyle={styles.quickContent}
-          >
-            {QUICK_REPLIES.map((q, i) => (
-              <TouchableOpacity key={i} onPress={() => handleQuickReply(q)} style={styles.quickChip} activeOpacity={0.8}>
-                <Text style={styles.quickChipText}>{q}</Text>
-              </TouchableOpacity>
-            ))}
-          </Animated.ScrollView>
+        {/* Access status banner */}
+        {!isLocked && (
+            <View style={[styles.banner, { borderColor: '#4CAF8240' }]}>
+              <Ionicons name="shield-checkmark-outline" size={14} color="#4CAF82" />
+              <Text style={[styles.bannerText, { color: '#4CAF82' }]}>
+                {isRTL ? 'صلاحية التمارين ممنوحة ✅' : 'Exercise access granted ✅'}
+              </Text>
+            </View>
+        )}
+        {isLocked && requestSent && (
+            <View style={[styles.banner, { borderColor: '#F4A32B40' }]}>
+              <Ionicons name="hourglass-outline" size={14} color="#F4A32B" />
+              <Text style={[styles.bannerText, { color: '#F4A32B' }]}>
+                {isRTL ? 'طلب الصلاحية في انتظار الموافقة' : 'Access request awaiting patient approval'}
+              </Text>
+            </View>
         )}
 
-        <View style={[styles.inputBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <TouchableOpacity
-            onPress={toggleQuick}
-            style={[styles.iconBtn, showQuick && styles.iconBtnActive]}
-            activeOpacity={0.8}
-          >
-            <Ionicons name={showQuick ? 'close' : 'flash'} size={20} color={showQuick ? '#fff' : DOC_COLOR} />
-          </TouchableOpacity>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          {/* Messages */}
+          <FlatList
+              ref={listRef}
+              data={messages}
+              keyExtractor={item => item.id}
+              contentContainerStyle={styles.listContent}
+              showsVerticalScrollIndicator={false}
+              onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+              ListHeaderComponent={<DateDivider label={isRTL ? 'اليوم' : 'Today'} />}
+              renderItem={({ item }) => <MessageBubble msg={item} isRTL={isRTL} />}
+          />
 
-          <View style={[styles.inputWrap, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <TextInput
-              value={inputText}
-              onChangeText={setInputText}
-              placeholder="اكتب رسالة..."
-              placeholderTextColor={Colors.textMuted}
-              style={[styles.textInput, { textAlign: isRTL ? 'right' : 'left' }]}
-              multiline
-              maxLength={500}
-              returnKeyType="default"
-            />
+          {/* Quick replies */}
+          {showQuick && (
+              <Animated.ScrollView
+                  horizontal showsHorizontalScrollIndicator={false}
+                  style={[styles.quickWrap, {
+                    opacity: quickAnim,
+                    transform: [{ translateY: quickAnim.interpolate({ inputRange: [0,1], outputRange: [20,0] }) }],
+                  }]}
+                  contentContainerStyle={styles.quickContent}
+              >
+                {QUICK_REPLIES.map((q, i) => (
+                    <TouchableOpacity key={i} onPress={() => { sendMessage(q); setShowQuick(false); }} style={styles.quickChip} activeOpacity={0.8}>
+                      <Text style={styles.quickChipText}>{q}</Text>
+                    </TouchableOpacity>
+                ))}
+              </Animated.ScrollView>
+          )}
+
+          {/* Input bar */}
+          <View style={styles.inputBarWrap}>
+            <View style={[styles.inputBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <TouchableOpacity onPress={toggleQuick} style={[styles.iconBtn, showQuick && { backgroundColor: DOC_COLOR }]} activeOpacity={0.8}>
+                <Ionicons name={showQuick ? 'close' : 'flash'} size={18} color={showQuick ? '#fff' : DOC_COLOR} />
+              </TouchableOpacity>
+              <View style={styles.inputWrap}>
+                <TextInput
+                    value={inputText}
+                    onChangeText={setInputText}
+                    placeholder={isRTL ? 'اكتب رسالة...' : 'Write a message...'}
+                    placeholderTextColor={Colors.textMuted}
+                    style={[styles.textInput, { textAlign: isRTL ? 'right' : 'left' }]}
+                    multiline maxLength={500}
+                />
+              </View>
+              <TouchableOpacity
+                  onPress={() => sendMessage(inputText)}
+                  style={[styles.sendBtn, { backgroundColor: inputText.trim() ? DOC_COLOR : '#B0BEC5' }]}
+                  activeOpacity={0.8} disabled={!inputText.trim()}
+              >
+                <Ionicons name="send" size={16} color="#fff" />
+              </TouchableOpacity>
+            </View>
           </View>
+        </KeyboardAvoidingView>
 
-          <TouchableOpacity
-            onPress={() => sendMessage(inputText)}
-            style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}
-            activeOpacity={0.8}
-            disabled={!inputText.trim()}
-          >
-            <Ionicons name="send" size={18} color="#fff" style={{ marginLeft: isRTL ? 0 : 2 }} />
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        {/* ── Exercise list sidebar / modal ── */}
+        {!isLocked && exercises.length > 0 && (
+            <View style={styles.exListWrap}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.exListContent}>
+                {exercises.map(ex => (
+                    <View key={ex.id} style={styles.exChip}>
+                      <Text style={styles.exEmoji}>{ex.emoji}</Text>
+                      <Text style={styles.exTitle} numberOfLines={1}>{ex.title}</Text>
+                      <TouchableOpacity onPress={() => removeExercise(patientId, ex.id)} style={styles.exRemoveBtn}>
+                        <Ionicons name="close-circle" size={14} color="#E53935" />
+                      </TouchableOpacity>
+                    </View>
+                ))}
+              </ScrollView>
+            </View>
+        )}
+
+        {/* ── Add Exercise Modal ── */}
+        <Modal visible={showExModal} transparent animationType="slide" onRequestClose={() => setShowExModal(false)}>
+          <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+            <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setShowExModal(false)} />
+            <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={[styles.modalTitle, { textAlign: isRTL ? 'right' : 'left' }]}>
+              {isRTL ? 'تعيين تمرين جديد' : 'Assign New Exercise'}
+            </Text>
+
+            <TextInput
+                value={newEx.title} onChangeText={v => setNewEx(p => ({ ...p, title: v }))}
+                placeholder={isRTL ? 'اسم التمرين *' : 'Exercise name *'}
+                placeholderTextColor={Colors.textMuted}
+                style={[styles.modalInput, { textAlign: isRTL ? 'right' : 'left' }]}
+            />
+            <TextInput
+                value={newEx.emoji} onChangeText={v => setNewEx(p => ({ ...p, emoji: v }))}
+                placeholder="🏋️"
+                style={[styles.modalInput, { textAlign: 'center', maxWidth: 80 }]}
+            />
+            <TextInput
+                value={newEx.durationMin} onChangeText={v => setNewEx(p => ({ ...p, durationMin: v }))}
+                placeholder={isRTL ? 'المدة (دقائق) *' : 'Duration (min) *'}
+                keyboardType="numeric"
+                placeholderTextColor={Colors.textMuted}
+                style={[styles.modalInput, { textAlign: isRTL ? 'right' : 'left' }]}
+            />
+            <TextInput
+                value={newEx.description} onChangeText={v => setNewEx(p => ({ ...p, description: v }))}
+                placeholder={isRTL ? 'وصف (اختياري)' : 'Description (optional)'}
+                placeholderTextColor={Colors.textMuted}
+                style={[styles.modalInput, { textAlign: isRTL ? 'right' : 'left' }]}
+                multiline
+            />
+
+            <TouchableOpacity style={styles.saveExBtn} onPress={handleSaveExercise} activeOpacity={0.8}>
+              <Text style={styles.saveExBtnText}>{isRTL ? '✅ حفظ التمرين' : '✅ Save Exercise'}</Text>
+            </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      </SafeAreaView>
   );
 }
 
+// Styles
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F8F5FF' },
-  header: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: Spacing.base, paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1, borderBottomColor: '#F0EBFA',
-    shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08, shadowRadius: 8, elevation: 3,
-  },
-  backBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: DOC_COLOR_LIGHT,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  headerInfo:        { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  headerAvatar:      { width: 44, height: 44, borderRadius: 22, backgroundColor: DOC_COLOR_LIGHT, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: DOC_COLOR + '40' },
-  headerAvatarOnline:{ borderColor: '#4CAF82' },
-  headerInitials:    { fontSize: 16, fontWeight: '800', color: DOC_COLOR },
-  headerName:        { fontSize: FontSize.base, fontWeight: '700', color: Colors.textPrimary, maxWidth: 160 },
-  onlineRow:         { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
-  onlineDot:         { width: 7, height: 7, borderRadius: 4, backgroundColor: '#4CAF82' },
-  offlineDot:        { backgroundColor: '#B0BEC5' },
-  onlineText:        { fontSize: 11, color: '#4CAF82', fontWeight: '600' },
-  offlineText:       { color: '#B0BEC5' },
-  exerciseBtn:       { width: 40, height: 40, borderRadius: 20, backgroundColor: DOC_COLOR_LIGHT, alignItems: 'center', justifyContent: 'center' },
-  listContent:       { paddingHorizontal: Spacing.base, paddingBottom: 12 },
-  quickWrap:         { maxHeight: 50, marginBottom: 4 },
-  quickContent:      { paddingHorizontal: Spacing.base, gap: 8, alignItems: 'center' },
-  quickChip: {
-    backgroundColor: '#fff', borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 8,
-    borderWidth: 1.5, borderColor: DOC_COLOR + '40',
-    shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1, shadowRadius: 4, elevation: 2,
-  },
-  quickChipText: { fontSize: 12, color: DOC_COLOR, fontWeight: '600' },
-  inputBar: {
-    alignItems: 'flex-end', gap: 8,
-    paddingHorizontal: Spacing.base, paddingVertical: 10,
-    backgroundColor: '#fff',
-    borderTopWidth: 1, borderTopColor: '#F0EBFA',
-    shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.06, shadowRadius: 8, elevation: 4,
-  },
-  inputWrap: {
-    flex: 1, backgroundColor: Colors.background,
-    borderRadius: 22, paddingHorizontal: 14, paddingVertical: 10,
-    borderWidth: 1.5, borderColor: '#E8DFFA',
-    minHeight: 44, maxHeight: 120,
-  },
-  textInput:       { flex: 1, fontSize: FontSize.base, color: Colors.textPrimary, padding: 0, lineHeight: 20 },
-  iconBtn:         { width: 44, height: 44, borderRadius: 22, backgroundColor: DOC_COLOR_LIGHT, alignItems: 'center', justifyContent: 'center' },
-  iconBtnActive:   { backgroundColor: DOC_COLOR },
-  sendBtn:         { width: 44, height: 44, borderRadius: 22, backgroundColor: DOC_COLOR, alignItems: 'center', justifyContent: 'center', shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 8, elevation: 4 },
-  sendBtnDisabled: { backgroundColor: '#B0BEC5', shadowOpacity: 0 },
+  safe:        { flex: 1, backgroundColor: '#F8F5FF' },
+  header:      { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: Spacing.base, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: Colors.border },
+  backBtn:     { width: 38, height: 38, borderRadius: 19, backgroundColor: DOC_COLOR_LIGHT, alignItems: 'center', justifyContent: 'center' },
+  headerInfo:  { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerAvatar:{ width: 40, height: 40, borderRadius: 20, backgroundColor: DOC_COLOR_LIGHT, alignItems: 'center', justifyContent: 'center' },
+  onlineDot:   { position: 'absolute', bottom: 1, right: 1, width: 10, height: 10, borderRadius: 5, backgroundColor: '#4CAF82', borderWidth: 1.5, borderColor: '#fff' },
+  headerName:  { fontSize: FontSize.base, fontWeight: '700', color: Colors.textPrimary },
+  headerSub:   { fontSize: 11, color: Colors.textMuted, marginTop: 1 },
+  exerciseBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 12, borderWidth: 1.5 },
+  exerciseBtnActive: { backgroundColor: DOC_COLOR, borderColor: DOC_COLOR },
+  exerciseBtnLocked: { backgroundColor: '#FEF3E2', borderColor: '#F4A32B40' },
+  exerciseBtnText:   { fontSize: 12, fontWeight: '700', color: '#fff' },
+  banner:     { flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: Spacing.base, marginTop: 8, marginBottom: 2, backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6 },
+  bannerText: { fontSize: 11, fontWeight: '500', flex: 1 },
+  listContent:{ paddingHorizontal: Spacing.base, paddingBottom: 12, paddingTop: 8 },
+  quickWrap:    { maxHeight: 50, marginBottom: 4 },
+  quickContent: { paddingHorizontal: Spacing.base, gap: 8, alignItems: 'center' },
+  quickChip:    { backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1.5, borderColor: DOC_COLOR + '50' },
+  quickChipText:{ fontSize: 12, fontWeight: '600', color: DOC_COLOR },
+  inputBarWrap: { backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: Colors.border },
+  inputBar:     { alignItems: 'flex-end', gap: 8, paddingHorizontal: Spacing.base, paddingTop: 10, paddingBottom: 12 },
+  inputWrap:    { flex: 1, backgroundColor: Colors.background, borderRadius: 22, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1.5, borderColor: DOC_COLOR + '40', minHeight: 44, maxHeight: 120 },
+  textInput:    { flex: 1, fontSize: FontSize.base, color: Colors.textPrimary, padding: 0, lineHeight: 20 },
+  iconBtn:      { width: 42, height: 42, borderRadius: 21, backgroundColor: DOC_COLOR_LIGHT, alignItems: 'center', justifyContent: 'center' },
+  sendBtn:      { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
+  exListWrap:   { backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: Colors.border, paddingVertical: 8 },
+  exListContent:{ paddingHorizontal: Spacing.base, gap: 8 },
+  exChip:       { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: DOC_COLOR_LIGHT, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: DOC_COLOR + '30', maxWidth: 160 },
+  exEmoji:      { fontSize: 16 },
+  exTitle:      { fontSize: 11, fontWeight: '700', color: DOC_COLOR, flex: 1 },
+  exRemoveBtn:  { marginLeft: 2 },
+  modalSheet:   { backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: Spacing.xl, gap: 12 },
+  modalHandle:  { width: 40, height: 4, backgroundColor: Colors.border, borderRadius: 2, alignSelf: 'center', marginBottom: 6 },
+  modalTitle:   { fontSize: 17, fontWeight: '800', color: Colors.textPrimary },
+  modalInput:   { backgroundColor: Colors.background, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, fontSize: FontSize.base, color: Colors.textPrimary, borderWidth: 1.5, borderColor: Colors.border },
+  saveExBtn:    { backgroundColor: DOC_COLOR, borderRadius: 16, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
+  saveExBtnText:{ color: '#fff', fontWeight: '700', fontSize: 15 },
 });

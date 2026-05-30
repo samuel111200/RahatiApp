@@ -798,3 +798,6 @@ export function stopAllWatchers() {
   stopEnergyWatcher();
   stopMissedWatcher();
 }
+
+// Required by expo-router (this file lives in app/ so it needs a default export)
+export default function NotificationService() { return null; }

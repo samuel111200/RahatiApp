@@ -1,6 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
-import Constants from "expo-constants";
 import { Platform } from 'react-native';
 
 type AppNotification = {
@@ -20,11 +19,10 @@ const DEDUP_KEY     = 'doc_notif_dedup';
 export async function setupDocNotifications() {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: true,
       shouldShowBanner: true,
       shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
     }),
   });
 
@@ -35,8 +33,6 @@ export async function setupDocNotifications() {
       sound: 'default',
     });
   }
-
-  if (!Constants.isDevice) return;
 
   const { status } = await Notifications.requestPermissionsAsync();
   if (status !== 'granted') return;
@@ -232,3 +228,6 @@ export async function notifyIncomingMessage(
     trigger: null,
   });
 }
+
+// Required by expo-router (this file lives in app/ so it needs a default export)
+export default function DocNotifServicePlaceholder() { return null; }

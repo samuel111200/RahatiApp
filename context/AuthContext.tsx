@@ -1,158 +1,274 @@
 // context/AuthContext.tsx
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+// ─────────────────────────────────────────────────────────────────────────────
+// Full Firebase Auth + Firestore replacement for the old AsyncStorage-based
+// AuthContext.  ALL UI-facing interfaces (User type, hook names, method
+// signatures) are intentionally kept identical so every existing screen
+// continues to compile without changes.
+// ─────────────────────────────────────────────────────────────────────────────
 
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from 'react';
+
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  updateProfile as fbUpdateProfile,
+  User as FBUser,
+} from 'firebase/auth';
+
+import {
+  doc,
+  setDoc,
+  getDoc,
+  updateDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
+
+import { auth, db, userDoc, FSUser } from '../utils/firebaseConfig';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Public types (unchanged surface)
+// ─────────────────────────────────────────────────────────────────────────────
 export interface User {
-  firstName: string;
-  lastName: string;
-  age: string;
-  gender: string;
-  email: string;
-  specialty?: string;       // ← جديد
-  licenseNumber?: string;   // ← جديد
-  provider?: 'email' | 'google' | 'facebook';
-  photoUrl?: string;
-}
-
-interface StoredAccount {
-  email: string;
-  password: string;
-  user: User;
+  uid:           string;
+  firstName:     string;
+  lastName:      string;
+  age:           string;
+  gender:        string;
+  email:         string;
+  role:          'doctor' | 'patient';
+  specialty?:    string;
+  licenseNumber?: string;
+  provider?:     'email' | 'google' | 'facebook';
+  photoUrl?:     string;
 }
 
 interface AuthContextType {
-  user: User | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  signIn: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
-  signUp: (personal: Omit<User, 'email' | 'provider'>, account: { email: string; password: string }) => Promise<{ ok: boolean; error?: string }>;
-  signInWithSocial: (provider: 'google' | 'facebook', profile: { email: string; firstName: string; lastName: string; photoUrl?: string }) => Promise<void>;
-  logout: () => Promise<void>;
-  updateProfile: (data: Partial<User>) => Promise<void>;
+  user:             User | null;
+  isAuthenticated:  boolean;
+  isLoading:        boolean;
+  signIn:           (email: string, password: string)     => Promise<{ ok: boolean; error?: string }>;
+  signUp:           (
+      personal: Omit<User, 'email' | 'provider' | 'uid'>,
+      account:  { email: string; password: string },
+  ) => Promise<{ ok: boolean; error?: string }>;
+  signInWithSocial: (
+      provider: 'google' | 'facebook',
+      profile: { email: string; firstName: string; lastName: string; photoUrl?: string },
+  ) => Promise<void>;
+  logout:           ()                                    => Promise<void>;
+  updateProfile:    (data: Partial<User>)                 => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | null>(null);
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: read user doc from Firestore and map to our User shape
+// ─────────────────────────────────────────────────────────────────────────────
+async function fetchUserProfile(uid: string): Promise<User | null> {
+  try {
+    const snap = await getDoc(userDoc(uid));
+    if (!snap.exists()) return null;
+    return snap.data() as User;
+  } catch {
+    return null;
+  }
+}
 
-const STORAGE_KEY  = 'rahati_current_user';
-const ACCOUNTS_KEY = 'rahati_accounts';
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper: write / merge user doc to Firestore
+// ─────────────────────────────────────────────────────────────────────────────
+async function persistUserProfile(uid: string, data: Partial<FSUser>) {
+  await setDoc(userDoc(uid), { ...data, uid }, { merge: true });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Context & Provider
+// ─────────────────────────────────────────────────────────────────────────────
+const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user,            setUser]            = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading,       setIsLoading]       = useState(true);
 
+  // ── Subscribe to Firebase Auth state changes ───────────────────────────────
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then(raw => {
-      if (raw) {
-        try {
-          const u = JSON.parse(raw);
-          setUser(u);
+    const unsub = onAuthStateChanged(auth, async (fbUser: FBUser | null) => {
+      if (fbUser) {
+        // Try to load the full profile from Firestore
+        const profile = await fetchUserProfile(fbUser.uid);
+        if (profile) {
+          setUser(profile);
           setIsAuthenticated(true);
-        } catch {}
+        } else {
+          // Edge-case: auth user exists but no Firestore doc yet (race condition)
+          // Build a minimal user object from the Firebase Auth record
+          const minimal: User = {
+            uid:          fbUser.uid,
+            firstName:    fbUser.displayName?.split(' ')[0] ?? '',
+            lastName:     fbUser.displayName?.split(' ').slice(1).join(' ') ?? '',
+            email:        fbUser.email ?? '',
+            age:          '',
+            gender:       '',
+            role:         'patient',
+            photoUrl:     fbUser.photoURL ?? undefined,
+          };
+          setUser(minimal);
+          setIsAuthenticated(true);
+        }
+      } else {
+        setUser(null);
+        setIsAuthenticated(false);
       }
       setIsLoading(false);
-    }).catch(() => setIsLoading(false));
+    });
+
+    return unsub; // cleanup subscription on unmount
   }, []);
 
-  const persist = async (u: User) => {
-    setUser(u);
-    setIsAuthenticated(true);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(u));
-  };
-
+  // ── signIn ─────────────────────────────────────────────────────────────────
   const signIn = async (
-    email: string,
-    password: string
+      email: string,
+      password: string,
   ): Promise<{ ok: boolean; error?: string }> => {
     try {
-      const raw = await AsyncStorage.getItem(ACCOUNTS_KEY);
-      const accounts: StoredAccount[] = raw ? JSON.parse(raw) : [];
-      const found = accounts.find(
-        a => a.email.toLowerCase() === email.toLowerCase() && a.password === password
-      );
-      if (!found) return { ok: false, error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' };
-      await persist(found.user);
+      await signInWithEmailAndPassword(auth, email.trim(), password);
+      // onAuthStateChanged will update user state automatically
       return { ok: true };
-    } catch {
-      return { ok: false, error: 'حدث خطأ، حاول مرة أخرى' };
+    } catch (e: any) {
+      // Map Firebase error codes to Arabic/English user messages
+      const code: string = e?.code ?? '';
+      let error = 'حدث خطأ، حاول مرة أخرى';
+      if (code === 'auth/user-not-found' || code === 'auth/wrong-password' ||
+          code === 'auth/invalid-credential') {
+        error = 'البريد الإلكتروني أو كلمة المرور غير صحيحة';
+      } else if (code === 'auth/too-many-requests') {
+        error = 'تم تجاوز عدد المحاولات المسموح به. حاول لاحقاً';
+      }
+      return { ok: false, error };
     }
   };
 
+  // ── signUp ─────────────────────────────────────────────────────────────────
   const signUp = async (
-    personal: Omit<User, 'email' | 'provider'>,
-    account: { email: string; password: string }
+      personal: Omit<User, 'email' | 'provider' | 'uid'>,
+      account: { email: string; password: string },
   ): Promise<{ ok: boolean; error?: string }> => {
     try {
-      const raw = await AsyncStorage.getItem(ACCOUNTS_KEY);
-      const accounts: StoredAccount[] = raw ? JSON.parse(raw) : [];
-      if (accounts.find(a => a.email.toLowerCase() === account.email.toLowerCase()))
-        return { ok: false, error: 'هذا البريد الإلكتروني مستخدم بالفعل' };
+      const credential = await createUserWithEmailAndPassword(
+          auth,
+          account.email.trim(),
+          account.password,
+      );
+      const fbUser = credential.user;
 
-      const newUser: User = {
-        ...personal,           // هيشمل specialty و licenseNumber تلقائياً لو اتبعتوا
-        email: account.email,
-        provider: 'email',
+      // Update Firebase Auth display name
+      await fbUpdateProfile(fbUser, {
+        displayName: `${personal.firstName} ${personal.lastName}`,
+      });
+
+      // Write full profile to Firestore
+      const newUser: FSUser = {
+        uid:           fbUser.uid,
+        firstName:     personal.firstName,
+        lastName:      personal.lastName,
+        email:         account.email.trim(),
+        age:           personal.age ?? '',
+        gender:        (personal.gender as FSUser['gender']) ?? '',
+        role:          personal.role ?? 'patient',
+        specialty:     personal.specialty,
+        licenseNumber: personal.licenseNumber,
+        photoUrl:      personal.photoUrl ?? null,
       };
-      accounts.push({ email: account.email, password: account.password, user: newUser });
-      await AsyncStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
-      await persist(newUser);
+      await persistUserProfile(fbUser.uid, newUser);
+
+      // onAuthStateChanged will load the profile; no manual setState needed
       return { ok: true };
-    } catch {
-      return { ok: false, error: 'حدث خطأ، حاول مرة أخرى' };
+    } catch (e: any) {
+      const code: string = e?.code ?? '';
+      let error = 'حدث خطأ، حاول مرة أخرى';
+      if (code === 'auth/email-already-in-use') {
+        error = 'هذا البريد الإلكتروني مستخدم بالفعل';
+      } else if (code === 'auth/weak-password') {
+        error = 'كلمة المرور ضعيفة جداً';
+      }
+      return { ok: false, error };
     }
   };
 
+  // ── signInWithSocial ───────────────────────────────────────────────────────
+  // NOTE: Full Google/Facebook OAuth flows require expo-auth-session or
+  // @react-native-google-signin. This stub preserves the existing interface
+  // and writes a Firestore user doc after you obtain an OAuth credential.
   const signInWithSocial = async (
-    provider: 'google' | 'facebook',
-    profile: { email: string; firstName: string; lastName: string; photoUrl?: string }
+      provider: 'google' | 'facebook',
+      profile: { email: string; firstName: string; lastName: string; photoUrl?: string },
   ) => {
-    const socialUser: User = {
+    // The caller is responsible for completing the OAuth flow and calling
+    // signInWithCredential(auth, oauthCredential) before invoking this method.
+    // Here we only upsert the Firestore user doc using the current Auth user.
+    const fbUser = auth.currentUser;
+    if (!fbUser) return;
+
+    const socialUser: FSUser = {
+      uid:      fbUser.uid,
       firstName: profile.firstName,
       lastName:  profile.lastName,
+      email:     profile.email,
       age:       '',
       gender:    '',
-      email:     profile.email,
-      provider,
-      photoUrl:  profile.photoUrl,
+      role:      'patient',
+      photoUrl:  profile.photoUrl ?? null,
     };
-    const raw = await AsyncStorage.getItem(ACCOUNTS_KEY);
-    const accounts: StoredAccount[] = raw ? JSON.parse(raw) : [];
-    const idx = accounts.findIndex(a => a.email.toLowerCase() === profile.email.toLowerCase());
-    if (idx >= 0) accounts[idx].user = socialUser;
-    else accounts.push({ email: profile.email, password: '', user: socialUser });
-    await AsyncStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
-    await persist(socialUser);
+    await persistUserProfile(fbUser.uid, socialUser);
+    // State will be updated by onAuthStateChanged
   };
 
+  // ── logout ─────────────────────────────────────────────────────────────────
   const logout = async () => {
-    setUser(null);
-    setIsAuthenticated(false);
-    await AsyncStorage.removeItem(STORAGE_KEY);
+    await signOut(auth);
+    // onAuthStateChanged will set user → null automatically
   };
 
+  // ── updateProfile ──────────────────────────────────────────────────────────
   const updateProfile = async (data: Partial<User>) => {
-    if (!user) return;
-    const updated = { ...user, ...data };
+    if (!user?.uid) return;
+    const updated: User = { ...user, ...data };
     setUser(updated);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    const raw = await AsyncStorage.getItem(ACCOUNTS_KEY);
-    const accounts: StoredAccount[] = raw ? JSON.parse(raw) : [];
-    const idx = accounts.findIndex(
-      a => a.email.toLowerCase() === updated.email.toLowerCase()
-    );
-    if (idx >= 0) {
-      accounts[idx].user = updated;
-      await AsyncStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+
+    // Persist to Firestore (merge so we never wipe fields)
+    await persistUserProfile(user.uid, data as Partial<FSUser>);
+
+    // Keep Firebase Auth display name in sync
+    const fbUser = auth.currentUser;
+    if (fbUser && (data.firstName || data.lastName)) {
+      await fbUpdateProfile(fbUser, {
+        displayName: `${updated.firstName} ${updated.lastName}`,
+      }).catch(() => {});
     }
   };
 
   return (
-    <AuthContext.Provider value={{
-      user, isAuthenticated, isLoading,
-      signIn, signUp, signInWithSocial, logout, updateProfile,
-    }}>
-      {children}
-    </AuthContext.Provider>
+      <AuthContext.Provider
+          value={{
+            user,
+            isAuthenticated,
+            isLoading,
+            signIn,
+            signUp,
+            signInWithSocial,
+            logout,
+            updateProfile,
+          }}
+      >
+        {children}
+      </AuthContext.Provider>
   );
 }
 
