@@ -1,5 +1,8 @@
 // context/LanguageContext.tsx
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const LANG_KEY = 'app_language';
 
 export type Lang = 'ar' | 'en';
 
@@ -689,11 +692,23 @@ interface LangContextType {
 
 const LangContext = createContext<LangContextType | null>(null);
 
-// ── LanguageProvider: بسيط بدون router ──
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLang] = useState<Lang>('ar');
+  const [lang, setLangState] = useState<Lang>('ar');
+
+  useEffect(() => {
+    AsyncStorage.getItem(LANG_KEY).then(saved => {
+      if (saved === 'ar' || saved === 'en') setLangState(saved);
+    }).catch(() => {});
+  }, []);
+
+  const setLang = useCallback((l: Lang) => {
+    setLangState(l);
+    AsyncStorage.setItem(LANG_KEY, l).catch(() => {});
+  }, []);
+
   const t = lang === 'ar' ? AR : EN;
   const isRTL = lang === 'ar';
+
   return (
     <LangContext.Provider value={{ lang, t, setLang, isRTL }}>
       {children}

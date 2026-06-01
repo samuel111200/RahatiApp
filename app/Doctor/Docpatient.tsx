@@ -7,18 +7,17 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  collection, doc, addDoc, onSnapshot, updateDoc, orderBy, query, getDoc,
+} from 'firebase/firestore';
+import { auth, db, FSMessage, FSChat } from '../../utils/firebaseConfig';
 import { Colors, Spacing, FontSize } from '../../constants/Theme';
 import { useLang } from '../../context/Languagecontext';
 import { useChats } from '../../context/Chatscontext';
-import { notifyMessageSent, notifyIncomingMessage } from './DocNotifService';
+import { notifyMessageSent } from './DocNotifService';
 
 const DOC_COLOR       = '#7C5CBF';
 const DOC_COLOR_LIGHT = '#F0EBFA';
-const MESSAGES_KEY    = 'doc_messages';
-
-// ─── مفتاح لتتبع آخر رسالة مريض شوفناها (لمنع التكرار) ──
-const LAST_SEEN_KEY = 'doc_last_seen_msg';
 
 type Message = {
   id: string;
@@ -26,6 +25,7 @@ type Message = {
   sender: 'doctor' | 'patient';
   time: string;
   status?: 'sent' | 'delivered' | 'read';
+  type?: 'text' | 'request_access';
 };
 
 function now() {
@@ -44,6 +44,22 @@ function MessageBubble({ msg, isRTL }: { msg: Message; isRTL: boolean }) {
       Animated.spring(slideAnim, { toValue: 0, tension: 120, friction: 8, useNativeDriver: true }),
     ]).start();
   }, []);
+
+  if (msg.type === 'request_access') {
+    return (
+      <Animated.View style={[msgStyles.row, msgStyles.rowRight, { opacity: fadeAnim }]}>
+        <View style={msgStyles.requestCard}>
+          <Ionicons name="barbell-outline" size={22} color={DOC_COLOR} />
+          <Text style={msgStyles.requestTitle}>طلب صلاحية التمارين</Text>
+          <Text style={msgStyles.requestSub}>طلب الدكتور إذنك لتعيين وإدارة التمارين الخاصة بك</Text>
+          <View style={msgStyles.requestBadge}>
+            <Ionicons name="time-outline" size={13} color="#F4A32B" />
+            <Text style={msgStyles.requestBadgeText}>بانتظار رد المريض</Text>
+          </View>
+        </View>
+      </Animated.View>
+    );
+  }
 
   return (
     <Animated.View
@@ -106,6 +122,17 @@ const msgStyles = StyleSheet.create({
   bubbleTextPatient: { color: Colors.textPrimary },
   bubbleMeta:        { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4, justifyContent: 'flex-end' },
   timeText:          { fontSize: 10, color: Colors.textMuted },
+  requestCard: {
+    maxWidth: '80%', backgroundColor: '#fff', borderRadius: 16,
+    padding: 14, alignItems: 'center', gap: 6,
+    borderWidth: 1.5, borderColor: DOC_COLOR + '40',
+    shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1, shadowRadius: 6, elevation: 2,
+  },
+  requestTitle: { fontSize: 14, fontWeight: '800', color: DOC_COLOR, textAlign: 'center' },
+  requestSub:   { fontSize: 12, color: Colors.textMuted, textAlign: 'center', lineHeight: 18 },
+  requestBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FEF3E2', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
+  requestBadgeText: { fontSize: 11, color: '#F4A32B', fontWeight: '700' },
 });
 
 // ─── Date Divider ─────────────────────────────────────────
@@ -135,143 +162,57 @@ export default function Docpatient() {
   const { isRTL }      = useLang();
   const { markAsRead } = useChats();
   const insets         = useSafeAreaInsets();
+  const isOnline       = isOnlineParam === '1';
 
-  const isOnline = isOnlineParam === '1';
+  const doctorId = auth.currentUser?.uid ?? '';
+  const chatId   = doctorId && patientId ? `${doctorId}_${patientId}` : '';
+
+  const [messages,       setMessages]       = useState<Message[]>([]);
+  const [exerciseAccess, setExerciseAccess] = useState(false);
+  const [inputText,      setInputText]      = useState('');
+  const [showQuick,      setShowQuick]      = useState(false);
+  const listRef   = useRef<FlatList>(null);
+  const quickAnim = useRef(new Animated.Value(0)).current;
 
   useFocusEffect(useCallback(() => {
     if (patientId) markAsRead(patientId);
   }, [patientId]));
 
-  const [messages, setMessages] = useState<Message[]>([]);
-
-  // ─── Polling: شايف رسايل جديدة من المريض كل 5 ثواني ──
-  const lastSeenMsgIdRef = useRef<string>('');
-
-  const checkForNewPatientMessages = useCallback(async () => {
-    if (!patientId) return;
-    try {
-      const raw = await AsyncStorage.getItem(`doc_chat_${patientId}`);
-      if (!raw) return;
-      const msgs: Message[] = JSON.parse(raw);
-      if (!msgs.length) return;
-
-      // آخر رسالة من المريض
-      const patientMsgs = msgs.filter(m => m.sender === 'patient');
-      if (!patientMsgs.length) return;
-
-      const latestPatientMsg = patientMsgs[patientMsgs.length - 1];
-
-      // لو رسالة جديدة مش شوفناها → ولّد notification
-      if (latestPatientMsg.id !== lastSeenMsgIdRef.current) {
-        // أول مرة نشتغل → خزّن بدون notification
-        if (lastSeenMsgIdRef.current === '') {
-          lastSeenMsgIdRef.current = latestPatientMsg.id;
-          return;
-        }
-        lastSeenMsgIdRef.current = latestPatientMsg.id;
-        await notifyIncomingMessage(patientName || 'مريض', patientId, latestPatientMsg.text);
-
-        // حدّث الـ UI لو فيه رسايل جديدة
-        setMessages(msgs);
-        setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-      }
-    } catch {}
-  }, [patientId, patientName]);
-
-  // ── بدء الـ polling لما الشاشة تتفتح ──
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useFocusEffect(useCallback(() => {
-    pollingRef.current = setInterval(checkForNewPatientMessages, 5000);
-    return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
-    };
-  }, [checkForNewPatientMessages]));
-
-  // ── حمّل الرسايل المحفوظة لو موجودة ──
+  // ─── onSnapshot: messages ─────────────────────────────
   useEffect(() => {
-    const loadMsgs = async () => {
-      try {
-        const raw = await AsyncStorage.getItem(`doc_chat_${patientId}`);
-        if (raw) {
-          const msgs: Message[] = JSON.parse(raw);
+    if (!chatId) return;
+    const q = query(
+      collection(db, 'chats', chatId, 'messages'),
+      orderBy('timestamp', 'asc'),
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const msgs: Message[] = snap.docs.map(d => {
+        const data = d.data() as FSMessage;
+        return {
+          id:     d.id,
+          text:   data.text,
+          sender: data.sender,
+          time:   new Date(data.timestamp).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+          status: data.status,
+          type:   data.type,
+        };
+      });
+      setMessages(msgs);
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 100);
+    });
+    return unsub;
+  }, [chatId]);
 
-          // ✅ خزّن آخر رسالة مريض كـ "شوفناها" (بدون notification عند الفتح)
-          const patientMsgs = msgs.filter(m => m.sender === 'patient');
-          if (patientMsgs.length > 0) {
-            lastSeenMsgIdRef.current = patientMsgs[patientMsgs.length - 1].id;
-          }
-
-          setMessages(msgs);
-        } else {
-          const initialMsgs: Message[] = [
-            {
-              id: 'd1',
-              text: 'أهلاً دكتور، أنا عندي ألم في الظهر من يومين',
-              sender: 'patient',
-              time: '10:23 ص',
-              status: 'read',
-            },
-            {
-              id: 'd2',
-              text: 'أهلاً، هل الألم مستمر ولا بيجي ويروح؟',
-              sender: 'doctor',
-              time: '10:24 ص',
-              status: 'read',
-            },
-            {
-              id: 'd3',
-              text: 'بيجي ويروح خصوصاً لما بقعد كتير',
-              sender: 'patient',
-              time: '10:25 ص',
-              status: 'read',
-            },
-            {
-              id: 'd4',
-              text: 'حسناً، ده غالباً من الجلوس الطويل. حاول تمشي كل ساعة وخد مسكن خفيف',
-              sender: 'doctor',
-              time: '10:26 ص',
-              status: 'read',
-            },
-          ];
-          // خزّن آخر رسالة مريض كـ "شوفناها"
-          const patientMsgs = initialMsgs.filter(m => m.sender === 'patient');
-          if (patientMsgs.length > 0) {
-            lastSeenMsgIdRef.current = patientMsgs[patientMsgs.length - 1].id;
-          }
-
-          setMessages(initialMsgs);
-          await AsyncStorage.setItem(`doc_chat_${patientId}`, JSON.stringify(initialMsgs));
-          const lastMsg = initialMsgs[initialMsgs.length - 1];
-          const msgsRaw = await AsyncStorage.getItem(MESSAGES_KEY);
-          const store = msgsRaw ? JSON.parse(msgsRaw) : {};
-          store[patientId] = { text: lastMsg.text, time: lastMsg.time, sender: lastMsg.sender };
-          await AsyncStorage.setItem(MESSAGES_KEY, JSON.stringify(store));
-        }
-      } catch {}
-    };
-    if (patientId) loadMsgs();
-  }, [patientId]);
-
-  // ── احفظ الرسايل وحدّث آخر رسالة في الـ MESSAGES_KEY ──
-  const saveMessages = useCallback(async (msgs: Message[]) => {
-    if (!patientId) return;
-    try {
-      await AsyncStorage.setItem(`doc_chat_${patientId}`, JSON.stringify(msgs));
-      const last = msgs[msgs.length - 1];
-      if (last) {
-        const raw   = await AsyncStorage.getItem(MESSAGES_KEY);
-        const store = raw ? JSON.parse(raw) : {};
-        store[patientId] = { text: last.text, time: last.time, sender: last.sender };
-        await AsyncStorage.setItem(MESSAGES_KEY, JSON.stringify(store));
+  // ─── onSnapshot: exerciseAccess ───────────────────────
+  useEffect(() => {
+    if (!chatId) return;
+    const unsub = onSnapshot(doc(db, 'chats', chatId), (snap) => {
+      if (snap.exists()) {
+        setExerciseAccess((snap.data() as FSChat).exerciseAccess ?? false);
       }
-    } catch {}
-  }, [patientId]);
-
-  const [inputText, setInputText] = useState('');
-  const [showQuick, setShowQuick] = useState(false);
-  const listRef   = useRef<FlatList>(null);
-  const quickAnim = useRef(new Animated.Value(0)).current;
+    });
+    return unsub;
+  }, [chatId]);
 
   const initials = patientName
     ? patientName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
@@ -283,26 +224,32 @@ export default function Docpatient() {
     Animated.spring(quickAnim, { toValue: toVal, tension: 120, friction: 8, useNativeDriver: true }).start();
   };
 
-  // ✅ sendMessage + notification إن الدكتور بعت رسالة
-  const sendMessage = useCallback((text: string) => {
-    if (!text.trim()) return;
-    const newMsg: Message = {
-      id: Date.now().toString(), text: text.trim(),
-      sender: 'doctor', time: now(), status: 'sent',
-    };
-    setMessages(prev => {
-      const updated = [...prev, newMsg];
-      saveMessages(updated);
-      return updated;
-    });
-
-    // ✅ notification رسالة مُرسلة من الدكتور
+  const sendMessage = useCallback(async (text: string) => {
+    if (!text.trim() || !chatId) return;
+    const ts = Date.now();
+    await addDoc(collection(db, 'chats', chatId, 'messages'), {
+      text: text.trim(), sender: 'doctor', timestamp: ts, status: 'sent', type: 'text',
+    }).catch(() => {});
+    await updateDoc(doc(db, 'chats', chatId), {
+      lastMessage: text.trim(), lastMessageTime: ts, lastMessageSender: 'doctor',
+    }).catch(() => {});
     notifyMessageSent(patientName || 'مريض', patientId || '', text.trim()).catch(() => {});
-
     setInputText('');
     setShowQuick(false);
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-  }, [saveMessages, patientName, patientId]);
+  }, [chatId, patientId, patientName]);
+
+  const requestExerciseAccess = useCallback(async () => {
+    if (!chatId) return;
+    const ts = Date.now();
+    await addDoc(collection(db, 'chats', chatId, 'messages'), {
+      text: 'طلب الدكتور إذنك لإدارة تمارينك',
+      sender: 'doctor', timestamp: ts, status: 'sent', type: 'request_access',
+    }).catch(() => {});
+    await updateDoc(doc(db, 'chats', chatId), {
+      lastMessage: '🏋️ طلب صلاحية التمارين', lastMessageTime: ts, lastMessageSender: 'doctor',
+    }).catch(() => {});
+  }, [chatId]);
 
   const handleQuickReply = (text: string) => {
     sendMessage(text);
@@ -338,8 +285,12 @@ export default function Docpatient() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.exerciseBtn} activeOpacity={0.8}>
-          <Ionicons name="barbell-outline" size={20} color={DOC_COLOR} />
+        <TouchableOpacity
+          style={[styles.exerciseBtn, exerciseAccess && styles.exerciseBtnActive]}
+          activeOpacity={0.8}
+          onPress={exerciseAccess ? undefined : requestExerciseAccess}
+        >
+          <Ionicons name="barbell-outline" size={20} color={exerciseAccess ? '#fff' : DOC_COLOR} />
         </TouchableOpacity>
       </View>
 
@@ -439,6 +390,7 @@ const styles = StyleSheet.create({
   onlineText:        { fontSize: 11, color: '#4CAF82', fontWeight: '600' },
   offlineText:       { color: '#B0BEC5' },
   exerciseBtn:       { width: 40, height: 40, borderRadius: 20, backgroundColor: DOC_COLOR_LIGHT, alignItems: 'center', justifyContent: 'center' },
+  exerciseBtnActive: { backgroundColor: DOC_COLOR },
   listContent:       { paddingHorizontal: Spacing.base, paddingBottom: 12 },
   quickWrap:         { maxHeight: 50, marginBottom: 4 },
   quickContent:      { paddingHorizontal: Spacing.base, gap: 8, alignItems: 'center' },

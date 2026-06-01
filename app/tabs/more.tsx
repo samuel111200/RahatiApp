@@ -1,9 +1,10 @@
 import React, { useState, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Modal, SafeAreaView, TextInput, Alert, Switch, Image,
-  Animated, Platform, StatusBar, KeyboardAvoidingView, 
+  Modal, TextInput, Alert, Switch, Image,
+  Animated, Platform, StatusBar, KeyboardAvoidingView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';

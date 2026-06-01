@@ -1,111 +1,119 @@
 // app/tabs/doctors.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  SafeAreaView, StatusBar, TextInput, Modal, Linking,
+  StatusBar, TextInput, Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { router } from 'expo-router';
+import { collection, query, where, onSnapshot, addDoc, getDocs } from 'firebase/firestore';
+import { auth, db, FSUser } from '../../utils/firebaseConfig';
 import { useLang } from '../../context/Languagecontext';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 
-const DOCTORS = [
+// ─── Static fallback doctors (displayed when no Firestore doctors exist) ──
+const STATIC_DOCTORS = [
   {
-    id: '1',
-    name: 'د. أحمد محمود',
-    nameEn: 'Dr. Ahmed Mahmoud',
-    specialty: 'علاج طبيعي',
-    specialtyEn: 'Physical Therapy',
-    rating: 4.9,
-    reviews: 128,
-    experience: 12,
-    available: true,
-    emoji: '🩺',
-    color: '#5B9BD5',
-    bg: '#E8F1FB',
+    id: 's1', firebaseUid: '',
+    name: 'د. أحمد محمود', nameEn: 'Dr. Ahmed Mahmoud',
+    specialty: 'علاج طبيعي', specialtyEn: 'Physical Therapy',
+    rating: 4.9, reviews: 128, experience: 12, available: true,
+    emoji: '🩺', color: '#5B9BD5', bg: '#E8F1FB',
     tags: ['تمارين علاجية', 'إعادة تأهيل', 'آلام الظهر'],
     tagsEn: ['Therapeutic Exercises', 'Rehabilitation', 'Back Pain'],
-    phone: '+201001234567',
   },
   {
-    id: '2',
-    name: 'د. سارة علي',
-    nameEn: 'Dr. Sara Ali',
-    specialty: 'طب الطاقة والعافية',
-    specialtyEn: 'Energy & Wellness Medicine',
-    rating: 4.8,
-    reviews: 95,
-    experience: 8,
-    available: true,
-    emoji: '💊',
-    color: '#4CAF82',
-    bg: '#E8F5EF',
+    id: 's2', firebaseUid: '',
+    name: 'د. سارة علي', nameEn: 'Dr. Sara Ali',
+    specialty: 'طب الطاقة والعافية', specialtyEn: 'Energy & Wellness Medicine',
+    rating: 4.8, reviews: 95, experience: 8, available: true,
+    emoji: '💊', color: '#4CAF82', bg: '#E8F5EF',
     tags: ['إدارة الطاقة', 'تغذية', 'تأمل'],
     tagsEn: ['Energy Management', 'Nutrition', 'Meditation'],
-    phone: '+201009876543',
   },
   {
-    id: '3',
-    name: 'د. خالد إبراهيم',
-    nameEn: 'Dr. Khaled Ibrahim',
-    specialty: 'طب الرياضة',
-    specialtyEn: 'Sports Medicine',
-    rating: 4.7,
-    reviews: 204,
-    experience: 15,
-    available: false,
-    emoji: '🏃',
-    color: '#E07B5C',
-    bg: '#FDF0EB',
+    id: 's3', firebaseUid: '',
+    name: 'د. خالد إبراهيم', nameEn: 'Dr. Khaled Ibrahim',
+    specialty: 'طب الرياضة', specialtyEn: 'Sports Medicine',
+    rating: 4.7, reviews: 204, experience: 15, available: false,
+    emoji: '🏃', color: '#E07B5C', bg: '#FDF0EB',
     tags: ['تمارين رياضية', 'لياقة بدنية', 'إصابات رياضية'],
     tagsEn: ['Sports Exercises', 'Physical Fitness', 'Sports Injuries'],
-    phone: '+201005556789',
   },
   {
-    id: '4',
-    name: 'د. فاطمة حسن',
-    nameEn: 'Dr. Fatma Hassan',
-    specialty: 'طب نفسي وسلوكي',
-    specialtyEn: 'Psychiatric & Behavioral Medicine',
-    rating: 4.9,
-    reviews: 167,
-    experience: 10,
-    available: true,
-    emoji: '🧠',
-    color: '#D45BAA',
-    bg: '#FCEEF8',
+    id: 's4', firebaseUid: '',
+    name: 'د. فاطمة حسن', nameEn: 'Dr. Fatma Hassan',
+    specialty: 'طب نفسي وسلوكي', specialtyEn: 'Psychiatric & Behavioral Medicine',
+    rating: 4.9, reviews: 167, experience: 10, available: true,
+    emoji: '🧠', color: '#D45BAA', bg: '#FCEEF8',
     tags: ['صحة نفسية', 'إدارة التوتر', 'سلوك'],
     tagsEn: ['Mental Health', 'Stress Management', 'Behavior'],
-    phone: '+201007778901',
   },
   {
-    id: '5',
-    name: 'د. محمد عمر',
-    nameEn: 'Dr. Mohamed Omar',
-    specialty: 'تغذية علاجية',
-    specialtyEn: 'Clinical Nutrition',
-    rating: 4.6,
-    reviews: 89,
-    experience: 6,
-    available: true,
-    emoji: '🥗',
-    color: '#F4A32B',
-    bg: '#FEF3E2',
+    id: 's5', firebaseUid: '',
+    name: 'د. محمد عمر', nameEn: 'Dr. Mohamed Omar',
+    specialty: 'تغذية علاجية', specialtyEn: 'Clinical Nutrition',
+    rating: 4.6, reviews: 89, experience: 6, available: true,
+    emoji: '🥗', color: '#F4A32B', bg: '#FEF3E2',
     tags: ['تغذية', 'حمية', 'وزن صحي'],
     tagsEn: ['Nutrition', 'Diet', 'Healthy Weight'],
-    phone: '+201002223344',
   },
 ];
+
+type DoctorCard = typeof STATIC_DOCTORS[0];
+
+const PALETTE = [
+  { color: '#7C5CBF', bg: '#F0EBFA', emoji: '🩺' },
+  { color: '#5B9BD5', bg: '#E8F1FB', emoji: '💊' },
+  { color: '#4CAF82', bg: '#E8F5EF', emoji: '🧠' },
+  { color: '#E07B5C', bg: '#FDF0EB', emoji: '🏃' },
+  { color: '#D45BAA', bg: '#FCEEF8', emoji: '⚕️' },
+];
+
+function fsPalette(idx: number) { return PALETTE[idx % PALETTE.length]; }
 
 export default function DoctorsScreen() {
   const navigation = useNavigation();
   const { isRTL } = useLang();
-  const [search, setSearch] = useState('');
-  const [selectedDoc, setSelectedDoc] = useState<typeof DOCTORS[0] | null>(null);
-  const [showModal, setShowModal] = useState(false);
+  const [search,      setSearch]      = useState('');
+  const [selectedDoc, setSelectedDoc] = useState<DoctorCard | null>(null);
+  const [showModal,   setShowModal]   = useState(false);
+  const [doctors,     setDoctors]     = useState<DoctorCard[]>(STATIC_DOCTORS);
 
-  const filtered = DOCTORS.filter(d => {
+  // ─── Load real doctors from Firestore ─────────────────
+  useEffect(() => {
+    const q = query(collection(db, 'users'), where('role', '==', 'doctor'));
+    const unsub = onSnapshot(q, (snap) => {
+      if (snap.empty) { setDoctors(STATIC_DOCTORS); return; }
+      const real: DoctorCard[] = snap.docs.map((d, i) => {
+        const data = d.data() as FSUser;
+        const p = fsPalette(i);
+        return {
+          id:         d.id,
+          firebaseUid: d.id,
+          name:        `د. ${data.firstName} ${data.lastName}`,
+          nameEn:      `Dr. ${data.firstName} ${data.lastName}`,
+          specialty:   data.specialty ?? '',
+          specialtyEn: data.specialty ?? '',
+          rating:      4.8,
+          reviews:     0,
+          experience:  0,
+          available:   true,
+          emoji:       p.emoji,
+          color:       p.color,
+          bg:          p.bg,
+          tags:        [],
+          tagsEn:      [],
+        };
+      });
+      setDoctors(real);
+    });
+    return unsub;
+  }, []);
+
+  const filtered = doctors.filter(d => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
     const name = isRTL ? d.name : d.nameEn;
@@ -113,22 +121,50 @@ export default function DoctorsScreen() {
     return name.toLowerCase().includes(q) || spec.toLowerCase().includes(q);
   });
 
-  const handleContact = (doc: typeof DOCTORS[0]) => {
+  const handleContact = (doc: DoctorCard) => {
     setSelectedDoc(doc);
     setShowModal(true);
   };
-  // ─ الشات الداخلي: روح لصفحة الشات وبعّت بيانات الدكتور كـ params ──
-  const handleInAppChat = (doc: typeof DOCTORS[0]) => {
+
+  const handleInAppChat = async (docItem: DoctorCard) => {
     setShowModal(false);
+    const patientUid = auth.currentUser?.uid;
+
+    if (patientUid && docItem.firebaseUid) {
+      // Create pending relationship in Firestore
+      const patientData = auth.currentUser;
+      const patientName  = patientData?.displayName ?? 'مريض';
+      try {
+        const existing = await getDocs(
+          query(
+            collection(db, 'relationships'),
+            where('doctorId', '==', docItem.firebaseUid),
+            where('patientId', '==', patientUid),
+          ),
+        );
+        if (existing.empty) {
+          await addDoc(collection(db, 'relationships'), {
+            doctorId:    docItem.firebaseUid,
+            patientId:   patientUid,
+            patientName: patientName,
+            doctorName:  isRTL ? docItem.name : docItem.nameEn,
+            status:      'pending',
+            requestedAt: Date.now(),
+          });
+        }
+      } catch {}
+    }
+
     router.push({
       pathname: '/tabs/doctorchat',
       params: {
-        doctorId:   doc.id,
-        doctorName: isRTL ? doc.name : doc.nameEn,
-        doctorEmoji: doc.emoji,
-        doctorColor: doc.color,
-        doctorBg:    doc.bg,
-        specialty:   isRTL ? doc.specialty : doc.specialtyEn,
+        doctorId:    docItem.firebaseUid || docItem.id,
+        doctorName:  isRTL ? docItem.name : docItem.nameEn,
+        doctorEmoji: docItem.emoji,
+        doctorColor: docItem.color,
+        doctorBg:    docItem.bg,
+        specialty:   isRTL ? docItem.specialty : docItem.specialtyEn,
+        isFirebase:  docItem.firebaseUid ? '1' : '0',
       },
     });
   };
@@ -144,7 +180,7 @@ export default function DoctorsScreen() {
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>{isRTL ? 'تواصل مع دكتور' : 'Contact a Doctor'}</Text>
-          <Text style={styles.headerSub}>{isRTL ? `${DOCTORS.length} دكاترة متاحون` : `${DOCTORS.length} doctors available`}</Text>
+          <Text style={styles.headerSub}>{isRTL ? `${doctors.length} دكاترة متاحون` : `${doctors.length} doctors available`}</Text>
         </View>
         <View style={{ width: 40 }} />
       </View>
@@ -171,8 +207,8 @@ export default function DoctorsScreen() {
         <View style={styles.greenDot} />
         <Text style={styles.availableText}>
           {isRTL
-            ? `${DOCTORS.filter(d => d.available).length} دكاترة متاحون الآن للتواصل`
-            : `${DOCTORS.filter(d => d.available).length} doctors available now`}
+            ? `${doctors.filter(d => d.available).length} دكاترة متاحون الآن للتواصل`
+            : `${doctors.filter(d => d.available).length} doctors available now`}
         </Text>
       </View>
 
@@ -207,27 +243,33 @@ export default function DoctorsScreen() {
                   <View style={styles.metaItem}>
                     <Ionicons name="star" size={12} color="#F4A32B" />
                     <Text style={styles.metaText}>{doc.rating}</Text>
-                    <Text style={styles.metaLight}>({doc.reviews})</Text>
+                    {doc.reviews > 0 && <Text style={styles.metaLight}>({doc.reviews})</Text>}
                   </View>
-                  <View style={styles.metaDot} />
-                  <View style={styles.metaItem}>
-                    <Ionicons name="briefcase-outline" size={12} color={Colors.textMuted} />
-                    <Text style={styles.metaText}>
-                      {doc.experience} {isRTL ? 'سنة خبرة' : 'yrs exp'}
-                    </Text>
-                  </View>
+                  {doc.experience > 0 && (
+                    <>
+                      <View style={styles.metaDot} />
+                      <View style={styles.metaItem}>
+                        <Ionicons name="briefcase-outline" size={12} color={Colors.textMuted} />
+                        <Text style={styles.metaText}>
+                          {doc.experience} {isRTL ? 'سنة خبرة' : 'yrs exp'}
+                        </Text>
+                      </View>
+                    </>
+                  )}
                 </View>
               </View>
             </View>
 
             {/* ── Tags ── */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tagsScroll}>
-              {(isRTL ? doc.tags : doc.tagsEn).map((tag, i) => (
-                <View key={i} style={[styles.tag, { backgroundColor: doc.bg }]}>
-                  <Text style={[styles.tagText, { color: doc.color }]}>{tag}</Text>
-                </View>
-              ))}
-            </ScrollView>
+            {(isRTL ? doc.tags : doc.tagsEn).length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tagsScroll}>
+                {(isRTL ? doc.tags : doc.tagsEn).map((tag, i) => (
+                  <View key={i} style={[styles.tag, { backgroundColor: doc.bg }]}>
+                    <Text style={[styles.tagText, { color: doc.color }]}>{tag}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
 
             {/* ── Contact Button ── */}
             <TouchableOpacity
@@ -290,7 +332,6 @@ export default function DoctorsScreen() {
               {isRTL ? 'اختر طريقة التواصل' : 'Choose contact method'}
             </Text>
 
-            {/* ── شات داخلي ── */}
             <TouchableOpacity
               style={[styles.contactOption, { borderColor: Colors.primary }]}
               onPress={() => handleInAppChat(selectedDoc)}
@@ -309,6 +350,7 @@ export default function DoctorsScreen() {
               </View>
               <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={Colors.primary} />
             </TouchableOpacity>
+
             <TouchableOpacity
               style={styles.cancelBtn}
               onPress={() => setShowModal(false)}

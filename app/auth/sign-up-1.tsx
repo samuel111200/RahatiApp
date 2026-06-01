@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  KeyboardAvoidingView, Platform, SafeAreaView,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useLang } from '../../context/Languagecontext';
@@ -84,7 +85,7 @@ export default function DocSignUp1Screen() {
 
           <PrimaryButton title={t.continueBtn} onPress={handleContinue} style={styles.btn} />
 
-          <TouchableOpacity onPress={() => router.push('/auth/sign-up-2')} style={styles.loginRow}>
+          <TouchableOpacity onPress={() => router.replace('/auth/sign-in')} style={styles.loginRow}>
             <Text style={styles.loginText}>{t.haveAccount} <Text style={styles.loginLink}>{t.signIn}</Text></Text>
           </TouchableOpacity>
         </ScrollView>

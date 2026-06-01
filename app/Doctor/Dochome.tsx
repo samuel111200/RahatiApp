@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   StatusBar, TextInput, Modal,
@@ -6,9 +6,12 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
+import {
+  collection, query, where, onSnapshot, doc, updateDoc, addDoc, setDoc,
+} from 'firebase/firestore';
+import { auth, db, FSRelationship } from '../../utils/firebaseConfig';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/Languagecontext';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
@@ -21,19 +24,17 @@ const DOC_COLOR_MID   = '#E8DFFA';
 
 export type PatientStatus = 'pending' | 'accepted';
 export type Patient = {
-  id: string; firstName: string; lastName: string;
-  age?: string; gender?: string; avatar?: string;
-  status: PatientStatus; requestedAt: string; acceptedAt?: string;
+  id: string;
+  relId: string;
+  firstName: string;
+  lastName: string;
+  age?: string;
+  gender?: string;
+  avatar?: string;
+  status: PatientStatus;
+  requestedAt: string;
+  acceptedAt?: string;
 };
-
-const STORAGE_KEY = 'doc_patients';
-async function loadPatients(): Promise<Patient[]> {
-  try { const raw = await AsyncStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : []; }
-  catch { return []; }
-}
-async function savePatients(patients: Patient[]) {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(patients));
-}
 
 // ─── DocTabBar ────────────────────────────────────────────
 type TabItem = { label: string; icon: keyof typeof Ionicons.glyphMap; iconActive: keyof typeof Ionicons.glyphMap; route: string; };
@@ -49,7 +50,6 @@ function DocTabBar() {
   const pathname  = usePathname();
   const insets    = useSafeAreaInsets();
   const bottomPad = Math.max(insets.bottom, 8);
-
   return (
     <View style={[tabStyles.wrapper, { paddingBottom: bottomPad }]}>
       <View style={tabStyles.container}>
@@ -78,21 +78,9 @@ const tabStyles = StyleSheet.create({
     shadowOpacity: 0.18, shadowRadius: 24, elevation: 14,
     borderWidth: 0.5, borderColor: '#E8DFFA', marginBottom: 8,
   },
-  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4 },
-  iconWrap: {
-    width: ICON_SIZE,
-    height: ICON_SIZE,
-    borderRadius: ICON_SIZE / 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    backgroundColor: 'transparent',
-  },
-  iconWrapActive: {
-    backgroundColor: DOC_COLOR,
-    shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.40, shadowRadius: 10, elevation: 6,
-  },
+  tab:      { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4 },
+  iconWrap: { width: ICON_SIZE, height: ICON_SIZE, borderRadius: ICON_SIZE / 2, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: 'transparent' },
+  iconWrapActive: { backgroundColor: DOC_COLOR, shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.40, shadowRadius: 10, elevation: 6 },
   label:       { fontSize: 11, fontWeight: '600', color: '#B0BEC5' },
   labelActive: { color: DOC_COLOR, fontWeight: '700' },
 });
@@ -209,43 +197,65 @@ export default function DocHome() {
   const [loading,      setLoading]     = useState(true);
   const [notifCount,   setNotifCount]  = useState(0);
 
-  // ─── تحديث الـ badge في كل مرة تتفتح الصفحة ──────────
-  useFocusEffect(useCallback(() => {
-    const init = async () => {
-      setLoading(true);
+  // ─── Real-time Firestore subscription ─────────────────
+  useEffect(() => {
+    const doctorId = auth.currentUser?.uid;
+    if (!doctorId) { setLoading(false); return; }
 
-      let list = await loadPatients();
-      if (list.length === 0) {
-        list = [
-          { id:'1', firstName:'أحمد',  lastName:'محمود',   age:'32', gender:'male',   status:'accepted', requestedAt:new Date(Date.now()-86400000*3).toISOString(), acceptedAt:new Date().toISOString() },
-          { id:'2', firstName:'سارة',  lastName:'علي',     age:'28', gender:'female', status:'accepted', requestedAt:new Date(Date.now()-86400000*2).toISOString(), acceptedAt:new Date().toISOString() },
-          { id:'3', firstName:'محمد',  lastName:'حسن',     age:'45', gender:'male',   status:'pending',  requestedAt:new Date(Date.now()-3600000).toISOString() },
-          { id:'4', firstName:'فاطمة', lastName:'إبراهيم', age:'35', gender:'female', status:'pending',  requestedAt:new Date(Date.now()-7200000).toISOString() },
-          { id:'5', firstName:'خالد',  lastName:'عمر',     age:'52', gender:'male',   status:'accepted', requestedAt:new Date(Date.now()-86400000*5).toISOString(), acceptedAt:new Date().toISOString() },
-        ];
-        await savePatients(list);
-      }
+    const q = query(
+      collection(db, 'relationships'),
+      where('doctorId', '==', doctorId),
+    );
+    const unsub = onSnapshot(q, async (snap) => {
+      const list: Patient[] = await Promise.all(
+        snap.docs.map(async (relDoc) => {
+          const rel = relDoc.data() as FSRelationship;
+          const patientName = rel.patientName ?? '';
+          const parts = patientName.split(' ');
+          return {
+            id:          rel.patientId,
+            relId:       relDoc.id,
+            firstName:   parts[0] ?? 'مريض',
+            lastName:    parts.slice(1).join(' ') || '',
+            status:      rel.status === 'accepted' ? 'accepted' : 'pending' as PatientStatus,
+            requestedAt: new Date(rel.requestedAt).toISOString(),
+            acceptedAt:  rel.acceptedAt ? new Date(rel.acceptedAt).toISOString() : undefined,
+          };
+        }),
+      );
       setPatients(list);
-
-      // ✅ حساب الـ badge من doc_notifications في كل فتح للصفحة
-      const count = await getDocNotifUnreadCount();
-      setNotifCount(count);
-
       setLoading(false);
-    };
-    init();
+    });
+    return unsub;
+  }, [user?.uid]);
+
+  // ─── Badge count ──────────────────────────────────────
+  useFocusEffect(useCallback(() => {
+    getDocNotifUnreadCount().then(setNotifCount).catch(() => {});
   }, []));
 
-  // ─── قبول المريض ──────────────────────────────────────
+  // ─── Accept patient ───────────────────────────────────
   const handleAcceptConfirm = async () => {
     if (!pendingModal) return;
-    const updated = patients.map((p) =>
-      p.id === pendingModal.id
-        ? { ...p, status: 'accepted' as PatientStatus, acceptedAt: new Date().toISOString() }
-        : p,
-    );
-    setPatients(updated);
-    await savePatients(updated);
+    const doctorId = auth.currentUser?.uid;
+    if (!doctorId) return;
+
+    const now = Date.now();
+    await updateDoc(doc(db, 'relationships', pendingModal.relId), {
+      status:      'accepted',
+      acceptedAt:  now,
+    });
+
+    const chatId = `${doctorId}_${pendingModal.id}`;
+    await setDoc(doc(db, 'chats', chatId), {
+      doctorId,
+      patientId:         pendingModal.id,
+      patientName:       `${pendingModal.firstName} ${pendingModal.lastName}`,
+      lastMessage:       '',
+      lastMessageTime:   now,
+      lastMessageSender: 'doctor',
+      exerciseAccess:    false,
+    }, { merge: true });
 
     const { notifyPatientAccepted } = await import('./DocNotifService');
     await notifyPatientAccepted(
@@ -253,15 +263,16 @@ export default function DocHome() {
       pendingModal.id,
     );
 
-    // ✅ أعد حساب الـ badge فوراً بعد إضافة الإشعار
     const count = await getDocNotifUnreadCount();
     setNotifCount(count);
-
     setPendingModal(null);
   };
 
   const handleOpenChat = (patient: Patient) => {
-    router.push({ pathname:'/Doctor/Docpatient', params:{ patientId:patient.id, patientName:`${patient.firstName} ${patient.lastName}` } });
+    router.push({
+      pathname: '/Doctor/Docpatient',
+      params: { patientId: patient.id, patientName: `${patient.firstName} ${patient.lastName}` },
+    });
   };
 
   const filtered = patients

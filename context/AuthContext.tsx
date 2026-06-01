@@ -1,23 +1,26 @@
 // context/AuthContext.tsx
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+} from 'firebase/auth';
+import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { auth, db, FSUser } from '../utils/firebaseConfig';
 
 export interface User {
+  uid?: string;
   firstName: string;
   lastName: string;
   age: string;
   gender: string;
   email: string;
-  specialty?: string;       // ← جديد
-  licenseNumber?: string;   // ← جديد
+  role?: 'doctor' | 'patient';
+  specialty?: string;
+  licenseNumber?: string;
   provider?: 'email' | 'google' | 'facebook';
   photoUrl?: string;
-}
-
-interface StoredAccount {
-  email: string;
-  password: string;
-  user: User;
 }
 
 interface AuthContextType {
@@ -25,7 +28,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
-  signUp: (personal: Omit<User, 'email' | 'provider'>, account: { email: string; password: string }) => Promise<{ ok: boolean; error?: string }>;
+  signUp: (personal: Omit<User, 'email' | 'provider' | 'uid'>, account: { email: string; password: string }) => Promise<{ ok: boolean; error?: string }>;
   signInWithSocial: (provider: 'google' | 'facebook', profile: { email: string; firstName: string; lastName: string; photoUrl?: string }) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
@@ -33,78 +36,121 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const STORAGE_KEY  = 'rahati_current_user';
-const ACCOUNTS_KEY = 'rahati_accounts';
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user,            setUser]            = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading,       setIsLoading]       = useState(true);
 
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then(raw => {
-      if (raw) {
+    const unsub = onAuthStateChanged(auth, async (fbUser) => {
+      if (fbUser) {
         try {
-          const u = JSON.parse(raw);
-          setUser(u);
-          setIsAuthenticated(true);
-        } catch {}
+          const snap = await getDoc(doc(db, 'users', fbUser.uid));
+          if (snap.exists()) {
+            const data = snap.data() as FSUser;
+            setUser({
+              uid:       fbUser.uid,
+              firstName: data.firstName,
+              lastName:  data.lastName,
+              age:       data.age ?? '',
+              gender:    data.gender ?? '',
+              email:     data.email,
+              role:      data.role,
+              specialty: data.specialty,
+              provider:  'email',
+              photoUrl:  data.photoUrl,
+            });
+            setIsAuthenticated(true);
+          } else {
+            setUser(null);
+            setIsAuthenticated(false);
+          }
+        } catch {
+          setUser(null);
+          setIsAuthenticated(false);
+        }
+      } else {
+        setUser(null);
+        setIsAuthenticated(false);
       }
       setIsLoading(false);
-    }).catch(() => setIsLoading(false));
+    });
+    return unsub;
   }, []);
-
-  const persist = async (u: User) => {
-    setUser(u);
-    setIsAuthenticated(true);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(u));
-  };
 
   const signIn = async (
     email: string,
-    password: string
+    password: string,
   ): Promise<{ ok: boolean; error?: string }> => {
     try {
-      const raw = await AsyncStorage.getItem(ACCOUNTS_KEY);
-      const accounts: StoredAccount[] = raw ? JSON.parse(raw) : [];
-      const found = accounts.find(
-        a => a.email.toLowerCase() === email.toLowerCase() && a.password === password
-      );
-      if (!found) return { ok: false, error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' };
-      await persist(found.user);
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      const snap = await getDoc(doc(db, 'users', cred.user.uid));
+      if (snap.exists()) {
+        const data = snap.data() as FSUser;
+        setUser({
+          uid:       cred.user.uid,
+          firstName: data.firstName,
+          lastName:  data.lastName,
+          age:       data.age ?? '',
+          gender:    data.gender ?? '',
+          email:     data.email,
+          role:      data.role,
+          specialty: data.specialty,
+          provider:  'email',
+          photoUrl:  data.photoUrl,
+        });
+        setIsAuthenticated(true);
+      }
       return { ok: true };
-    } catch {
-      return { ok: false, error: 'حدث خطأ، حاول مرة أخرى' };
+    } catch (e: any) {
+      const code = e?.code ?? '';
+      const msg =
+        code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential'
+          ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة'
+          : 'حدث خطأ، حاول مرة أخرى';
+      return { ok: false, error: msg };
     }
   };
 
   const signUp = async (
-    personal: Omit<User, 'email' | 'provider'>,
-    account: { email: string; password: string }
+    personal: Omit<User, 'email' | 'provider' | 'uid'>,
+    account: { email: string; password: string },
   ): Promise<{ ok: boolean; error?: string }> => {
     try {
-      const raw = await AsyncStorage.getItem(ACCOUNTS_KEY);
-      const accounts: StoredAccount[] = raw ? JSON.parse(raw) : [];
-      if (accounts.find(a => a.email.toLowerCase() === account.email.toLowerCase()))
-        return { ok: false, error: 'هذا البريد الإلكتروني مستخدم بالفعل' };
+      const cred = await createUserWithEmailAndPassword(auth, account.email, account.password);
+      const uid  = cred.user.uid;
+      const role: 'doctor' | 'patient' =
+        personal.role ?? (personal.specialty ? 'doctor' : 'patient');
 
-      const newUser: User = {
-        ...personal,           // هيشمل specialty و licenseNumber تلقائياً لو اتبعتوا
-        email: account.email,
-        provider: 'email',
+      const fsUser: FSUser = {
+        firstName: personal.firstName,
+        lastName:  personal.lastName,
+        age:       personal.age,
+        gender:    personal.gender,
+        email:     account.email,
+        role,
+        specialty: personal.specialty,
+        photoUrl:  personal.photoUrl,
+        createdAt: Date.now(),
       };
-      accounts.push({ email: account.email, password: account.password, user: newUser });
-      await AsyncStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
-      await persist(newUser);
+      await setDoc(doc(db, 'users', uid), fsUser);
+
+      setUser({ uid, ...personal, email: account.email, role, provider: 'email' });
+      setIsAuthenticated(true);
       return { ok: true };
-    } catch {
-      return { ok: false, error: 'حدث خطأ، حاول مرة أخرى' };
+    } catch (e: any) {
+      const code = e?.code ?? '';
+      const msg =
+        code === 'auth/email-already-in-use'
+          ? 'هذا البريد الإلكتروني مستخدم بالفعل'
+          : 'حدث خطأ، حاول مرة أخرى';
+      return { ok: false, error: msg };
     }
   };
 
   const signInWithSocial = async (
     provider: 'google' | 'facebook',
-    profile: { email: string; firstName: string; lastName: string; photoUrl?: string }
+    profile: { email: string; firstName: string; lastName: string; photoUrl?: string },
   ) => {
     const socialUser: User = {
       firstName: profile.firstName,
@@ -114,36 +160,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email:     profile.email,
       provider,
       photoUrl:  profile.photoUrl,
+      role:      'patient',
     };
-    const raw = await AsyncStorage.getItem(ACCOUNTS_KEY);
-    const accounts: StoredAccount[] = raw ? JSON.parse(raw) : [];
-    const idx = accounts.findIndex(a => a.email.toLowerCase() === profile.email.toLowerCase());
-    if (idx >= 0) accounts[idx].user = socialUser;
-    else accounts.push({ email: profile.email, password: '', user: socialUser });
-    await AsyncStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
-    await persist(socialUser);
+    setUser(socialUser);
+    setIsAuthenticated(true);
   };
 
   const logout = async () => {
+    await signOut(auth);
     setUser(null);
     setIsAuthenticated(false);
-    await AsyncStorage.removeItem(STORAGE_KEY);
   };
 
   const updateProfile = async (data: Partial<User>) => {
-    if (!user) return;
+    if (!user?.uid) return;
     const updated = { ...user, ...data };
     setUser(updated);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    const raw = await AsyncStorage.getItem(ACCOUNTS_KEY);
-    const accounts: StoredAccount[] = raw ? JSON.parse(raw) : [];
-    const idx = accounts.findIndex(
-      a => a.email.toLowerCase() === updated.email.toLowerCase()
-    );
-    if (idx >= 0) {
-      accounts[idx].user = updated;
-      await AsyncStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
-    }
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        ...data,
+        updatedAt: Date.now(),
+      });
+    } catch {}
   };
 
   return (

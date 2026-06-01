@@ -2,13 +2,16 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  SafeAreaView, StatusBar, TextInput, KeyboardAvoidingView,
-  Platform, Animated,
+  StatusBar, TextInput, KeyboardAvoidingView,
+  Platform, Animated, Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
+import { collection, onSnapshot, addDoc, updateDoc, doc, query, orderBy, increment } from 'firebase/firestore';
 import { Colors, Spacing, FontSize } from '../../constants/Theme';
 import { useLang } from '../../context/Languagecontext';
+import { db, auth } from '../../utils/firebaseConfig';
 
 type Message = {
   id: string;
@@ -16,10 +19,15 @@ type Message = {
   sender: 'patient' | 'doctor';
   time: string;
   status?: 'sent' | 'delivered' | 'read';
+  type?: 'text' | 'request_access';
 };
 
 function nowTime() {
   return new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+}
+
+function tsToTime(ts: number) {
+  return new Date(ts).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
 }
 
 const WELCOME_MESSAGES: Record<string, string> = {
@@ -54,21 +62,97 @@ const QUICK_REPLIES_EN = [
   'I need advice',
 ];
 
-function MessageBubble({
-  msg, isRTL, doctorColor, doctorBg,
+function AccessRequestCard({
+  isRTL, doctorColor, doctorBg, chatId,
 }: {
-  msg: Message; isRTL: boolean; doctorColor: string; doctorBg: string;
+  isRTL: boolean; doctorColor: string; doctorBg: string; chatId: string;
 }) {
+  const [loading, setLoading] = useState(false);
+  const [accepted, setAccepted] = useState(false);
+
+  const handleAccept = async () => {
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, 'chats', chatId), { exerciseAccess: true });
+      setAccepted(true);
+    } catch {
+      Alert.alert(
+        isRTL ? 'خطأ' : 'Error',
+        isRTL ? 'فشل قبول الطلب' : 'Failed to accept request',
+      );
+    }
+    setLoading(false);
+  };
+
+  if (accepted) {
+    return (
+      <View style={[styles.accessCard, { borderColor: '#4CAF5040', backgroundColor: '#E8F5E9' }]}>
+        <Ionicons name="checkmark-circle" size={28} color="#4CAF50" />
+        <Text style={[styles.accessTitle, { color: '#4CAF50' }]}>
+          {isRTL ? 'تم منح الصلاحية ✓' : 'Access Granted ✓'}
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.accessCard, { borderColor: doctorColor + '40', backgroundColor: doctorBg }]}>
+      <Ionicons name="fitness-outline" size={28} color={doctorColor} />
+      <Text style={[styles.accessTitle, { color: doctorColor, textAlign: isRTL ? 'right' : 'left' }]}>
+        {isRTL ? 'طلب صلاحية التمارين' : 'Exercise Access Request'}
+      </Text>
+      <Text style={[styles.accessDesc, { textAlign: 'center' }]}>
+        {isRTL
+          ? 'يريد الدكتور الوصول إلى خطة تمارينك وإدارتها.'
+          : 'The doctor is requesting access to manage your exercise plan.'}
+      </Text>
+      <View style={[styles.accessBtns, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <TouchableOpacity
+          onPress={handleAccept}
+          disabled={loading}
+          style={[styles.accessBtn, styles.acceptBtn, { backgroundColor: doctorColor, opacity: loading ? 0.7 : 1 }]}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.acceptBtnText}>{isRTL ? 'قبول' : 'Accept'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.accessBtn, styles.declineBtn, { borderColor: doctorColor + '50' }]}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.declineBtnText, { color: doctorColor }]}>{isRTL ? 'رفض' : 'Decline'}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+function MessageBubble({
+  msg, isRTL, doctorColor, doctorBg, chatId,
+}: {
+  msg: Message; isRTL: boolean; doctorColor: string; doctorBg: string; chatId: string;
+}) {
+  const isAccessRequest = msg.type === 'request_access';
   const isPatient = msg.sender === 'patient';
   const fadeAnim  = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(isPatient ? 20 : -20)).current;
 
   useEffect(() => {
+    if (isAccessRequest) return;
     Animated.parallel([
       Animated.timing(fadeAnim,  { toValue: 1, duration: 220, useNativeDriver: true }),
       Animated.spring(slideAnim, { toValue: 0, tension: 120, friction: 8, useNativeDriver: true }),
     ]).start();
   }, []);
+
+  if (isAccessRequest) {
+    return (
+      <View style={styles.accessCardWrap}>
+        <AccessRequestCard
+          isRTL={isRTL} doctorColor={doctorColor} doctorBg={doctorBg} chatId={chatId}
+        />
+      </View>
+    );
+  }
 
   return (
     <Animated.View
@@ -128,6 +212,7 @@ export default function DoctorChatScreen() {
   const params = useLocalSearchParams<{
     doctorId: string; doctorName: string; doctorEmoji: string;
     doctorColor: string; doctorBg: string; specialty: string;
+    isFirebase: string;
   }>();
 
   const doctorId    = params.doctorId    ?? '1';
@@ -136,14 +221,20 @@ export default function DoctorChatScreen() {
   const doctorColor = params.doctorColor ?? Colors.primary;
   const doctorBg    = params.doctorBg    ?? Colors.primaryUltraLight;
   const specialty   = params.specialty   ?? '';
+  const isFirebase  = params.isFirebase  === '1';
+
+  const patientId = auth.currentUser?.uid ?? '';
+  const chatId    = isFirebase ? `${doctorId}_${patientId}` : '';
 
   const welcomeText = isRTL
     ? (WELCOME_MESSAGES[doctorId] ?? 'أهلاً! كيف يمكنني مساعدتك؟')
     : (WELCOME_EN[doctorId]       ?? 'Hello! How can I help you?');
 
-  const [messages, setMessages] = useState<Message[]>([
-    { id: 'w1', text: welcomeText, sender: 'doctor', time: nowTime(), status: 'read' },
-  ]);
+  const [messages, setMessages] = useState<Message[]>(
+    isFirebase
+      ? []
+      : [{ id: 'w1', text: welcomeText, sender: 'doctor', time: nowTime(), status: 'read' }],
+  );
 
   const [inputText, setInputText] = useState('');
   const [showQuick, setShowQuick] = useState(false);
@@ -152,14 +243,67 @@ export default function DoctorChatScreen() {
 
   const quickReplies = isRTL ? QUICK_REPLIES_AR : QUICK_REPLIES_EN;
 
+  useEffect(() => {
+    if (!isFirebase || !chatId) return;
+    const q = query(
+      collection(db, 'chats', chatId, 'messages'),
+      orderBy('timestamp', 'asc'),
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const msgs: Message[] = snap.docs.map(d => {
+        const data = d.data();
+        return {
+          id:     d.id,
+          text:   data.text   ?? '',
+          sender: data.sender as 'patient' | 'doctor',
+          time:   tsToTime(data.timestamp ?? Date.now()),
+          status: data.status ?? 'sent',
+          type:   data.type   ?? 'text',
+        };
+      });
+      setMessages(msgs);
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+    });
+    return () => unsub();
+  }, [isFirebase, chatId]);
+
   const toggleQuick = () => {
     const toVal = showQuick ? 0 : 1;
     setShowQuick(!showQuick);
     Animated.spring(quickAnim, { toValue: toVal, tension: 120, friction: 8, useNativeDriver: true }).start();
   };
 
-  const sendMessage = useCallback((text: string) => {
+  const sendMessage = useCallback(async (text: string) => {
     if (!text.trim()) return;
+    setInputText('');
+    setShowQuick(false);
+
+    if (isFirebase && chatId && patientId) {
+      try {
+        const now = Date.now();
+        await addDoc(collection(db, 'chats', chatId, 'messages'), {
+          text:    text.trim(),
+          sender:  'patient',
+          timestamp: now,
+          status:  'sent',
+          type:    'text',
+        });
+        await updateDoc(doc(db, 'chats', chatId), {
+          lastMessage:         text.trim(),
+          lastMessageTime:     now,
+          lastMessageSender:   'patient',
+          unreadCountDoctor:   increment(1),
+        });
+      } catch {
+        Alert.alert(
+          isRTL ? 'خطأ' : 'Error',
+          isRTL ? 'فشل إرسال الرسالة' : 'Failed to send message',
+        );
+      }
+      return;
+    }
+
+    // Local mode — auto-reply
     const newMsg: Message = {
       id: Date.now().toString(),
       text: text.trim(),
@@ -168,8 +312,6 @@ export default function DoctorChatScreen() {
       status: 'sent',
     };
     setMessages(prev => [...prev, newMsg]);
-    setInputText('');
-    setShowQuick(false);
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
 
     setTimeout(() => {
@@ -185,7 +327,7 @@ export default function DoctorChatScreen() {
       setMessages(prev => [...prev, autoReply]);
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
     }, 2000);
-  }, [isRTL]);
+  }, [isRTL, isFirebase, chatId, patientId]);
 
   const handleQuickReply = (text: string) => {
     sendMessage(text);
@@ -193,7 +335,6 @@ export default function DoctorChatScreen() {
     setShowQuick(false);
   };
 
-  // ✅ الرجوع لصفحة الدكاترة مباشرة
   const handleBack = () => {
     router.replace('/tabs/doctors');
   };
@@ -225,17 +366,18 @@ export default function DoctorChatScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ── Notice ── */}
-      <View style={[styles.noticeBanner, { borderColor: doctorColor + '30' }]}>
-        <Ionicons name="information-circle-outline" size={14} color={doctorColor} />
-        <Text style={[styles.noticeText, { color: doctorColor }]}>
-          {isRTL
-            ? 'الشات دلوقتي محلي — هيتربط بالسيرفر قريباً'
-            : 'Chat is currently local — will connect to server soon'}
-        </Text>
-      </View>
+      {/* ── Notice (local mode only) ── */}
+      {!isFirebase && (
+        <View style={[styles.noticeBanner, { borderColor: doctorColor + '30' }]}>
+          <Ionicons name="information-circle-outline" size={14} color={doctorColor} />
+          <Text style={[styles.noticeText, { color: doctorColor }]}>
+            {isRTL
+              ? 'الشات دلوقتي محلي — هيتربط بالسيرفر قريباً'
+              : 'Chat is currently local — will connect to server soon'}
+          </Text>
+        </View>
+      )}
 
-      {/* ✅ KeyboardAvoidingView بيملا باقي الشاشة بعد الهيدر */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -253,6 +395,7 @@ export default function DoctorChatScreen() {
             <MessageBubble
               msg={item} isRTL={isRTL}
               doctorColor={doctorColor} doctorBg={doctorBg}
+              chatId={chatId}
             />
           )}
         />
@@ -280,7 +423,6 @@ export default function DoctorChatScreen() {
           </Animated.ScrollView>
         )}
 
-        {/* ✅ Input bar — مفيش tab bar هنا */}
         <View style={styles.inputBarWrap}>
           <View style={[styles.inputBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <TouchableOpacity
@@ -449,5 +591,41 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25, shadowRadius: 6, elevation: 3,
+  },
+
+  accessCardWrap: {
+    marginVertical: 6,
+    alignItems: 'center',
+  },
+  accessCard: {
+    width: '90%', borderRadius: 16, borderWidth: 1.5,
+    padding: 16, alignItems: 'center', gap: 8,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08, shadowRadius: 8, elevation: 2,
+  },
+  accessTitle: {
+    fontSize: FontSize.base, fontWeight: '700',
+  },
+  accessDesc: {
+    fontSize: 12, color: Colors.textSecondary,
+  },
+  accessBtns: {
+    marginTop: 4, gap: 10,
+  },
+  accessBtn: {
+    paddingHorizontal: 24, paddingVertical: 9, borderRadius: 20,
+  },
+  acceptBtn: {
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15, shadowRadius: 4, elevation: 2,
+  },
+  declineBtn: {
+    backgroundColor: '#fff', borderWidth: 1.5,
+  },
+  acceptBtnText: {
+    color: '#fff', fontWeight: '700', fontSize: FontSize.sm,
+  },
+  declineBtnText: {
+    fontWeight: '700', fontSize: FontSize.sm,
   },
 });

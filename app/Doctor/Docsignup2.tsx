@@ -2,11 +2,11 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  KeyboardAvoidingView, Platform, SafeAreaView,
+  KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/Languagecontext';
 import RahatiLogo from '../../components/RahatiLogo';
@@ -49,27 +49,22 @@ export default function DocSignUp2Screen() {
   const handleSignUp = async () => {
     if (!validate()) return;
     setLoading(true);
-    try {
-      await signUp(
-        {
-          firstName: params.firstName,
-          lastName:  params.lastName,
-          age:       params.age,
-          gender:    params.gender,
-          specialty, // ✅ من الـ state المحلي
-        },
-        { email, password }
-      );
-
-      // ✅ احفظ في doctor_extra_fields عشان صفحة المزيد تلتقطه
-      await AsyncStorage.setItem(
-        'doctor_extra_fields',
-        JSON.stringify({ specialty, licenseNumber: '' })
-      );
-
+    const { ok, error } = await signUp(
+      {
+        firstName: params.firstName,
+        lastName:  params.lastName,
+        age:       params.age,
+        gender:    params.gender,
+        specialty,
+        role: 'doctor' as const,
+      },
+      { email, password },
+    );
+    setLoading(false);
+    if (ok) {
       router.replace('/Doctor/Dochome');
-    } finally {
-      setLoading(false);
+    } else {
+      Alert.alert(isRTL ? 'خطأ' : 'Error', error ?? (isRTL ? 'فشل إنشاء الحساب' : 'Sign up failed'));
     }
   };
 

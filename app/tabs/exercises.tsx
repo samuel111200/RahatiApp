@@ -1,9 +1,10 @@
 // app/(tabs)/exercises.tsx
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Dimensions, Modal, TextInput, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLang } from '../../context/Languagecontext';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
@@ -12,6 +13,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
 import { notify, suppressTaskListNotifOnce } from './notificationService';
+import { collection, onSnapshot, updateDoc, doc } from 'firebase/firestore';
+import { db, auth } from '../../utils/firebaseConfig';
 
 const { width, height } = Dimensions.get('window');
 const CARD_W = width * 0.72;
@@ -1240,6 +1243,38 @@ export default function ExercisesScreen() {
   const [isSpeaking,    setIsSpeaking]    = useState(false);
   const [savingEx,      setSavingEx]      = useState(false);
 
+  type DoctorExercise = {
+    id: string; title: string; emoji: string;
+    durationMin: number; description?: string;
+    assignedAt: number; completed?: boolean;
+  };
+  const [doctorExercises, setDoctorExercises] = useState<DoctorExercise[]>([]);
+
+  useEffect(() => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    const unsub = onSnapshot(
+      collection(db, 'exercises', uid, 'items'),
+      (snap) => {
+        const list: DoctorExercise[] = snap.docs.map(d => ({
+          id: d.id, ...(d.data() as Omit<DoctorExercise, 'id'>),
+        }));
+        setDoctorExercises(list.sort((a, b) => b.assignedAt - a.assignedAt));
+      },
+    );
+    return unsub;
+  }, []);
+
+  const toggleDoctorExerciseDone = async (item: DoctorExercise) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    try {
+      await updateDoc(doc(db, 'exercises', uid, 'items', item.id), { completed: !item.completed });
+    } catch (e) {
+      console.warn('[Exercises] toggleDone error:', e);
+    }
+  };
+
   const stepTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
@@ -1610,6 +1645,49 @@ export default function ExercisesScreen() {
           </TouchableOpacity>
         </View>
 
+        {doctorExercises.length > 0 && (
+          <View style={styles.docExSection}>
+            <View style={styles.docExHeader}>
+              <Ionicons name="medical" size={14} color="#7C5CBF" />
+              <Text style={styles.docExTitle}>
+                {isRTL ? 'تمارين الدكتور 🩺' : 'Doctor Prescribed 🩺'}
+              </Text>
+              <View style={styles.docExBadge}>
+                <Text style={styles.docExBadgeText}>{doctorExercises.filter(e => !e.completed).length}</Text>
+              </View>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.docExScroll}>
+              {doctorExercises.map(item => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[styles.docExCard, item.completed && styles.docExCardDone]}
+                  onPress={() => toggleDoctorExerciseDone(item)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.docExEmoji}>{item.emoji}</Text>
+                  <Text style={styles.docExName} numberOfLines={2}>{item.title}</Text>
+                  <Text style={styles.docExDuration}>{item.durationMin} {isRTL ? 'دقيقة' : 'min'}</Text>
+                  {item.description ? (
+                    <Text style={styles.docExDesc} numberOfLines={2}>{item.description}</Text>
+                  ) : null}
+                  <View style={[styles.docExDoneRow, item.completed && { opacity: 1 }]}>
+                    <Ionicons
+                      name={item.completed ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={18}
+                      color={item.completed ? '#4CAF50' : '#B0BEC5'}
+                    />
+                    <Text style={[styles.docExDoneText, item.completed && { color: '#4CAF50' }]}>
+                      {item.completed
+                        ? (isRTL ? 'تم ✓' : 'Done ✓')
+                        : (isRTL ? 'اضغط للإنهاء' : 'Tap to mark done')}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
         <ScrollView
           horizontal showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.sectionToggleRow}
@@ -1760,6 +1838,27 @@ export default function ExercisesScreen() {
 const styles = StyleSheet.create({
   safe:      { flex: 1, backgroundColor: Colors.background },
   container: { flex: 1, paddingTop: Spacing.base },
+
+  // Doctor Prescribed section
+  docExSection: { marginHorizontal: Spacing.base, marginBottom: 10, marginTop: 2 },
+  docExHeader:  { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  docExTitle:   { fontSize: FontSize.sm, fontWeight: '700', color: '#7C5CBF', flex: 1 },
+  docExBadge:   { backgroundColor: '#7C5CBF', borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
+  docExBadgeText: { fontSize: 11, color: '#fff', fontWeight: '700' },
+  docExScroll:  { gap: 10, paddingRight: 4 },
+  docExCard:    {
+    width: 130, backgroundColor: '#fff', borderRadius: 16, padding: 12,
+    borderWidth: 1.5, borderColor: '#7C5CBF30',
+    shadowColor: '#7C5CBF', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.10, shadowRadius: 6, elevation: 2, gap: 4,
+  },
+  docExCardDone: { backgroundColor: '#F0FFF4', borderColor: '#4CAF5040' },
+  docExEmoji:   { fontSize: 26 },
+  docExName:    { fontSize: 12, fontWeight: '700', color: Colors.textPrimary, lineHeight: 16 },
+  docExDuration:{ fontSize: 11, color: '#7C5CBF', fontWeight: '600' },
+  docExDesc:    { fontSize: 10, color: Colors.textMuted, lineHeight: 14 },
+  docExDoneRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4, opacity: 0.6 },
+  docExDoneText:{ fontSize: 10, color: Colors.textMuted, fontWeight: '600' },
   navbar:    { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.xl, paddingVertical: 10, marginBottom: Spacing.sm },
   navBtn:    { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', shadowColor: '#7C5CBF', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.12, shadowRadius: 4, elevation: 2 },
   navCenter: { flex: 1, alignItems: 'center' },

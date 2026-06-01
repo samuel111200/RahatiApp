@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  KeyboardAvoidingView, Platform, SafeAreaView,
+  KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
@@ -35,17 +36,19 @@ export default function DocSignUp2Screen() {
     return Object.keys(e).length === 0;
   };
 
-  const handleSignUp = () => {
+  const handleSignUp = async () => {
     if (!validate()) return;
     setLoading(true);
-    setTimeout(() => {
-      signUp(
-        { firstName: params.firstName, lastName: params.lastName, age: params.age, gender: params.gender },
-        { email, password }
-      );
-      setLoading(false);
+    const { ok, error } = await signUp(
+      { firstName: params.firstName, lastName: params.lastName, age: params.age, gender: params.gender, role: 'patient' as const },
+      { email, password },
+    );
+    setLoading(false);
+    if (ok) {
       router.replace('/tabs/home');
-    }, 900);
+    } else {
+      Alert.alert(isRTL ? 'خطأ' : 'Error', error ?? (isRTL ? 'فشل إنشاء الحساب' : 'Sign up failed'));
+    }
   };
 
   return (

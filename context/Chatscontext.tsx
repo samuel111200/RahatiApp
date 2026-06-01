@@ -1,7 +1,15 @@
 // context/Chatscontext.tsx
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  collection, doc, addDoc, deleteDoc, updateDoc, query, where, getDocs,
+} from 'firebase/firestore';
+import { Alert } from 'react-native';
+import { auth, db } from '../utils/firebaseConfig';
 import { saveInAppNotification } from '../app/tabs/notificationService';
+
+function onFirestoreError(op: string, e: unknown) {
+  console.warn(`[Chats] Firestore error in ${op}:`, e);
+}
 
 // ─── Types ────────────────────────────────────────────────
 export type ChatPreview = {
@@ -35,112 +43,55 @@ type ChatsContextType = {
   totalUnread: number;
 };
 
-// ─── Initial Chat Data ────────────────────────────────────
-const INITIAL_CHATS: ChatPreview[] = [
-  {
-    patientId: 'p1',
-    patientName: 'أحمد محمد علي',
-    lastMessage: 'حسناً، ده غالباً من الجلوس الطويل. حاول تمشي كل ساعة',
-    lastMessageTime: '10:26 ص',
-    lastMessageSender: 'doctor',
-    unreadCount: 0,
-    isOnline: true,
-    status: 'read',
-  },
-  {
-    patientId: 'p2',
-    patientName: 'فاطمة حسن إبراهيم',
-    lastMessage: 'عندي ألم في الرأس من الصباح وما قدرت أنام',
-    lastMessageTime: 'أمس',
-    lastMessageSender: 'patient',
-    unreadCount: 3,
-    isOnline: false,
-    status: 'delivered',
-  },
-  {
-    patientId: 'p3',
-    patientName: 'محمود عبد الله',
-    lastMessage: 'تمام يا دكتور، هاخد الدواء زي ما قلت',
-    lastMessageTime: 'الثلاثاء',
-    lastMessageSender: 'patient',
-    unreadCount: 0,
-    isOnline: false,
-    status: 'read',
-  },
-  {
-    patientId: 'p4',
-    patientName: 'نورا سعيد',
-    lastMessage: 'هل لازم أجي للعيادة ولا ممكن يكون عن بُعد؟',
-    lastMessageTime: 'الاثنين',
-    lastMessageSender: 'patient',
-    unreadCount: 1,
-    isOnline: true,
-    status: 'delivered',
-  },
-  {
-    patientId: 'p5',
-    patientName: 'خالد إبراهيم مصطفى',
-    lastMessage: 'شكراً جزيلاً دكتور، ربنا يسلمك',
-    lastMessageTime: '12/5',
-    lastMessageSender: 'patient',
-    unreadCount: 0,
-    isOnline: false,
-    status: 'read',
-  },
-];
-
-// ─── Initial Exercises per patient ───────────────────────
-const INITIAL_EXERCISES: Record<string, PatientExercise[]> = {
-  p1: [
-    { id: 'e1', title: 'مشي خفيف', emoji: '🚶', durationMin: 10, description: 'مشي بطيء كل ساعة', assignedAt: new Date().toISOString() },
-    { id: 'e2', title: 'تمدد الظهر', emoji: '🧘', durationMin: 5, description: 'تمارين إطالة لعضلات الظهر', assignedAt: new Date().toISOString() },
-  ],
-  p2: [
-    { id: 'e3', title: 'تنفس عميق', emoji: '💨', durationMin: 5, description: 'تمارين تنفس لتخفيف الصداع', assignedAt: new Date().toISOString() },
-  ],
-  p3: [],
-  p4: [
-    { id: 'e4', title: 'إطالة الرقبة', emoji: '🏋️', durationMin: 7, description: 'تمارين لتخفيف توتر الرقبة', assignedAt: new Date().toISOString() },
-  ],
-  p5: [],
-};
-
 // ─── Context ──────────────────────────────────────────────
 const ChatsContext = createContext<ChatsContextType | null>(null);
 
 export function ChatsProvider({ children }: { children: React.ReactNode }) {
-  const [chats, setChats] = useState<ChatPreview[]>(INITIAL_CHATS);
-  const [exercises, setExercises] = useState<Record<string, PatientExercise[]>>(INITIAL_EXERCISES);
+  const [chats,    setChats]    = useState<ChatPreview[]>([]);
+  const [exercises, setExercises] = useState<Record<string, PatientExercise[]>>({});
 
   const totalUnread = chats.reduce((sum, c) => sum + c.unreadCount, 0);
 
+  const doctorId = () => auth.currentUser?.uid ?? '';
+
   const markAsRead = useCallback((patientId: string) => {
+    const uid = doctorId();
+    if (uid) {
+      const chatId = `${uid}_${patientId}`;
+      updateDoc(doc(db, 'chats', chatId), { unreadCountDoctor: 0 }).catch(e => onFirestoreError('markAsRead', e));
+    }
     setChats(prev =>
       prev.map(c =>
         c.patientId === patientId
           ? { ...c, unreadCount: 0, status: 'read' as const }
-          : c
-      )
+          : c,
+      ),
     );
   }, []);
 
   const sendMessage = useCallback((patientId: string, text: string) => {
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+    const uid  = doctorId();
+    const now  = Date.now();
+    const timeStr = new Date(now).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+
+    if (uid) {
+      const chatId = `${uid}_${patientId}`;
+      addDoc(collection(db, 'chats', chatId, 'messages'), {
+        text, sender: 'doctor', timestamp: now, status: 'sent', type: 'text',
+      }).catch(e => onFirestoreError('sendMessage/addDoc', e));
+      updateDoc(doc(db, 'chats', chatId), {
+        lastMessage: text, lastMessageTime: now, lastMessageSender: 'doctor',
+      }).catch(e => onFirestoreError('sendMessage/updateDoc', e));
+    }
+
     setChats(prev =>
       prev.map(c =>
         c.patientId === patientId
-          ? {
-              ...c,
-              lastMessage: text,
-              lastMessageTime: timeStr,
-              lastMessageSender: 'doctor',
-              status: 'sent' as const,
-            }
-          : c
-      )
+          ? { ...c, lastMessage: text, lastMessageTime: timeStr, lastMessageSender: 'doctor', status: 'sent' as const }
+          : c,
+      ),
     );
-    // Save notification for sent message
+
     saveInAppNotification({
       title: 'رسالة مُرسَلة ✅',
       body: `أرسلت رسالة: "${text.slice(0, 40)}${text.length > 40 ? '...' : ''}"`,
@@ -153,23 +104,30 @@ export function ChatsProvider({ children }: { children: React.ReactNode }) {
     return exercises[patientId] ?? [];
   }, [exercises]);
 
-  const assignExercise = useCallback((patientId: string, exercise: Omit<PatientExercise, 'id' | 'assignedAt'>) => {
+  const assignExercise = useCallback((
+    patientId: string,
+    exercise: Omit<PatientExercise, 'id' | 'assignedAt'>,
+  ) => {
+    const uid  = doctorId();
     const newEx: PatientExercise = {
       ...exercise,
-      id: `ex_${Date.now()}`,
+      id:         `ex_${Date.now()}`,
       assignedAt: new Date().toISOString(),
     };
+
     setExercises(prev => ({
       ...prev,
       [patientId]: [...(prev[patientId] ?? []), newEx],
     }));
-    // Persist to AsyncStorage
-    AsyncStorage.getItem('doc_patient_exercises').then(raw => {
-      const all = raw ? JSON.parse(raw) : {};
-      all[patientId] = [...(all[patientId] ?? []), newEx];
-      AsyncStorage.setItem('doc_patient_exercises', JSON.stringify(all));
-    }).catch(() => {});
-    // Notification
+
+    if (uid) {
+      addDoc(collection(db, 'exercises', patientId, 'items'), {
+        ...exercise,
+        assignedAt: Date.now(),
+        assignedBy: uid,
+      }).catch(e => onFirestoreError('assignExercise', e));
+    }
+
     saveInAppNotification({
       title: `تمرين مُضاف 🏋️`,
       body: `تم تعيين "${exercise.emoji} ${exercise.title}" للمريض`,
@@ -183,15 +141,13 @@ export function ChatsProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       [patientId]: (prev[patientId] ?? []).filter(e => e.id !== exerciseId),
     }));
-    AsyncStorage.getItem('doc_patient_exercises').then(raw => {
-      const all = raw ? JSON.parse(raw) : {};
-      all[patientId] = (all[patientId] ?? []).filter((e: PatientExercise) => e.id !== exerciseId);
-      AsyncStorage.setItem('doc_patient_exercises', JSON.stringify(all));
-    }).catch(() => {});
+    deleteDoc(doc(db, 'exercises', patientId, 'items', exerciseId)).catch(e => onFirestoreError('removeExercise', e));
   }, []);
 
   return (
-    <ChatsContext.Provider value={{ chats, markAsRead, sendMessage, getExercises, assignExercise, removeExercise, totalUnread }}>
+    <ChatsContext.Provider value={{
+      chats, markAsRead, sendMessage, getExercises, assignExercise, removeExercise, totalUnread,
+    }}>
       {children}
     </ChatsContext.Provider>
   );

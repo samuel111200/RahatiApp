@@ -5,13 +5,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { auth, db, FSChat } from '../../utils/firebaseConfig';
 import { Colors, Spacing, FontSize } from '../../constants/Theme';
 import { useLang } from '../../context/Languagecontext';
 import { usePathname } from 'expo-router';
-import { notifyIncomingMessage } from './DocNotifService';
 
 const DOC_COLOR       = '#7C5CBF';
 const DOC_COLOR_LIGHT = '#F0EBFA';
@@ -64,20 +64,6 @@ const tabStyles = StyleSheet.create({
   labelActive: { color: DOC_COLOR, fontWeight: '700' },
 });
 
-type PatientStatus = 'pending' | 'accepted';
-type Patient = {
-  id: string; firstName: string; lastName: string;
-  age?: string; gender?: string; avatar?: string;
-  status: PatientStatus; requestedAt: string; acceptedAt?: string;
-};
-
-const STORAGE_KEY  = 'doc_patients';
-const READ_KEY     = 'doc_chats_read';
-const MESSAGES_KEY = 'doc_messages';
-
-// ─── مفتاح لتتبع آخر رسايل المرضى (لمنع التكرار في الـ polling) ──
-const CHAT_LAST_SEEN_KEY = 'doc_chat_last_seen';
-
 type ChatPreview = {
   patientId: string;
   patientName: string;
@@ -88,25 +74,6 @@ type ChatPreview = {
   isOnline: boolean;
   status: 'read' | 'delivered' | 'sent';
 };
-
-type LastMsgStore = {
-  [patientId: string]: {
-    text: string;
-    time: string;
-    sender: 'doctor' | 'patient';
-  };
-};
-
-type StoredMessage = {
-  id: string;
-  text: string;
-  sender: 'doctor' | 'patient';
-  time: string;
-  status?: 'sent' | 'delivered' | 'read';
-};
-
-// ─── آخر ID شوفناه لكل مريض (لمنع الـ notification المكررة) ──
-type LastSeenMap = { [patientId: string]: string };
 
 function sortChats(list: ChatPreview[]): ChatPreview[] {
   return [...list].sort((a, b) => {
@@ -132,10 +99,7 @@ function ChatItem({ item, index, onPress }: { item: ChatPreview; index: number; 
   }, []);
 
   const hasUnread = item.unreadCount > 0;
-
-  const lastMsgDisplay = item.lastMessage
-    ? item.lastMessage
-    : 'ابدأ المحادثة الآن...';
+  const lastMsgDisplay = item.lastMessage || 'ابدأ المحادثة الآن...';
 
   return (
     <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
@@ -216,199 +180,44 @@ export default function ChatsListScreen() {
   const [search, setSearch] = useState('');
   const [chats,  setChats]  = useState<ChatPreview[]>([]);
 
-  // ─── آخر IDs المرضى اللي شوفناهم (لمنع notification مكررة) ──
-  const lastSeenMapRef = useRef<LastSeenMap>({});
+  // ─── Real-time Firestore subscription ─────────────────
+  useEffect(() => {
+    const doctorId = auth.currentUser?.uid;
+    if (!doctorId) return;
 
-  // ─── تحميل وتحديث قائمة الشاتات ──────────────────────
-  const loadAcceptedChats = useCallback(async () => {
-    try {
-      const raw      = await AsyncStorage.getItem(STORAGE_KEY);
-      const patients: Patient[] = raw ? JSON.parse(raw) : [];
-      const accepted = patients.filter(p => p.status === 'accepted');
-
-      const readRaw  = await AsyncStorage.getItem(READ_KEY);
-      const readSet: string[] = readRaw ? JSON.parse(readRaw) : [];
-
-      const msgsRaw = await AsyncStorage.getItem(MESSAGES_KEY);
-      const lastMsgs: LastMsgStore = msgsRaw ? JSON.parse(msgsRaw) : {};
-
-      const enriched = await Promise.all(
-        accepted.map(async (p) => {
-          let last = lastMsgs[p.id];
-
-          if (!last) {
-            try {
-              const chatRaw = await AsyncStorage.getItem(`doc_chat_${p.id}`);
-              if (chatRaw) {
-                const msgs: StoredMessage[] = JSON.parse(chatRaw);
-                if (msgs.length > 0) {
-                  const latestMsg = msgs[msgs.length - 1];
-                  last = {
-                    text:   latestMsg.text,
-                    time:   latestMsg.time,
-                    sender: latestMsg.sender,
-                  };
-                  lastMsgs[p.id] = last;
-                }
-              }
-            } catch {}
-          }
-
-          // حساب الـ unread: رسايل المريض اللي مش اتقرأت
-          let unreadCount = 0;
-          try {
-            const chatRaw = await AsyncStorage.getItem(`doc_chat_${p.id}`);
-            if (chatRaw) {
-              const msgs: StoredMessage[] = JSON.parse(chatRaw);
-              const patientMsgs = msgs.filter(m => m.sender === 'patient');
-              if (patientMsgs.length > 0) {
-                const lastSeenId = lastSeenMapRef.current[p.id] || '';
-                const lastSeenIndex = patientMsgs.findIndex(m => m.id === lastSeenId);
-                if (lastSeenId === '') {
-                  unreadCount = 0; // أول مرة نحمّل → مفيش unread
-                } else {
-                  unreadCount = lastSeenIndex === -1
-                    ? patientMsgs.length
-                    : patientMsgs.length - lastSeenIndex - 1;
-                }
-              }
-            }
-          } catch {}
-
-          return {
-            patientId:         p.id,
-            patientName:       `${p.firstName} ${p.lastName}`,
-            lastMessage:       last?.text   ?? '',
-            lastMessageTime:   last?.time   ?? '',
-            lastMessageSender: last?.sender ?? ('doctor' as 'doctor' | 'patient'),
-            unreadCount,
-            isOnline:          Math.random() < 0.5,
-            status:            (readSet.includes(p.id) ? 'read' : 'sent') as 'read' | 'sent',
-          };
-        })
-      );
-
-      await AsyncStorage.setItem(MESSAGES_KEY, JSON.stringify(lastMsgs));
-      setChats(sortChats(enriched));
-    } catch {}
+    const q = query(
+      collection(db, 'chats'),
+      where('doctorId', '==', doctorId),
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const list: ChatPreview[] = snap.docs.map(d => {
+        const data = d.data() as FSChat;
+        const timeStr = data.lastMessageTime
+          ? new Date(data.lastMessageTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+          : '';
+        return {
+          patientId:         data.patientId,
+          patientName:       data.patientName ?? 'مريض',
+          lastMessage:       data.lastMessage ?? '',
+          lastMessageTime:   timeStr,
+          lastMessageSender: data.lastMessageSender ?? 'doctor',
+          unreadCount:       data.unreadCountDoctor ?? 0,
+          isOnline:          false,
+          status:            'read' as const,
+        };
+      });
+      setChats(sortChats(list));
+    });
+    return unsub;
   }, []);
 
-  // ─── ✅ Polling: فحص رسايل جديدة من المرضى كل 6 ثواني ──
-  const pollForNewMessages = useCallback(async () => {
-    try {
-      const raw      = await AsyncStorage.getItem(STORAGE_KEY);
-      const patients: Patient[] = raw ? JSON.parse(raw) : [];
-      const accepted = patients.filter(p => p.status === 'accepted');
-
-      let hasUpdates = false;
-
-      for (const p of accepted) {
-        const chatRaw = await AsyncStorage.getItem(`doc_chat_${p.id}`);
-        if (!chatRaw) continue;
-        const msgs: StoredMessage[] = JSON.parse(chatRaw);
-        const patientMsgs = msgs.filter(m => m.sender === 'patient');
-        if (!patientMsgs.length) continue;
-
-        const latestMsg   = patientMsgs[patientMsgs.length - 1];
-        const lastSeenId  = lastSeenMapRef.current[p.id];
-
-        if (lastSeenId === undefined) {
-          // أول مرة نشوف هذا المريض → خزّن بدون notification
-          lastSeenMapRef.current[p.id] = latestMsg.id;
-          continue;
-        }
-
-        if (latestMsg.id !== lastSeenId) {
-          // رسالة جديدة!
-          lastSeenMapRef.current[p.id] = latestMsg.id;
-          const name = `${p.firstName} ${p.lastName}`;
-          await notifyIncomingMessage(name, p.id, latestMsg.text);
-          hasUpdates = true;
-        }
-      }
-
-      // لو فيه رسايل جديدة → حدّث قائمة الشاتات
-      if (hasUpdates) {
-        await loadAcceptedChats();
-      }
-    } catch {}
-  }, [loadAcceptedChats]);
-
-  // ─── Init: تهيئة الـ lastSeenMap من الـ storage ─────
-  const initLastSeen = useCallback(async () => {
-    try {
-      const raw      = await AsyncStorage.getItem(STORAGE_KEY);
-      const patients: Patient[] = raw ? JSON.parse(raw) : [];
-      const accepted = patients.filter(p => p.status === 'accepted');
-
-      for (const p of accepted) {
-        const chatRaw = await AsyncStorage.getItem(`doc_chat_${p.id}`);
-        if (!chatRaw) continue;
-        const msgs: StoredMessage[] = JSON.parse(chatRaw);
-        const patientMsgs = msgs.filter(m => m.sender === 'patient');
-        if (patientMsgs.length > 0) {
-          // عند التهيئة → خزّن آخر رسالة كـ "مشوفة" بدون notification
-          if (lastSeenMapRef.current[p.id] === undefined) {
-            lastSeenMapRef.current[p.id] = patientMsgs[patientMsgs.length - 1].id;
-          }
-        }
-      }
-    } catch {}
-  }, []);
-
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useFocusEffect(useCallback(() => {
-    const init = async () => {
-      await initLastSeen();
-      await loadAcceptedChats();
-    };
-    init();
-
-    // ✅ بدء الـ polling كل 6 ثواني
-    pollingRef.current = setInterval(pollForNewMessages, 6000);
-
-    return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
-    };
-  }, [loadAcceptedChats, pollForNewMessages, initLastSeen]));
-
-  const handleOpenChat = async (item: ChatPreview) => {
-    try {
-      const raw = await AsyncStorage.getItem(READ_KEY);
-      const readSet: string[] = raw ? JSON.parse(raw) : [];
-      if (!readSet.includes(item.patientId)) {
-        readSet.push(item.patientId);
-        await AsyncStorage.setItem(READ_KEY, JSON.stringify(readSet));
-      }
-      // مسح الـ unread بعد فتح الشات
-      setChats(prev =>
-        sortChats(prev.map(c =>
-          c.patientId === item.patientId
-            ? { ...c, unreadCount: 0, status: 'read' as const }
-            : c
-        ))
-      );
-
-      // تحديث الـ lastSeen عند فتح الشات
-      try {
-        const chatRaw = await AsyncStorage.getItem(`doc_chat_${item.patientId}`);
-        if (chatRaw) {
-          const msgs: StoredMessage[] = JSON.parse(chatRaw);
-          const patientMsgs = msgs.filter(m => m.sender === 'patient');
-          if (patientMsgs.length > 0) {
-            lastSeenMapRef.current[item.patientId] = patientMsgs[patientMsgs.length - 1].id;
-          }
-        }
-      } catch {}
-    } catch {}
-
+  const handleOpenChat = (item: ChatPreview) => {
     router.push({
       pathname: '/Doctor/Docpatient',
       params: {
         patientId:   item.patientId,
         patientName: item.patientName,
-        isOnline:    item.isOnline ? '1' : '0',
+        isOnline:    '0',
       },
     });
   };

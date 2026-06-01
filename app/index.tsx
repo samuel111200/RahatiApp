@@ -4,6 +4,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "../utils/firebaseConfig";
 import { useLang } from "../context/Languagecontext";
 
 SplashScreen.preventAutoHideAsync();
@@ -35,22 +37,36 @@ export default function Index() {
 
             const hasLaunched = await AsyncStorage.getItem(FIRST_LAUNCH_KEY);
 
-            if (hasLaunched) {
-              const savedLang = await AsyncStorage.getItem("app_language") as "ar" | "en" | null;
-              if (savedLang) setLang(savedLang);
-
-              const savedRole = await AsyncStorage.getItem("app_role");
-              if (savedRole === "doctor") {
-                router.replace("/Doctor/Docsignin");
-              } else if (savedRole === "patient") {
-                router.replace("/auth/sign-in");
-              } else {
-                router.replace("/langchoose"); // ← مفيش role محفوظ
-              }
-            } else {
+            if (!hasLaunched) {
               await AsyncStorage.setItem(FIRST_LAUNCH_KEY, "true");
               router.replace("/startup");
+              return;
             }
+
+            const savedLang = await AsyncStorage.getItem("app_language") as "ar" | "en" | null;
+            if (savedLang) setLang(savedLang);
+
+            const savedRole = await AsyncStorage.getItem("app_role");
+
+            // Check Firebase auth state once — signed-in users go straight to home
+            const unsub = onAuthStateChanged(auth, (user) => {
+              unsub();
+              if (user) {
+                if (savedRole === "doctor") {
+                  router.replace("/Doctor/Dochome");
+                } else {
+                  router.replace("/tabs/home");
+                }
+              } else {
+                if (savedRole === "doctor") {
+                  router.replace("/Doctor/Docsignin");
+                } else if (savedRole === "patient") {
+                  router.replace("/auth/sign-in");
+                } else {
+                  router.replace("/langchoose");
+                }
+              }
+            });
           });
       }, 3000);
     }

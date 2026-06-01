@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  KeyboardAvoidingView, Platform, SafeAreaView, Alert,
+  KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -32,14 +33,16 @@ export default function SignInScreen() {
     return Object.keys(e).length === 0;
   };
 
-  const handleSignIn = () => {
+  const handleSignIn = async () => {
     if (!validate()) return;
     setLoading(true);
-    setTimeout(() => {
-      signIn(email, password);
-      setLoading(false);
+    const { ok, error } = await signIn(email, password);
+    setLoading(false);
+    if (ok) {
       router.replace('/tabs/home');
-    }, 900);
+    } else {
+      Alert.alert(isRTL ? 'خطأ' : 'Error', error ?? (isRTL ? 'فشل تسجيل الدخول' : 'Sign in failed'));
+    }
   };
 
   const handleDevReset = async () => {

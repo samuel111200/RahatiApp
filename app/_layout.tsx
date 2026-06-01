@@ -18,7 +18,6 @@ export default function RootLayout() {
             <Stack.Screen name="langchoose" options={{ gestureEnabled: false }} />
             <Stack.Screen name="auth" />
             <Stack.Screen name="tabs" />
-            <Stack.Screen name="tabs/Exercisesessionscreen" options={{ gestureEnabled: true }} />
             {/* ✅ Doctor screens */}
             <Stack.Screen name="Doctor" />
           </Stack>
