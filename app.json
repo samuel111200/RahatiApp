@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "حكاية حركة",
-    "slug": "حكاية حركة",
+    "slug": "hekaya-haraka",
     "version": "1.0.0",
     "sdkVersion": "54.0.0",
     "orientation": "portrait",
@@ -10,7 +10,7 @@
       "icon": "./assets/images/logo.png",
       "color": "#7C5CBF"
     },
-    "scheme": "rahtyi",
+    "scheme": "hekaya-haraka",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
