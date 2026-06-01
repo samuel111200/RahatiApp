@@ -25,7 +25,7 @@ export default function LangChoose() {
 
   return (
     <LinearGradient
-      colors={['#ffffff', '#EDE6F8', '#7C5CBF']}
+      colors={["#ffffff", "#EDE6F8", "#7C5CBF"]}
       style={styles.container}
     >
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -33,58 +33,80 @@ export default function LangChoose() {
       {/* ── Logo ── */}
       <View style={styles.logoSection}>
         <Image
-          source={require('../assets/images/logo.png')}
+          source={require("../assets/images/logo.png")}
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={styles.appName}>راحتي  •  Rahati</Text>
+        <Text style={styles.appName}>حكاية حركة • hekaya-haraka</Text>
       </View>
 
       {/* ── Heading ── */}
       <View style={styles.headingWrap}>
-        <Text style={styles.title}>🌐 اختر لغتك{'\n'}Choose Your Language</Text>
-        <Text style={styles.subtitle}>يمكنك تغييرها لاحقاً من الإعدادات{'\n'}You can change it later from settings</Text>
+        <Text style={styles.title}>🌐 اختر لغتك{"\n"}Choose Your Language</Text>
+        <Text style={styles.subtitle}>
+          يمكنك تغييرها لاحقاً من الإعدادات{"\n"}You can change it later from
+          settings
+        </Text>
       </View>
 
       {/* ── Language Cards ── */}
       <View style={styles.cardsCol}>
-
         {/* Arabic */}
         <TouchableOpacity
-          style={[styles.card, selected === 'ar' && styles.cardActive]}
-          onPress={() => setSelected('ar')}
+          style={[styles.card, selected === "ar" && styles.cardActive]}
+          onPress={() => setSelected("ar")}
           activeOpacity={0.8}
         >
           <Text style={styles.flag}>🇸🇦</Text>
           <View style={styles.cardTextCol}>
-            <Text style={[styles.cardTitle, selected === 'ar' && styles.cardTitleActive]}>
+            <Text
+              style={[
+                styles.cardTitle,
+                selected === "ar" && styles.cardTitleActive,
+              ]}
+            >
               العربية
             </Text>
-            <Text style={[styles.cardSub, selected === 'ar' && styles.cardSubActive]}>
+            <Text
+              style={[
+                styles.cardSub,
+                selected === "ar" && styles.cardSubActive,
+              ]}
+            >
               Arabic
             </Text>
           </View>
-          {selected === 'ar' && (
+          {selected === "ar" && (
             <Ionicons name="checkmark-circle" size={26} color="#7C5CBF" />
           )}
         </TouchableOpacity>
 
         {/* English */}
         <TouchableOpacity
-          style={[styles.card, selected === 'en' && styles.cardActive]}
-          onPress={() => setSelected('en')}
+          style={[styles.card, selected === "en" && styles.cardActive]}
+          onPress={() => setSelected("en")}
           activeOpacity={0.8}
         >
           <Text style={styles.flag}>🇬🇧</Text>
           <View style={styles.cardTextCol}>
-            <Text style={[styles.cardTitle, selected === 'en' && styles.cardTitleActive]}>
+            <Text
+              style={[
+                styles.cardTitle,
+                selected === "en" && styles.cardTitleActive,
+              ]}
+            >
               English
             </Text>
-            <Text style={[styles.cardSub, selected === 'en' && styles.cardSubActive]}>
+            <Text
+              style={[
+                styles.cardSub,
+                selected === "en" && styles.cardSubActive,
+              ]}
+            >
               الإنجليزية
             </Text>
           </View>
-          {selected === 'en' && (
+          {selected === "en" && (
             <Ionicons name="checkmark-circle" size={26} color="#7C5CBF" />
           )}
         </TouchableOpacity>
@@ -97,15 +119,14 @@ export default function LangChoose() {
         activeOpacity={0.8}
       >
         <Text style={styles.continueBtnText}>
-          {selected === 'ar' ? 'متابعة' : 'Continue'}
+          {selected === "ar" ? "متابعة" : "Continue"}
         </Text>
         <Ionicons
-          name={selected === 'ar' ? 'arrow-back' : 'arrow-forward'}
+          name={selected === "ar" ? "arrow-back" : "arrow-forward"}
           size={18}
           color="#fff"
         />
       </TouchableOpacity>
-
     </LinearGradient>
   );
 }
