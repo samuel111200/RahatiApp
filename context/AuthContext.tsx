@@ -18,17 +18,17 @@ export interface User {
   email: string;
   role?: 'doctor' | 'patient';
   specialty?: string;
-  licenseNumber?: string;
   provider?: 'email' | 'google' | 'facebook';
   photoUrl?: string;
+  createdAt?: number;
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  signIn: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
-  signUp: (personal: Omit<User, 'email' | 'provider' | 'uid'>, account: { email: string; password: string }) => Promise<{ ok: boolean; error?: string }>;
+  signIn: (email: string, password: string) => Promise<{ ok: boolean; error?: string; role?: 'doctor' | 'patient' }>;
+  signUp: (personal: Omit<User, 'email' | 'provider' | 'uid'>, account: { email: string; password: string }) => Promise<{ ok: boolean; error?: string; role?: 'doctor' | 'patient' }>;
   signInWithSocial: (provider: 'google' | 'facebook', profile: { email: string; firstName: string; lastName: string; photoUrl?: string }) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
@@ -59,15 +59,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               specialty: data.specialty,
               provider:  'email',
               photoUrl:  data.photoUrl,
+              createdAt: data.createdAt,
             });
             setIsAuthenticated(true);
-          } else {
-            setUser(null);
-            setIsAuthenticated(false);
           }
+          // Doc not found yet (sign-up race condition) — signUp() already set state, leave it alone
         } catch {
-          setUser(null);
-          setIsAuthenticated(false);
+          // Firestore error (permissions not set yet) — don't clear auth, signUp() already set state
         }
       } else {
         setUser(null);
@@ -81,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (
     email: string,
     password: string,
-  ): Promise<{ ok: boolean; error?: string }> => {
+  ): Promise<{ ok: boolean; error?: string; role?: 'doctor' | 'patient' }> => {
     try {
       const cred = await signInWithEmailAndPassword(auth, email, password);
       const snap = await getDoc(doc(db, 'users', cred.user.uid));
@@ -98,10 +96,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           specialty: data.specialty,
           provider:  'email',
           photoUrl:  data.photoUrl,
+          createdAt: data.createdAt,
         });
         setIsAuthenticated(true);
+        return { ok: true, role: data.role };
       }
-      return { ok: true };
+      return { ok: true, role: 'patient' };
     } catch (e: any) {
       const code = e?.code ?? '';
       const msg =
@@ -115,34 +115,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = async (
     personal: Omit<User, 'email' | 'provider' | 'uid'>,
     account: { email: string; password: string },
-  ): Promise<{ ok: boolean; error?: string }> => {
+  ): Promise<{ ok: boolean; error?: string; role?: 'doctor' | 'patient' }> => {
     try {
+      // Step 1 — create Firebase Auth user (only this can return ok:false)
       const cred = await createUserWithEmailAndPassword(auth, account.email, account.password);
       const uid  = cred.user.uid;
       const role: 'doctor' | 'patient' =
         personal.role ?? (personal.specialty ? 'doctor' : 'patient');
 
-      const fsUser: FSUser = {
+      // Step 2 — save full profile to Firestore (separate try so rules errors
+      // don't block navigation; user is already authenticated at this point)
+      const fsUser: Record<string, any> = {
         firstName: personal.firstName,
         lastName:  personal.lastName,
         age:       personal.age,
         gender:    personal.gender,
         email:     account.email,
         role,
-        specialty: personal.specialty,
-        photoUrl:  personal.photoUrl,
         createdAt: Date.now(),
       };
-      await setDoc(doc(db, 'users', uid), fsUser);
+      if (personal.specialty) fsUser.specialty = personal.specialty;
+      if (personal.photoUrl)  fsUser.photoUrl  = personal.photoUrl;
+
+      try {
+        await setDoc(doc(db, 'users', uid), fsUser);
+      } catch (fsErr: any) {
+        console.warn('[signUp] Firestore save failed — check security rules:', fsErr?.code ?? fsErr);
+      }
 
       setUser({ uid, ...personal, email: account.email, role, provider: 'email' });
       setIsAuthenticated(true);
-      return { ok: true };
+      return { ok: true, role };
     } catch (e: any) {
       const code = e?.code ?? '';
       const msg =
         code === 'auth/email-already-in-use'
           ? 'هذا البريد الإلكتروني مستخدم بالفعل'
+          : code === 'auth/weak-password'
+          ? 'كلمة المرور ضعيفة جداً'
           : 'حدث خطأ، حاول مرة أخرى';
       return { ok: false, error: msg };
     }

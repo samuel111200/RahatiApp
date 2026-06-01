@@ -8,10 +8,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { collection, onSnapshot, addDoc, updateDoc, doc, query, orderBy, increment } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, setDoc, doc, query, orderBy, increment } from 'firebase/firestore';
 import { Colors, Spacing, FontSize } from '../../constants/Theme';
 import { useLang } from '../../context/Languagecontext';
-import { db, auth } from '../../utils/firebaseConfig';
+import { db } from '../../utils/firebaseConfig';
+import { useAuth } from '../../context/AuthContext';
 
 type Message = {
   id: string;
@@ -223,7 +224,8 @@ export default function DoctorChatScreen() {
   const specialty   = params.specialty   ?? '';
   const isFirebase  = params.isFirebase  === '1';
 
-  const patientId = auth.currentUser?.uid ?? '';
+  const { user } = useAuth();
+  const patientId = user?.uid ?? '';
   const chatId    = isFirebase ? `${doctorId}_${patientId}` : '';
 
   const welcomeText = isRTL
@@ -282,18 +284,22 @@ export default function DoctorChatScreen() {
       try {
         const now = Date.now();
         await addDoc(collection(db, 'chats', chatId, 'messages'), {
-          text:    text.trim(),
-          sender:  'patient',
+          text:      text.trim(),
+          sender:    'patient',
           timestamp: now,
-          status:  'sent',
-          type:    'text',
+          status:    'sent',
+          type:      'text',
         });
-        await updateDoc(doc(db, 'chats', chatId), {
+        await setDoc(doc(db, 'chats', chatId), {
+          doctorId,
+          patientId,
+          patientName:         `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'مريض',
           lastMessage:         text.trim(),
           lastMessageTime:     now,
           lastMessageSender:   'patient',
           unreadCountDoctor:   increment(1),
-        });
+          exerciseAccess:      false,
+        }, { merge: true });
       } catch {
         Alert.alert(
           isRTL ? 'خطأ' : 'Error',

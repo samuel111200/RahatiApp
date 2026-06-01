@@ -24,9 +24,9 @@ export default function RoleChoose() {
     if (!selectedRole) return;
     await AsyncStorage.setItem("app_role", selectedRole);
     if (selectedRole === "doctor") {
-      router.push("/Doctor/Docsignin");
+      router.replace("/Doctor/Docsignin");
     } else {
-      router.push("/auth/sign-in");
+      router.replace("/auth/sign-in");
     }
   };
 

@@ -1,10 +1,9 @@
-// app/Doctor/Docsignup2.tsx
+// app/Doctor/Docsignup2.tsx  —  Doctor sign-up step 2
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  KeyboardAvoidingView, Platform, Alert,
+  KeyboardAvoidingView, Platform, SafeAreaView, Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
@@ -13,35 +12,29 @@ import RahatiLogo from '../../components/RahatiLogo';
 import { PrimaryButton, InputField, StepBar } from '../../components/UI';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 
-export default function DocSignUp2Screen() {
-  // ✅ params فيها الـ 4 fields اللي جاية من الخطوة الأولى بس
-  const params = useLocalSearchParams<{
-    firstName: string;
-    lastName: string;
-    age: string;
-    gender: string;
-  }>();
-
+export default function DoctorSignUp2Screen() {
+  const params = useLocalSearchParams<{ firstName: string; lastName: string; age: string; gender: string }>();
   const { signUp } = useAuth();
   const { t, isRTL } = useLang();
 
-  const [email,     setEmail]     = useState('');
-  const [password,  setPassword]  = useState('');
-  const [confirm,   setConfirm]   = useState('');
-  const [specialty, setSpecialty] = useState(''); // ✅ state محلي مش من params
+  const [email,       setEmail]       = useState('');
+  const [specialty,   setSpecialty]   = useState('');
+  const [password,    setPassword]    = useState('');
+  const [confirm,     setConfirm]     = useState('');
   const [showPass,    setShowPass]    = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [errors,  setErrors]  = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(false);
+  const [errors,      setErrors]      = useState<Record<string, string>>({});
+  const [loading,     setLoading]     = useState(false);
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!email.trim())   e.email    = t.required;
+    if (!email.trim())               e.email     = t.required;
     else if (!/\S+@\S+\.\S+/.test(email)) e.email = t.invalidEmail;
-    if (!password.trim()) e.password = t.required;
-    else if (password.length < 6) e.password = t.shortPassword;
-    if (!confirm.trim())  e.confirm  = t.required;
-    else if (confirm !== password) e.confirm = t.passwordMismatch;
+    if (!specialty.trim())           e.specialty = isRTL ? 'التخصص مطلوب' : 'Specialty is required';
+    if (!password.trim())            e.password  = t.required;
+    else if (password.length < 6)    e.password  = t.shortPassword;
+    if (!confirm.trim())             e.confirm   = t.required;
+    else if (confirm !== password)   e.confirm   = t.passwordMismatch;
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -56,59 +49,49 @@ export default function DocSignUp2Screen() {
         age:       params.age,
         gender:    params.gender,
         specialty,
-        role: 'doctor' as const,
-      },
+        role:      'doctor',
+      } as any,
       { email, password },
     );
     setLoading(false);
     if (ok) {
       router.replace('/Doctor/Dochome');
     } else {
-      Alert.alert(isRTL ? 'خطأ' : 'Error', error ?? (isRTL ? 'فشل إنشاء الحساب' : 'Sign up failed'));
+      Alert.alert(
+        isRTL ? 'خطأ في إنشاء الحساب' : 'Sign Up Error',
+        error ?? (isRTL ? 'فشل إنشاء الحساب، حاول مجدداً' : 'Sign up failed, please try again'),
+      );
     }
   };
 
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={24} color={Colors.primary} />
           </TouchableOpacity>
 
           <View style={styles.stepWrap}>
             <StepBar current={2} total={2} />
-            <Text style={[styles.stepLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
-              {t.step2of2}
-            </Text>
+            <Text style={[styles.stepLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.step2of2}</Text>
           </View>
 
           <View style={[styles.headerRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <View style={styles.stepBadge}>
-              <Text style={styles.stepBadgeNum}>02</Text>
-            </View>
+            <View style={styles.stepBadge}><Text style={styles.stepBadgeNum}>02</Text></View>
             <RahatiLogo />
           </View>
 
-          <Text style={[styles.title, { textAlign: isRTL ? 'right' : 'left' }]}>
-            {t.accountData}
-          </Text>
-          <Text style={[styles.subtitle, { textAlign: isRTL ? 'right' : 'left' }]}>
-            {t.createAccount}
-          </Text>
+          <Text style={[styles.title, { textAlign: isRTL ? 'right' : 'left' }]}>{t.accountData}</Text>
+          <Text style={[styles.subtitle, { textAlign: isRTL ? 'right' : 'left' }]}>{t.createAccount}</Text>
 
           <View style={[styles.summaryCard, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <View style={styles.summaryAvatar}>
               <Ionicons name="person" size={20} color={Colors.white} />
             </View>
             <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-              <Text style={styles.summaryName}>
-                {params.firstName} {params.lastName}
-              </Text>
+              <Text style={styles.summaryName}>{params.firstName} {params.lastName}</Text>
               <Text style={styles.summaryMeta}>
                 {params.age} {t.years} · {params.gender === 'male' ? t.male : t.female}
               </Text>
@@ -117,65 +100,40 @@ export default function DocSignUp2Screen() {
 
           <View style={styles.card}>
             <InputField
-              label={t.email}
-              placeholder="example@email.com"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              error={errors.email}
-              rtl={isRTL}
+              label={t.email} placeholder="doctor@example.com"
+              value={email} onChangeText={setEmail}
+              keyboardType="email-address" error={errors.email} rtl={isRTL}
             />
-
-            {/* ✅ value من specialty state مش params */}
             <InputField
               label={isRTL ? 'التخصص' : 'Specialty'}
               placeholder={isRTL ? 'مثال: طب نفسي، أطفال، قلب...' : 'e.g. Psychiatry, Cardiology...'}
-              value={specialty}
-              onChangeText={setSpecialty}
-              error={errors.specialty}
-              rtl={isRTL}
+              value={specialty} onChangeText={setSpecialty}
+              error={errors.specialty} rtl={isRTL}
             />
-
             <InputField
-              label={t.password}
-              placeholder="••••••••"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPass}
-              error={errors.password}
-              rtl={isRTL}
+              label={t.password} placeholder="••••••••"
+              value={password} onChangeText={setPassword}
+              secureTextEntry={!showPass} error={errors.password} rtl={isRTL}
               rightIcon={
                 <TouchableOpacity onPress={() => setShowPass(!showPass)}>
-                  <Ionicons
-                    name={showPass ? 'eye-off-outline' : 'eye-outline'}
-                    size={20}
-                    color={Colors.textMuted}
-                  />
+                  <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={Colors.textMuted} />
                 </TouchableOpacity>
               }
             />
-
             <InputField
-              label={t.confirmPassword}
-              placeholder="••••••••"
-              value={confirm}
-              onChangeText={setConfirm}
-              secureTextEntry={!showConfirm}
-              error={errors.confirm}
-              rtl={isRTL}
+              label={t.confirmPassword} placeholder="••••••••"
+              value={confirm} onChangeText={setConfirm}
+              secureTextEntry={!showConfirm} error={errors.confirm} rtl={isRTL}
               rightIcon={
                 <TouchableOpacity onPress={() => setShowConfirm(!showConfirm)}>
-                  <Ionicons
-                    name={showConfirm ? 'eye-off-outline' : 'eye-outline'}
-                    size={20}
-                    color={Colors.textMuted}
-                  />
+                  <Ionicons name={showConfirm ? 'eye-off-outline' : 'eye-outline'} size={20} color={Colors.textMuted} />
                 </TouchableOpacity>
               }
             />
           </View>
 
           <PrimaryButton title={t.signUp} onPress={handleSignUp} loading={loading} />
+
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -183,13 +141,13 @@ export default function DocSignUp2Screen() {
 }
 
 const styles = StyleSheet.create({
-  safe:     { flex: 1, backgroundColor: Colors.background },
-  scroll:   { flexGrow: 1, paddingHorizontal: Spacing.xl, paddingBottom: Spacing.xxxl },
+  safe:   { flex: 1, backgroundColor: Colors.background },
+  scroll: { flexGrow: 1, paddingHorizontal: Spacing.xl, paddingBottom: Spacing.xxxl },
   backBtn:  { marginTop: Spacing.base, alignSelf: 'flex-end', width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.primaryUltraLight, alignItems: 'center', justifyContent: 'center' },
-  stepWrap: { marginTop: Spacing.lg, marginBottom: Spacing.xl },
+  stepWrap:  { marginTop: Spacing.lg, marginBottom: Spacing.xl },
   stepLabel: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '500', marginTop: 6 },
   headerRow: { alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.md },
-  stepBadge: { width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.primaryMid, alignItems: 'center', justifyContent: 'center' },
+  stepBadge:    { width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.primaryMid, alignItems: 'center', justifyContent: 'center' },
   stepBadgeNum: { fontSize: FontSize.md, fontWeight: '800', color: Colors.primary },
   title:    { fontSize: 26, fontWeight: '800', color: Colors.textPrimary, marginBottom: 4 },
   subtitle: { fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: Spacing.base },

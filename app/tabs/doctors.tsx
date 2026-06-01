@@ -9,7 +9,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { collection, query, where, onSnapshot, addDoc, getDocs } from 'firebase/firestore';
-import { auth, db, FSUser } from '../../utils/firebaseConfig';
+import { db, FSUser } from '../../utils/firebaseConfig';
+import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/Languagecontext';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 
@@ -77,41 +78,51 @@ function fsPalette(idx: number) { return PALETTE[idx % PALETTE.length]; }
 export default function DoctorsScreen() {
   const navigation = useNavigation();
   const { isRTL } = useLang();
+  const { user } = useAuth();
   const [search,      setSearch]      = useState('');
   const [selectedDoc, setSelectedDoc] = useState<DoctorCard | null>(null);
   const [showModal,   setShowModal]   = useState(false);
-  const [doctors,     setDoctors]     = useState<DoctorCard[]>(STATIC_DOCTORS);
+  const [doctors,     setDoctors]     = useState<DoctorCard[]>([]);
+  const [loadingDocs, setLoadingDocs] = useState(true);
 
   // ─── Load real doctors from Firestore ─────────────────
   useEffect(() => {
+    if (!user?.uid) return;
     const q = query(collection(db, 'users'), where('role', '==', 'doctor'));
-    const unsub = onSnapshot(q, (snap) => {
-      if (snap.empty) { setDoctors(STATIC_DOCTORS); return; }
-      const real: DoctorCard[] = snap.docs.map((d, i) => {
-        const data = d.data() as FSUser;
-        const p = fsPalette(i);
-        return {
-          id:         d.id,
-          firebaseUid: d.id,
-          name:        `د. ${data.firstName} ${data.lastName}`,
-          nameEn:      `Dr. ${data.firstName} ${data.lastName}`,
-          specialty:   data.specialty ?? '',
-          specialtyEn: data.specialty ?? '',
-          rating:      4.8,
-          reviews:     0,
-          experience:  0,
-          available:   true,
-          emoji:       p.emoji,
-          color:       p.color,
-          bg:          p.bg,
-          tags:        [],
-          tagsEn:      [],
-        };
-      });
-      setDoctors(real);
-    });
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        setLoadingDocs(false);
+        const real: DoctorCard[] = snap.docs.map((d, i) => {
+          const data = d.data() as FSUser;
+          const p = fsPalette(i);
+          return {
+            id:          d.id,
+            firebaseUid: d.id,
+            name:        `د. ${data.firstName} ${data.lastName}`,
+            nameEn:      `Dr. ${data.firstName} ${data.lastName}`,
+            specialty:   data.specialty ?? '',
+            specialtyEn: data.specialty ?? '',
+            rating:      4.8,
+            reviews:     0,
+            experience:  0,
+            available:   true,
+            emoji:       p.emoji,
+            color:       p.color,
+            bg:          p.bg,
+            tags:        [],
+            tagsEn:      [],
+          };
+        });
+        setDoctors(real);
+      },
+      (err) => {
+        console.warn('[Doctors] Firestore error:', err);
+        setLoadingDocs(false);
+      },
+    );
     return unsub;
-  }, []);
+  }, [user?.uid]);
 
   const filtered = doctors.filter(d => {
     const q = search.trim().toLowerCase();
@@ -128,12 +139,10 @@ export default function DoctorsScreen() {
 
   const handleInAppChat = async (docItem: DoctorCard) => {
     setShowModal(false);
-    const patientUid = auth.currentUser?.uid;
+    const patientUid = user?.uid;
 
     if (patientUid && docItem.firebaseUid) {
-      // Create pending relationship in Firestore
-      const patientData = auth.currentUser;
-      const patientName  = patientData?.displayName ?? 'مريض';
+      const patientName = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'مريض';
       try {
         const existing = await getDocs(
           query(
@@ -180,7 +189,11 @@ export default function DoctorsScreen() {
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>{isRTL ? 'تواصل مع دكتور' : 'Contact a Doctor'}</Text>
-          <Text style={styles.headerSub}>{isRTL ? `${doctors.length} دكاترة متاحون` : `${doctors.length} doctors available`}</Text>
+          <Text style={styles.headerSub}>
+            {loadingDocs
+              ? (isRTL ? 'جاري التحميل...' : 'Loading...')
+              : (isRTL ? `${doctors.length} دكاترة متاحون` : `${doctors.length} doctors available`)}
+          </Text>
         </View>
         <View style={{ width: 40 }} />
       </View>
@@ -213,6 +226,14 @@ export default function DoctorsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+        {!loadingDocs && doctors.length === 0 && (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyEmoji}>🩺</Text>
+            <Text style={styles.emptyText}>
+              {isRTL ? 'لا يوجد دكاترة مسجلون بعد' : 'No doctors registered yet'}
+            </Text>
+          </View>
+        )}
         {filtered.map((doc) => (
           <View key={doc.id} style={[styles.card, { borderLeftColor: doc.color, borderLeftWidth: 4 }]}>
 
@@ -481,4 +502,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   cancelBtnText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.primary },
+
+  emptyState: { alignItems: 'center', paddingVertical: 60, gap: 12 },
+  emptyEmoji: { fontSize: 48 },
+  emptyText: { fontSize: FontSize.base, color: Colors.textMuted, textAlign: 'center' },
 });
