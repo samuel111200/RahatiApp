@@ -20,7 +20,6 @@ export default function DoctorLayout() {
         <Stack.Screen name="Docchat"    />
         <Stack.Screen name="Docpatient" options={{ gestureEnabled: true }} />
         <Stack.Screen name="Docmore"    />
-        <Stack.Screen name="Docnotif"   options={{ gestureEnabled: true }} />
       </Stack>
     </ChatsProvider>
   );

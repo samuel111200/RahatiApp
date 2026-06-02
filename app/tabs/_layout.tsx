@@ -95,7 +95,6 @@ export default function TabsLayout() {
       <Tabs.Screen name="exercises" />
       <Tabs.Screen name="doctors" />
       <Tabs.Screen name="more" />
-      <Tabs.Screen name="notification" />
       <Tabs.Screen name="doctorchat" />
       <Tabs.Screen name="Exercisesessionscreen" />
     </Tabs>
