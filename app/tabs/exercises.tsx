@@ -1275,8 +1275,7 @@ export default function ExercisesScreen() {
     }
   };
 
-  const stepTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const stepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function getListAndSetter(type: SectionKey): [Exercise[], React.Dispatch<React.SetStateAction<Exercise[]>>, string] {
     switch (type) {
@@ -1341,22 +1340,18 @@ export default function ExercisesScreen() {
     await loadSection(THERAPY_KEY, DEFAULT_THERAPY_EXERCISES, setTherapyList);
     await loadSection(YOGA_KEY,    DEFAULT_YOGA_EXERCISES,    setYogaList);
 
-    // aerobic — fixed single exercise
     await AsyncStorage.removeItem(AEROBIC_KEY);
     await AsyncStorage.setItem(AEROBIC_KEY, JSON.stringify(DEFAULT_AEROBIC_EXERCISES));
     setAerobicList(DEFAULT_AEROBIC_EXERCISES);
 
-    // endurance — 5 fixed exercises
     await AsyncStorage.removeItem(ENDURANCE_KEY);
     await AsyncStorage.setItem(ENDURANCE_KEY, JSON.stringify(DEFAULT_ENDURANCE_EXERCISES));
     setEnduranceList(DEFAULT_ENDURANCE_EXERCISES);
 
-    // strength — 10 fixed exercises
     await AsyncStorage.removeItem(STRENGTH_KEY);
     await AsyncStorage.setItem(STRENGTH_KEY, JSON.stringify(DEFAULT_STRENGTH_EXERCISES));
     setStrengthList(DEFAULT_STRENGTH_EXERCISES);
 
-    // coordination — 10 fixed exercises
     await AsyncStorage.removeItem(COORDINATION_KEY);
     await AsyncStorage.setItem(COORDINATION_KEY, JSON.stringify(DEFAULT_COORDINATION_EXERCISES));
     setCoordinationList(DEFAULT_COORDINATION_EXERCISES);
@@ -1424,31 +1419,19 @@ export default function ExercisesScreen() {
 
   useEffect(() => { stopSpeaking(); }, [selected]);
 
-  function handleLongPressStart(item: Exercise) {
-    longPressTimers.current[item.key] = setTimeout(() => {
-      const title = isRTL ? item.title : item.titleEn;
-      const otherSections = SECTION_CONFIGS.filter(s => s.key !== item.type);
-      const moveOptions = otherSections.map(s => ({
-        text: `${s.emoji} ${isRTL ? 'نقل لـ ' + s.labelAr : 'Move to ' + s.labelEn}`,
-        onPress: () => handleConvertExercise(item, s.key),
-      }));
-      Alert.alert(
-        isRTL ? 'خيارات التمرين' : 'Exercise Options',
-        `"${title}"`,
-        [
-          { text: isRTL ? 'إلغاء' : 'Cancel', style: 'cancel' },
-          ...moveOptions,
-          { text: isRTL ? '🗑️ حذف' : '🗑️ Delete', style: 'destructive', onPress: () => handleDeleteExercise(item) },
-        ]
-      );
-    }, 600);
-  }
-
-  function handleLongPressEnd(key: string) {
-    if (longPressTimers.current[key]) {
-      clearTimeout(longPressTimers.current[key]);
-      delete longPressTimers.current[key];
-    }
+  async function handleDeleteExercise(item: Exercise) {
+    suppressTaskListNotifOnce();
+    const [list, setter, storageKey] = getListAndSetter(item.type);
+    const updated = list.filter(e => e.key !== item.key);
+    setter(updated);
+    await AsyncStorage.setItem(storageKey, JSON.stringify(updated));
+    if (selected === item.key && updated.length > 0) setSelected(updated[0].key);
+    await AsyncStorage.setItem('data_changed_at', Date.now().toString());
+    await notify({
+      title: isRTL ? 'تم حذف التمرين 🗑️' : 'Exercise Deleted 🗑️',
+      body: isRTL ? `"${item.title}" تم حذفه` : `"${item.titleEn}" has been deleted`,
+      emoji: item.emoji, type: 'delete',
+    });
   }
 
   async function handleConvertExercise(item: Exercise, targetType: SectionKey) {
@@ -1472,21 +1455,6 @@ export default function ExercisesScreen() {
         ? `"${item.title}" اتنقل لـ${targetConfig.labelAr}`
         : `"${item.titleEn}" moved to ${targetConfig.labelEn}`,
       emoji: item.emoji, type: 'add',
-    });
-  }
-
-  async function handleDeleteExercise(item: Exercise) {
-    suppressTaskListNotifOnce();
-    const [list, setter, storageKey] = getListAndSetter(item.type);
-    const updated = list.filter(e => e.key !== item.key);
-    setter(updated);
-    await AsyncStorage.setItem(storageKey, JSON.stringify(updated));
-    if (selected === item.key && updated.length > 0) setSelected(updated[0].key);
-    await AsyncStorage.setItem('data_changed_at', Date.now().toString());
-    await notify({
-      title: isRTL ? 'تم حذف التمرين 🗑️' : 'Exercise Deleted 🗑️',
-      body: isRTL ? `"${item.title}" تم حذفه` : `"${item.titleEn}" has been deleted`,
-      emoji: item.emoji, type: 'delete',
     });
   }
 
@@ -1565,8 +1533,23 @@ export default function ExercisesScreen() {
         <TouchableOpacity
           key={item.key}
           onPress={() => setSelected(item.key)}
-          onPressIn={() => handleLongPressStart(item)}
-          onPressOut={() => handleLongPressEnd(item.key)}
+          // ✅ FIX: استخدام onLongPress native بدل manual timers
+          onLongPress={() => {
+            if (!item.custom) return;
+            const title = isRTL ? item.title : item.titleEn;
+            Alert.alert(
+              isRTL ? 'خيارات التمرين' : 'Exercise Options',
+              `"${title}"`,
+              [
+                { text: isRTL ? 'إلغاء' : 'Cancel', style: 'cancel' },
+                {
+                  text: isRTL ? '🗑️ حذف' : '🗑️ Delete',
+                  style: 'destructive',
+                  onPress: () => handleDeleteExercise(item),
+                },
+              ],
+            );
+          }}
           delayLongPress={600}
           activeOpacity={0.88}
           style={[
@@ -1613,12 +1596,18 @@ export default function ExercisesScreen() {
             {iSel && iSteps.length > 0 && (
               <TouchableOpacity
                 style={[styles.speakBtn, { borderColor: item.color, backgroundColor: item.bg }]}
-                onPress={() => speakAllSteps(item)}
+                onPress={() => isSpeaking ? stopSpeaking() : speakAllSteps(item)}
                 activeOpacity={0.8}
               >
-                <Ionicons name="volume-high-outline" size={16} color={item.color} />
+                <Ionicons
+                  name={isSpeaking ? 'stop-circle-outline' : 'volume-high-outline'}
+                  size={16}
+                  color={item.color}
+                />
                 <Text style={[styles.speakBtnText, { color: item.color }]}>
-                  {isRTL ? 'اقرأ الخطوات' : 'Read steps aloud'}
+                  {isSpeaking
+                    ? (isRTL ? 'إيقاف' : 'Stop')
+                    : (isRTL ? 'اقرأ الخطوات' : 'Read steps aloud')}
                 </Text>
               </TouchableOpacity>
             )}
@@ -1629,21 +1618,20 @@ export default function ExercisesScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    // ✅ FIX: edges بدون 'bottom' عشان timerWrap يتحكم في المسافة من الـ bottom bar
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <View style={styles.container}>
 
-        <View style={styles.navbar}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.navBtn}>
-            <Ionicons name="chevron-back" size={22} color="#7C5CBF" />
-          </TouchableOpacity>
-          <View style={styles.navCenter}>
-            <Text style={styles.navTitle}>{isRTL ? 'تمارين اليوم' : "Today's Exercises"}</Text>
-            <Text style={styles.navSub}>{isRTL ? 'اضغط مطولاً للخيارات' : 'Long press for options'}</Text>
-          </View>
-          <TouchableOpacity onPress={openAddModal} style={styles.navBtn}>
-            <Ionicons name="add" size={24} color="#7C5CBF" />
-          </TouchableOpacity>
-        </View>
+        {/* ✅ FIX: navbar بـ paddingTop مضبوط بالنسبة للـ content */}
+<View style={styles.navbar}>
+  <View style={{ width: 40 }} /> {/* placeholder */}
+  <Text style={styles.navTitle}>
+    {isRTL ? 'تمارين اليوم' : "Today's Exercises"}
+  </Text>
+  <TouchableOpacity onPress={openAddModal} style={styles.navBtn}>
+    <Ionicons name="add" size={24} color="#7C5CBF" />
+  </TouchableOpacity>
+</View>
 
         {doctorExercises.length > 0 && (
           <View style={styles.docExSection}>
@@ -1767,6 +1755,7 @@ export default function ExercisesScreen() {
           ))}
         </View>
 
+        {/* ✅ FIX: paddingBottom: 18 ثابت فوق الـ bottom bar */}
         <View style={styles.timerWrap}>
           <TouchableOpacity
             style={[styles.timerBtn, { backgroundColor: ex.bg, borderColor: ex.color }]}
@@ -1859,11 +1848,22 @@ const styles = StyleSheet.create({
   docExDesc:    { fontSize: 10, color: Colors.textMuted, lineHeight: 14 },
   docExDoneRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4, opacity: 0.6 },
   docExDoneText:{ fontSize: 10, color: Colors.textMuted, fontWeight: '600' },
-  navbar:    { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.xl, paddingVertical: 10, marginBottom: Spacing.sm },
+
+  // ✅ FIX: paddingTop مضبوط — العنوان بالنسبة للـ content مش الـ status bar
+navbar: { 
+  flexDirection: 'row', 
+  alignItems: 'center', 
+  justifyContent: 'space-between',
+  paddingHorizontal: Spacing.xl, 
+  paddingTop: 4, 
+  paddingBottom: 10, 
+  marginBottom: Spacing.sm 
+},
   navBtn:    { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', shadowColor: '#7C5CBF', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.12, shadowRadius: 4, elevation: 2 },
   navCenter: { flex: 1, alignItems: 'center' },
-  navTitle:  { fontSize: 18, fontWeight: '800', color: Colors.textPrimary },
+navTitle: { fontSize: 18, fontWeight: '800', color: Colors.textPrimary },
   navSub:    { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 1 },
+
   sectionToggleScroll: { flexGrow: 0, marginBottom: 8 },
   sectionToggleRow:    { paddingHorizontal: Spacing.xl, gap: 8, flexDirection: 'row' },
   sectionBtn:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 9, paddingHorizontal: 14, borderRadius: 14, backgroundColor: '#F5F5F5' },
@@ -1893,7 +1893,9 @@ const styles = StyleSheet.create({
   speakBtnText: { fontSize: 12, fontWeight: '700' },
   dotsRow:      { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingVertical: Spacing.sm },
   dot:          { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.border },
-  timerWrap:    { paddingHorizontal: Spacing.xl, paddingTop: Spacing.base, paddingBottom: Spacing.xl, gap: 10, alignItems: 'center' },
+
+  // ✅ FIX: paddingBottom: 18 ثابت — الزرار فوق الـ bottom bar بـ 18px في كل الشاشات
+  timerWrap:    { paddingHorizontal: Spacing.xl, paddingTop: Spacing.base, paddingBottom: 18, gap: 10, alignItems: 'center' },
   timerBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderRadius: Radius.xl, borderWidth: 2, paddingVertical: 14, paddingHorizontal: 28, width: '100%' },
   timerBtnText: { fontSize: FontSize.base, fontWeight: '700' },
   emptySection: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40, gap: 12, height: CARD_H },

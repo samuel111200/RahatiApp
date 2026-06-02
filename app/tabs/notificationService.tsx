@@ -111,25 +111,6 @@ function addMinutesToTime(timeStr: string, addMin: number): string {
   return `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
 }
 
-// ─── Save in-app notification (بدون dedup — الـ dedup في notify) ──
-export async function saveInAppNotification(
-  notif: Omit<AppNotification, "id" | "timestamp" | "read">
-): Promise<AppNotification> {
-  const raw = await AsyncStorage.getItem("app_notifications");
-  const list: AppNotification[] = raw ? JSON.parse(raw) : [];
-
-  const newNotif: AppNotification = {
-    ...notif,
-    id: `notif_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-    timestamp: Date.now(),
-    read: false,
-  };
-
-  const updated = [newNotif, ...list].slice(0, 50);
-  await AsyncStorage.setItem("app_notifications", JSON.stringify(updated));
-  return newNotif;
-}
-
 // ─── Send push notification ───────────────────────────────
 export async function sendPushNotification(
   title: string,
@@ -163,8 +144,7 @@ export async function sendPushNotification(
 }
 
 // ─── Main notify ──────────────────────────────────────────
-// الـ dedup بيتم هنا بس — عن طريق dedupKey صريح
-// لو مفيش dedupKey → الإشعار بيتبعت دايماً (للإشعارات اللحظية زي add/delete)
+// بيبعت push بس — مفيش حفظ in-app
 export async function notify(
   params: Omit<AppNotification, "id" | "timestamp" | "read"> & {
     dedupKey?: string;
@@ -175,16 +155,12 @@ export async function notify(
   if (params.dedupKey) {
     try {
       const already = await AsyncStorage.getItem(params.dedupKey);
-      if (already) return; // مبعتش قبل كده — وقف هنا
+      if (already) return;
       await AsyncStorage.setItem(params.dedupKey, "1");
     } catch { /* لو فضل، ما نوقفش الأبلكيشن */ }
   }
 
-  // احفظ في الـ in-app list
-  const { dedupKey: _removed, ...notifParams } = params;
-  await saveInAppNotification(notifParams);
-
-  // ابعت push للخارج
+  // ابعت push بس
   await sendPushNotification(
     `${params.emoji} ${params.title}`,
     params.body,
@@ -289,8 +265,6 @@ async function getTodayPlanItems(): Promise<Array<{
 }
 
 // ─── Timing watcher cycle (10 / 5 / الآن) ────────────────
-// كل إشعار عنده dedupKey صريح بـ item.id + نوع التنبيه + اليوم
-// → مستحيل يتبعت أكتر من مرة واحدة في اليوم
 export async function runWatcherCycle() {
   const todayKey  = getTodayDateKey();
   const nowMin    = nowInMinutes();
@@ -430,9 +404,7 @@ async function registerBackgroundFetch() {
 }
 
 // ════════════════════════════════════════════════════════════
-// ─── Action Notifications (تبعتها صراحة من الشاشات) ──────
-// مفيش dedupKey هنا — عشان دي أحداث فعلية (add/delete/update)
-// ومش المفروض تتحجب حتى لو اتكررت في نفس اليوم
+// ─── Action Notifications ────────────────────────────────
 // ════════════════════════════════════════════════════════════
 
 export async function notifyTaskAdded(
@@ -558,27 +530,10 @@ export async function notifyExerciseCompleted(
   );
 }
 
-// ─── Misc ─────────────────────────────────────────────────
-export async function markAllRead() {
-  const raw = await AsyncStorage.getItem("app_notifications");
-  if (!raw) return;
-  const list: AppNotification[] = JSON.parse(raw);
-  const updated = list.map((n) => ({ ...n, read: true }));
-  await AsyncStorage.setItem("app_notifications", JSON.stringify(updated));
-}
-
-export async function clearAllNotifications() {
-  await AsyncStorage.setItem("app_notifications", JSON.stringify([]));
-}
-
-export async function getUnreadCount(): Promise<number> {
-  const raw = await AsyncStorage.getItem("app_notifications");
-  if (!raw) return 0;
-  const list: AppNotification[] = JSON.parse(raw);
-  return list.filter((n) => !n.read).length;
-}
-
-// no-op — kept for backward compat
+// ─── Misc (backward compat — no-ops since no in-app storage) ──
+export async function markAllRead() {}
+export async function clearAllNotifications() {}
+export async function getUnreadCount(): Promise<number> { return 0; }
 export function suppressTaskListNotifOnce() {}
 
 // ════════════════════════════════════════════════════════════
@@ -681,7 +636,6 @@ export function startCompletionWatcher() {
           const ex      = exercises.find((e: any) => String(e.key ?? e.id ?? e.title) === exKey)
                        ?? exercises[idx % Math.max(exercises.length, 1)];
 
-          // dedupKey بـ id التمرين + اليوم عشان ما يتبعتش مرتين لو الـ snapshot اتحسب مرتين
           await notify(
             {
               title:    "تمرين ناجح! 💪",
@@ -720,7 +674,6 @@ export function stopCompletionWatcher() {
 }
 
 // ── Energy watcher ──
-// dedupKey بـ قيمة الطاقة + اليوم → نفس الـ value مش هيبعت أكتر من مرة في اليوم
 let lastEnergy: number | null = null;
 let energyWatcherInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -745,8 +698,6 @@ export function startEnergyWatcher() {
             body:     `طاقتك دلوقتي ${current}% (${diff > 0 ? "+" : ""}${diff}%)`,
             emoji,
             type:     "energy",
-            // dedupKey بقيمة الطاقة الجديدة + اليوم
-            // لو وصل نفس الـ % تاني → مش هيبعت تاني في نفس اليوم
             dedupKey: `energy_notif_${current}_${todayKey}`,
           },
           "energy"
@@ -768,7 +719,7 @@ export function stopExerciseWatcher() {
   if (exerciseWatcherInterval) { clearInterval(exerciseWatcherInterval); exerciseWatcherInterval = null; }
 }
 
-// ── tasksListWatcher — disabled نهائياً ──
+// ── tasksListWatcher — disabled ──
 export function startTasksListWatcher() { /* disabled */ }
 export function stopTasksListWatcher()  { /* disabled */ }
 

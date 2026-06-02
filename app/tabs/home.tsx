@@ -5,13 +5,12 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { router } from "expo-router";
 import {
   setupNotifications,
   startAllWatchers,
   areWatchersRunning,
-  getUnreadCount,
 } from './notificationService';
 
 // ─── Types ───────────────────────────────────────────────
@@ -26,9 +25,9 @@ interface PlanTask {
   date: string;
   effortScore: number;
   isBreak?: boolean;
-  isExercise?: boolean;      // ← تمييز التمارين
+  isExercise?: boolean;
   breakDescription?: string;
-  taskType?: 'core' | 'extra'; // ← نوع المهمة الأصلية
+  taskType?: 'core' | 'extra';
 }
 
 type CompletionStatus = 'done' | 'pending' | 'locked';
@@ -93,7 +92,6 @@ function sortTasksByTime(tasks: PlanTask[]): PlanTask[] {
 
 const CAT_TO_EFFORT: Record<string, number> = { work: 3, study: 2, home: 2 };
 
-// ─── Map raw task from tasks screen → PlanTask ────────────
 function mapRawTask(raw: any, fallbackDate: string, type: 'core' | 'extra'): PlanTask {
   const timeParts = (raw.time ?? '').split(' - ');
   return {
@@ -110,7 +108,6 @@ function mapRawTask(raw: any, fallbackDate: string, type: 'core' | 'extra'): Pla
   };
 }
 
-// ─── Map core exercise → PlanTask (تمرين بين المهام) ──────
 function mapExerciseToTask(exercise: any, index: number, afterTaskDate: string): PlanTask {
   return {
     id: `exercise_${exercise.key ?? index}`,
@@ -127,8 +124,6 @@ function mapExerciseToTask(exercise: any, index: number, afterTaskDate: string):
   };
 }
 
-// ─── Inject exercises between tasks ──────────────────────
-// الترتيب: core tasks (مرتبة بالوقت) → [تمرين] → extra tasks → [تمرين]
 function buildPlanList(
   coreTasks: PlanTask[],
   extraTasks: PlanTask[],
@@ -139,7 +134,6 @@ function buildPlanList(
   const result: PlanTask[] = [];
   let exerciseIdx = 0;
 
-  // ── Core tasks أولاً مع تمرين بعد كل واحدة ──
   const sortedCore = sortTasksByTime(coreTasks);
   sortedCore.forEach((task) => {
     result.push(task);
@@ -150,7 +144,6 @@ function buildPlanList(
     }
   });
 
-  // ── Extra tasks بعدين مع تمرين بعد كل واحدة ──
   const sortedExtra = sortTasksByTime(extraTasks);
   sortedExtra.forEach((task) => {
     result.push(task);
@@ -164,7 +157,6 @@ function buildPlanList(
   return result;
 }
 
-// ─── Storage key للمهام المنجزة ──────────────────────────
 function getDoneStorageKey(date: Date) {
   return `plan_done_${toKey(date)}`;
 }
@@ -341,7 +333,6 @@ function TaskCard({ task, energy, isLast, status, onToggleDone, selectedDate }: 
 
   return (
     <View style={card.row}>
-      {/* ── Timeline ── */}
       <View style={card.timelineCol}>
         <View style={[
           card.dot,
@@ -351,14 +342,12 @@ function TaskCard({ task, energy, isLast, status, onToggleDone, selectedDate }: 
         {!isLast && <View style={[card.line, isDone && card.lineDone]} />}
       </View>
 
-      {/* ── Card ── */}
       <View style={[
         card.box,
         { backgroundColor: isDone ? '#f0faf4' : task.bg },
         isExercise && !isDone && card.exerciseBox,
         isDone && card.boxDone,
       ]}>
-        {/* Exercise label header */}
         {isExercise && (
           <View style={card.exerciseBadgeRow}>
             <View style={card.exerciseBadge}>
@@ -369,7 +358,6 @@ function TaskCard({ task, energy, isLast, status, onToggleDone, selectedDate }: 
         )}
 
         <View style={card.cardTop}>
-          {/* Emoji */}
           <View style={[
             card.emojiWrap,
             { backgroundColor: isDone ? '#d4f0e1' : isExercise ? '#d4f0e1' : task.color + '22' },
@@ -377,7 +365,6 @@ function TaskCard({ task, energy, isLast, status, onToggleDone, selectedDate }: 
             <Text style={[{ fontSize: 22 }, isDone && { opacity: 0.7 }]}>{task.emoji}</Text>
           </View>
 
-          {/* Title & Time */}
           <View style={{ flex: 1, marginHorizontal: 10 }}>
             <Text style={[
               card.title,
@@ -397,7 +384,6 @@ function TaskCard({ task, energy, isLast, status, onToggleDone, selectedDate }: 
               </Text>
             ) : null}
 
-            {/* Task type badge */}
             {!isExercise && task.taskType && (
               <View style={[card.typePill, { backgroundColor: task.taskType === 'core' ? '#7C5CBF18' : '#F4A32B18' }]}>
                 <Text style={[card.typePillText, { color: task.taskType === 'core' ? '#7C5CBF' : '#C97B3A' }]}>
@@ -462,46 +448,35 @@ const prog = StyleSheet.create({
 
 // ─── Main Screen ─────────────────────────────────────────
 export default function PlanScreen() {
-  const navigation = useNavigation();
-
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showCal, setShowCal]           = useState(false);
   const [coreTasks,   setCoreTasks]     = useState<PlanTask[]>([]);
   const [extraTasks,  setExtraTasks]    = useState<PlanTask[]>([]);
   const [coreExercises, setCoreExercises] = useState<any[]>([]);
   const [energy, setEnergy]             = useState(50);
-  const [notifCount, setNotifCount]     = useState(0);
   const [doneIds, setDoneIds]           = useState<Set<string>>(new Set());
 
-  // ── Notification watchers ──
-const watchersStarted = useRef(false);
+  const watchersStarted = useRef(false);
 
-useEffect(() => {
-  if (watchersStarted.current) return;
-  watchersStarted.current = true;
-  (async () => {
-    await setupNotifications();
-    startAllWatchers();
-  })();
-}, []);
+  useEffect(() => {
+    if (watchersStarted.current) return;
+    watchersStarted.current = true;
+    (async () => {
+      await setupNotifications();
+      startAllWatchers();
+    })();
+  }, []);
 
-  // ── Load data when screen focused ──
   useFocusEffect(useCallback(() => {
     loadAllData();
   }, []));
 
   async function loadAllData() {
-    // طاقة المستخدم
     const storedEnergy = await AsyncStorage.getItem('energy_level');
     if (storedEnergy) setEnergy(Number(storedEnergy));
 
-    // عدد الإشعارات
-    const unread = await getUnreadCount();
-    setNotifCount(unread);
-
     const today = toKey(new Date());
 
-    // ── Core tasks ──
     const coreRaw = await AsyncStorage.getItem(CORE_TASKS_KEY);
     if (coreRaw) {
       const parsed = JSON.parse(coreRaw);
@@ -510,7 +485,6 @@ useEffect(() => {
       setCoreTasks([]);
     }
 
-    // ── Extra tasks (اليوم بس) ──
     const extraRaw = await AsyncStorage.getItem(EXTRA_TASKS_KEY);
     if (extraRaw) {
       const parsed = JSON.parse(extraRaw);
@@ -520,7 +494,6 @@ useEffect(() => {
       setExtraTasks([]);
     }
 
-    // ── Core exercises ──
     const exRaw = await AsyncStorage.getItem(CORE_EXERCISES_KEY);
     if (exRaw) {
       setCoreExercises(JSON.parse(exRaw));
@@ -529,7 +502,6 @@ useEffect(() => {
     }
   }
 
-  // ── Listen for data_changed_at (when tasks are added/deleted) ──
   useFocusEffect(useCallback(() => {
     let lastChanged = '';
     const checkChanges = async () => {
@@ -543,7 +515,6 @@ useEffect(() => {
     return () => clearInterval(interval);
   }, []));
 
-  // ── Load doneIds when selectedDate changes ──
   useEffect(() => {
     (async () => {
       const ids = await loadDoneIds(selectedDate);
@@ -551,7 +522,6 @@ useEffect(() => {
     })();
   }, [selectedDate]);
 
-  // ── Auto-mark done from notification ──
   useFocusEffect(useCallback(() => {
     const checkNotifDone = async () => {
       const raw = await AsyncStorage.getItem('last_completed_task_id');
@@ -571,7 +541,6 @@ useEffect(() => {
     return () => clearInterval(interval);
   }, [selectedDate]));
 
-  // ─── Toggle Done ──────────────────────────────────────
   const handleToggleDone = async (taskId: string) => {
     const task = withExercises.find(t => t.id === taskId);
     if (!task) return;
@@ -590,14 +559,9 @@ useEffect(() => {
     });
   };
 
-  // ─── Build plan list ──────────────────────────────────
-  // فلتر المهام للتاريخ المحدد
   const selectedKey = toKey(selectedDate);
-  
-  // Core tasks: دايمًا تظهر (مفيهاش date محددة في الغالب)
-  const dayCoreTasks = coreTasks.filter(t => !t.date || t.date === selectedKey || t.date === TODAY_KEY);
-  
-  // Extra tasks: تظهر بس لو نفس اليوم
+
+  const dayCoreTasks  = coreTasks.filter(t => !t.date || t.date === selectedKey || t.date === TODAY_KEY);
   const dayExtraTasks = extraTasks.filter(t => t.date === selectedKey);
 
   const withExercises = buildPlanList(dayCoreTasks, dayExtraTasks, coreExercises);
@@ -606,11 +570,8 @@ useEffect(() => {
   const maxEffort   = (dayCoreTasks.length + dayExtraTasks.length) * 3;
   const energyOk    = maxEffort === 0 || (totalEffort / maxEffort) * 100 <= energy;
 
-  // عدد المهام المنجزة (بدون التمارين)
   const realTasks = withExercises.filter(t => !t.isExercise);
   const doneCount = realTasks.filter(t => doneIds.has(t.id)).length;
-
-  const badgeColor = notifCount > 0 ? '#4CAF82' : '#ccc';
 
   function getStatus(task: PlanTask): CompletionStatus {
     if (doneIds.has(task.id)) return 'done';
@@ -624,41 +585,24 @@ useEffect(() => {
     <View style={s.safe}>
       <StatusBar backgroundColor="#f8f5ff" barStyle="dark-content" translucent={false} />
 
-      {/* ── Navbar ── */}
-      <View style={s.navbar}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={s.navIconBtn}>
-          <Ionicons name="chevron-back" size={22} color="#7C5CBF" />
-        </TouchableOpacity>
-
-        <View style={s.navCenter}>
-          <Text style={s.navTitle}>خطتي اليوم</Text>
-        </View>
-
-        <View style={s.navRight}>
-          <TouchableOpacity onPress={() => router.push("/tabs/notification")} style={s.navIconBtn}>
-            <Ionicons name="notifications-outline" size={22} color="#7C5CBF" />
-            {notifCount > 0 && (
-              <View style={[s.notifBadge, { backgroundColor: badgeColor }]} />
-            )}
-          </TouchableOpacity>
-
-          <View style={s.calBtnWrapper}>
-            <TouchableOpacity onPress={() => setShowCal(true)} style={s.navIconBtn}>
-              <Ionicons name="calendar-outline" size={22} color="#7C5CBF" />
-            </TouchableOpacity>
-            <View style={s.calDot} />
-          </View>
-        </View>
-      </View>
+      {/* ── Navbar — بدون سهم رجوع وبدون أيكون إشعارات ── */}
+  <View style={s.navbar}>
+  <View style={{ width: 40 }} /> {/* placeholder */}
+  <Text style={s.navTitle}>خطتي اليوم</Text>
+  <View style={s.calBtnWrapper}>
+    <TouchableOpacity onPress={() => setShowCal(true)} style={s.navIconBtn}>
+      <Ionicons name="calendar-outline" size={22} color="#7C5CBF" />
+    </TouchableOpacity>
+    <View style={s.calDot} />
+  </View>
+</View>
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* Date pill */}
         <View style={s.datePill}>
           <Text style={s.dateText}>{formatDateAr(selectedDate)}</Text>
         </View>
 
-        {/* Placeholder card */}
         <View style={s.placeholderCard}>
           <Text style={s.placeholderEmoji}>🌿</Text>
           <Text style={s.placeholderText}>
@@ -666,12 +610,10 @@ useEffect(() => {
           </Text>
         </View>
 
-        {/* ✅ Progress bar */}
         {hasTasks && (
           <ProgressBar total={realTasks.length} done={doneCount} />
         )}
 
-        {/* Tasks summary pills */}
         {hasTasks && (
           <View style={s.summaryRow}>
             <View style={s.summaryPill}>
@@ -693,7 +635,6 @@ useEffect(() => {
           </View>
         )}
 
-        {/* Energy summary */}
         <View style={s.energySummary}>
           <View style={[s.energyBar, { backgroundColor: energyOk ? "#E8F5EF" : "#FDEAEA" }]}>
             <Text style={{ fontSize: 16 }}>{energyOk ? "⚡" : "⚠️"}</Text>
@@ -705,7 +646,6 @@ useEffect(() => {
           </View>
         </View>
 
-        {/* Legend */}
         {hasTasks && (
           <View style={s.legend}>
             <View style={s.legendItem}>
@@ -727,7 +667,6 @@ useEffect(() => {
           </View>
         )}
 
-        {/* Empty state when no tasks exist in tasks screen */}
         {!hasTasks ? (
           <View style={s.emptyState}>
             <Text style={{ fontSize: 40 }}>📭</Text>
@@ -775,13 +714,14 @@ const s = StyleSheet.create({
     backgroundColor: '#f8f5ff',
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 8,
   },
-  navbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#f8f5ff',
-  },
+navbar: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  paddingHorizontal: 16,
+  paddingVertical: 8,
+  backgroundColor: '#f8f5ff',
+},
   navIconBtn: {
     width: 40, height: 40, borderRadius: 20,
     alignItems: 'center', justifyContent: 'center',
@@ -790,13 +730,8 @@ const s = StyleSheet.create({
     shadowOpacity: 0.12, shadowRadius: 4, elevation: 2,
   },
   navCenter: { flex: 1, alignItems: 'center' },
-  navTitle:  { fontSize: 18, fontWeight: '700', color: '#2d2d2d' },
+navTitle: { fontSize: 18, fontWeight: '700', color: '#2d2d2d' },
   navRight:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  notifBadge: {
-    position: 'absolute', top: 8, right: 8,
-    width: 8, height: 8, borderRadius: 4,
-    borderWidth: 1.5, borderColor: '#fff',
-  },
   calBtnWrapper: { position: 'relative', alignItems: 'center' },
   calDot: {
     position: 'absolute', bottom: -5,
@@ -808,12 +743,10 @@ const s = StyleSheet.create({
   placeholderCard:  { backgroundColor: '#fff', borderRadius: 20, padding: 20, marginBottom: 14, alignItems: 'center', minHeight: 100, justifyContent: 'center', shadowColor: '#7C5CBF', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 2, flexDirection: 'row', gap: 12 },
   placeholderEmoji: { fontSize: 40 },
   placeholderText:  { fontSize: 15, color: '#5a3fa0', fontWeight: '600', textAlign: 'right', lineHeight: 24 },
-
   summaryRow:   { flexDirection: 'row', gap: 8, marginBottom: 14, flexWrap: 'wrap' },
   summaryPill:  { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#F0EBFA', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6 },
   summaryEmoji: { fontSize: 13 },
   summaryText:  { fontSize: 12, fontWeight: '700', color: '#7C5CBF' },
-
   energySummary:    { marginBottom: 14 },
   energyBar:        { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
   energyText:       { fontSize: 13, fontWeight: '600' },
@@ -826,7 +759,6 @@ const s = StyleSheet.create({
     paddingHorizontal: 18, paddingVertical: 10, marginTop: 8,
   },
   goToTasksText: { fontSize: 14, fontWeight: '700', color: '#7C5CBF' },
-
   legend: {
     flexDirection: 'row', alignItems: 'center', gap: 16,
     marginBottom: 14, paddingHorizontal: 4,

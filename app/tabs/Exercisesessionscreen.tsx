@@ -228,13 +228,13 @@ export default function ExerciseSessionScreen() {
   function handleStop() {
     stopTimer();
     stopSpeaking();
-    router.back();
+    router.push('/tabs/exercises');
   }
 
   function handleDone() {
     stopSpeaking();
     setShowDone(false);
-    router.back();
+    router.push('/tabs/exercises');
   }
 
   return (

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Modal, TextInput, Alert, Switch, Image,
@@ -36,13 +36,9 @@ const DEFAULT_REMIND_MIN  = 0;
 function toKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
 }
-
-function getPlanDoneKey(date: Date) {
-  return `plan_done_${toKey(date)}`;
-}
+function getPlanDoneKey(date: Date) { return `plan_done_${toKey(date)}`; }
 
 // ─── Sub-components ────────────────────────────────────────
-
 function InfoRow({ label, value, isRTL }: { label: string; value: string; isRTL: boolean }) {
   return (
     <View style={[styles.infoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -72,28 +68,121 @@ function MenuRow({ icon, label, value, color, onPress, isLast, isRTL }: {
   );
 }
 
-function MiniStat({ icon, value, label, color, bg }: {
-  icon: string; value: number | string; label: string; color: string; bg: string;
+// ─── Energy Edit Modal ────────────────────────────────────
+function EnergyEditModal({ visible, onClose, currentEnergy, onSave, isRTL }: {
+  visible: boolean;
+  onClose: () => void;
+  currentEnergy: number;
+  onSave: (val: number) => void;
+  isRTL: boolean;
 }) {
+  const [value, setValue] = useState(currentEnergy);
+
+  React.useEffect(() => {
+    if (visible) setValue(currentEnergy);
+  }, [visible, currentEnergy]);
+
+  const levels = [
+    { label: isRTL ? 'منخفضة جداً' : 'Very Low',  val: 10, emoji: '🪫', color: '#E05C5C' },
+    { label: isRTL ? 'منخفضة'      : 'Low',        val: 30, emoji: '😴', color: '#E07B5C' },
+    { label: isRTL ? 'متوسطة'      : 'Medium',     val: 55, emoji: '🔋', color: '#F4A32B' },
+    { label: isRTL ? 'عالية'       : 'High',        val: 75, emoji: '⚡', color: '#4CAF82' },
+    { label: isRTL ? 'ممتازة'      : 'Excellent',  val: 95, emoji: '🚀', color: '#5B9BD5' },
+  ];
+
+  const eColor = value >= 70 ? '#4CAF82' : value >= 40 ? '#F4A32B' : '#E05C5C';
+
   return (
-    <View style={[mStat.card, { backgroundColor: bg }]}>
-      <Text style={mStat.icon}>{icon}</Text>
-      <Text style={[mStat.value, { color }]}>{value}</Text>
-      <Text style={mStat.label}>{label}</Text>
-    </View>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }} activeOpacity={1} onPress={onClose} />
+      <View style={energyModal.sheet}>
+        <View style={energyModal.handle} />
+        <Text style={energyModal.title}>
+          {isRTL ? '⚡ كيف طاقتك النهارده؟' : '⚡ How is your energy today?'}
+        </Text>
+        <Text style={energyModal.sub}>
+          {isRTL ? 'اختر المستوى المناسب لطاقتك' : 'Choose the level that matches your energy'}
+        </Text>
+
+        {/* slider value display */}
+        <View style={[energyModal.valueWrap, { borderColor: eColor + '40' }]}>
+          <Text style={[energyModal.valueNum, { color: eColor }]}>{value}%</Text>
+          <Text style={energyModal.valueEmoji}>
+            {value >= 80 ? '🚀' : value >= 60 ? '⚡' : value >= 40 ? '🔋' : value >= 20 ? '😴' : '🪫'}
+          </Text>
+        </View>
+
+        {/* bar */}
+        <View style={energyModal.barBg}>
+          <View style={[energyModal.barFill, { width: `${value}%`, backgroundColor: eColor }]} />
+        </View>
+
+        {/* +/- controls */}
+        <View style={energyModal.controls}>
+          <TouchableOpacity
+            style={[energyModal.controlBtn, { borderColor: eColor }]}
+            onPress={() => setValue(v => Math.max(0, v - 5))}
+            activeOpacity={0.8}
+          >
+            <Text style={[energyModal.controlText, { color: eColor }]}>−5</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[energyModal.controlBtn, { borderColor: eColor }]}
+            onPress={() => setValue(v => Math.max(0, v - 1))}
+            activeOpacity={0.8}
+          >
+            <Text style={[energyModal.controlText, { color: eColor }]}>−1</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[energyModal.controlBtn, { borderColor: eColor }]}
+            onPress={() => setValue(v => Math.min(100, v + 1))}
+            activeOpacity={0.8}
+          >
+            <Text style={[energyModal.controlText, { color: eColor }]}>+1</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[energyModal.controlBtn, { borderColor: eColor }]}
+            onPress={() => setValue(v => Math.min(100, v + 5))}
+            activeOpacity={0.8}
+          >
+            <Text style={[energyModal.controlText, { color: eColor }]}>+5</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* quick level buttons */}
+        <View style={energyModal.quickRow}>
+          {levels.map(l => (
+            <TouchableOpacity
+              key={l.val}
+              style={[energyModal.quickBtn, value === l.val && { backgroundColor: l.color + '22', borderColor: l.color }]}
+              onPress={() => setValue(l.val)}
+              activeOpacity={0.8}
+            >
+              <Text style={{ fontSize: 18 }}>{l.emoji}</Text>
+              <Text style={[energyModal.quickLabel, { color: l.color }]}>{l.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <TouchableOpacity
+          style={[energyModal.saveBtn, { backgroundColor: eColor }]}
+          onPress={() => { onSave(value); onClose(); }}
+          activeOpacity={0.85}
+        >
+          <Text style={energyModal.saveBtnText}>
+            {isRTL ? '💾 حفظ' : '💾 Save'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </Modal>
   );
 }
 
-// ─── ProfileField ────────────────────────────────────────
+// ─── ProfileField ─────────────────────────────────────────
 type ProfileFieldProps = {
-  label: string;
-  value: string;
-  onChangeText: (v: string) => void;
-  keyboardType?: any;
-  autoCapitalize?: any;
-  isRTL: boolean;
+  label: string; value: string; onChangeText: (v: string) => void;
+  keyboardType?: any; autoCapitalize?: any; isRTL: boolean;
 };
-
 const ProfileField = React.memo(function ProfileField({
   label, value, onChangeText, keyboardType = 'default', autoCapitalize = 'words', isRTL,
 }: ProfileFieldProps) {
@@ -101,13 +190,10 @@ const ProfileField = React.memo(function ProfileField({
     <View style={styles.fieldWrap}>
       <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{label}</Text>
       <TextInput
-        value={value}
-        onChangeText={onChangeText}
+        value={value} onChangeText={onChangeText}
         style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
-        keyboardType={keyboardType}
-        autoCapitalize={autoCapitalize}
-        placeholderTextColor={Colors.textMuted}
-        blurOnSubmit={false}
+        keyboardType={keyboardType} autoCapitalize={autoCapitalize}
+        placeholderTextColor={Colors.textMuted} blurOnSubmit={false}
       />
     </View>
   );
@@ -120,7 +206,6 @@ function AvatarActionSheet({ visible, onClose, onPickNew, onDelete, hasAvatar, t
 }) {
   const scaleAnim   = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
-
   React.useEffect(() => {
     if (visible) {
       Animated.parallel([
@@ -134,9 +219,7 @@ function AvatarActionSheet({ visible, onClose, onPickNew, onDelete, hasAvatar, t
       ]).start();
     }
   }, [visible]);
-
   if (!visible) return null;
-
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
       <Animated.View style={[styles.actionOverlay, { opacity: opacityAnim }]}>
@@ -149,9 +232,7 @@ function AvatarActionSheet({ visible, onClose, onPickNew, onDelete, hasAvatar, t
           </View>
           <View style={styles.actionDivider} />
           <TouchableOpacity style={styles.actionBtn} onPress={() => { onClose(); setTimeout(onPickNew, 300); }} activeOpacity={0.7}>
-            <View style={[styles.actionBtnIcon, { backgroundColor: '#4CAF8220' }]}>
-              <Text style={styles.actionBtnEmoji}>🖼️</Text>
-            </View>
+            <View style={[styles.actionBtnIcon, { backgroundColor: '#4CAF8220' }]}><Text style={styles.actionBtnEmoji}>🖼️</Text></View>
             <Text style={styles.actionBtnText}>{hasAvatar ? (t.changePhoto || 'غيّر الصورة') : (t.addPhoto || 'أضف صورة')}</Text>
             <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
           </TouchableOpacity>
@@ -159,9 +240,7 @@ function AvatarActionSheet({ visible, onClose, onPickNew, onDelete, hasAvatar, t
             <>
               <View style={styles.actionDivider} />
               <TouchableOpacity style={styles.actionBtn} onPress={() => { onClose(); setTimeout(onDelete, 300); }} activeOpacity={0.7}>
-                <View style={[styles.actionBtnIcon, { backgroundColor: Colors.dangerLight }]}>
-                  <Text style={styles.actionBtnEmoji}>🗑️</Text>
-                </View>
+                <View style={[styles.actionBtnIcon, { backgroundColor: Colors.dangerLight }]}><Text style={styles.actionBtnEmoji}>🗑️</Text></View>
                 <Text style={[styles.actionBtnText, { color: Colors.danger }]}>{t.deletePhoto || 'احذف الصورة'}</Text>
                 <Ionicons name="chevron-forward" size={16} color={Colors.danger + '80'} />
               </TouchableOpacity>
@@ -178,10 +257,7 @@ function AvatarActionSheet({ visible, onClose, onPickNew, onDelete, hasAvatar, t
 }
 
 // ─── Edit Profile Modal ────────────────────────────────────
-// ✅ FIX: أُزيل AsyncStorage.setItem من هنا تماماً
-//    الحفظ بيتم فقط عن طريق onSave → updateProfile في AuthContext
 type UserFields = { firstName: string; lastName: string; email: string; age: string; gender: string; };
-
 function EditProfileModal({ visible, onClose, user, onSave, t, isRTL }: {
   visible: boolean; onClose: () => void; user: any;
   onSave: (data: UserFields) => Promise<void>; t: any; isRTL: boolean;
@@ -191,83 +267,42 @@ function EditProfileModal({ visible, onClose, user, onSave, t, isRTL }: {
     email: user?.email || '', age: user?.age ? String(user.age) : '', gender: user?.gender || '',
   });
   const [saving, setSaving] = useState(false);
-
   React.useEffect(() => {
     if (visible) setForm({
       firstName: user?.firstName || '', lastName: user?.lastName || '',
       email: user?.email || '', age: user?.age ? String(user.age) : '', gender: user?.gender || '',
     });
-  }, [visible, user]); // ✅ FIX: أضفنا user كـ dependency عشان يتحدث لو اتغير
-
-  const handleFirstName  = useCallback((v: string) => setForm(p => ({ ...p, firstName: v })),  []);
-  const handleLastName   = useCallback((v: string) => setForm(p => ({ ...p, lastName: v })),   []);
-  const handleEmail      = useCallback((v: string) => setForm(p => ({ ...p, email: v })),      []);
-  const handleAge        = useCallback((v: string) => setForm(p => ({ ...p, age: v })),        []);
-
+  }, [visible, user]);
+  const handleFirstName  = useCallback((v: string) => setForm(p => ({ ...p, firstName: v })), []);
+  const handleLastName   = useCallback((v: string) => setForm(p => ({ ...p, lastName: v })),  []);
+  const handleEmail      = useCallback((v: string) => setForm(p => ({ ...p, email: v })),     []);
+  const handleAge        = useCallback((v: string) => setForm(p => ({ ...p, age: v })),       []);
   const handleSave = async () => {
     if (!form.firstName.trim() || !form.lastName.trim()) {
-      Alert.alert(t.error || 'خطأ', t.nameRequired || 'الاسم الأول والأخير مطلوبان');
-      return;
+      Alert.alert(t.error || 'خطأ', t.nameRequired || 'الاسم الأول والأخير مطلوبان'); return;
     }
     setSaving(true);
     try {
-      // ✅ FIX: بنكال onSave بس وهو اللي يتولى الحفظ في AuthContext
-      //    مفيش AsyncStorage.setItem هنا خالص
-      await onSave(form);
-
-      onClose();
-
-      notify({
-        title: isRTL ? 'تم تحديث الملف الشخصي ✅' : 'Profile Updated ✅',
-        body: isRTL
-          ? `مرحباً ${form.firstName}! تم حفظ بياناتك بنجاح`
-          : `Hi ${form.firstName}! Your profile has been updated successfully`,
-        emoji: '👤',
-        type: 'add',
-      });
-    } catch {
-      Alert.alert(t.error || 'خطأ', t.saveFailed || 'فشل الحفظ، حاول مجدداً');
-    } finally { setSaving(false); }
+      await onSave(form); onClose();
+      notify({ title: isRTL ? 'تم تحديث الملف الشخصي ✅' : 'Profile Updated ✅', body: isRTL ? `مرحباً ${form.firstName}! تم حفظ بياناتك بنجاح` : `Hi ${form.firstName}! Your profile has been updated successfully`, emoji: '👤', type: 'add' });
+    } catch { Alert.alert(t.error || 'خطأ', t.saveFailed || 'فشل الحفظ، حاول مجدداً'); }
+    finally { setSaving(false); }
   };
-
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-      statusBarTranslucent={false}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-      >
-        <TouchableOpacity
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }}
-          activeOpacity={1}
-          onPress={onClose}
-        />
-
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent={false}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
+        <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }} activeOpacity={1} onPress={onClose} />
         <View style={styles.slideModal}>
           <View style={[styles.modalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}>
-              <Ionicons name="close" size={22} color={Colors.textPrimary} />
-            </TouchableOpacity>
+            <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}><Ionicons name="close" size={22} color={Colors.textPrimary} /></TouchableOpacity>
             <Text style={styles.modalHeaderTitle}>{t.editProfile}</Text>
             <View style={{ width: 36 }} />
           </View>
-          <ScrollView
-            contentContainerStyle={styles.editFormContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="none"
-          >
+          <ScrollView contentContainerStyle={styles.editFormContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="none">
             <ProfileField label={t.firstName} value={form.firstName} onChangeText={handleFirstName} isRTL={isRTL} />
             <ProfileField label={t.lastName}  value={form.lastName}  onChangeText={handleLastName}  isRTL={isRTL} />
             <ProfileField label={t.email}     value={form.email}     onChangeText={handleEmail}     keyboardType="email-address" autoCapitalize="none" isRTL={isRTL} />
-            <ProfileField label={t.age}       value={form.age}       onChangeText={handleAge}       keyboardType="numeric"       autoCapitalize="none" isRTL={isRTL} />
-
+            <ProfileField label={t.age}       value={form.age}       onChangeText={handleAge}       keyboardType="numeric" autoCapitalize="none" isRTL={isRTL} />
             <View style={styles.fieldWrap}>
               <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.gender}</Text>
               <View style={[styles.genderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -283,12 +318,7 @@ function EditProfileModal({ visible, onClose, user, onSave, t, isRTL }: {
                 ))}
               </View>
             </View>
-
-            <PrimaryButton
-              title={saving ? (t.saving || 'جاري الحفظ…') : (t.save || 'حفظ التعديلات')}
-              onPress={handleSave}
-              style={styles.saveBtn}
-            />
+            <PrimaryButton title={saving ? (t.saving || 'جاري الحفظ…') : (t.save || 'حفظ التعديلات')} onPress={handleSave} style={styles.saveBtn} />
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
@@ -346,7 +376,6 @@ function NotificationsModal({ visible, onClose, t, isRTL }: {
   const [remindHour,    setRemindHour]    = useState(DEFAULT_REMIND_HOUR);
   const [remindMin,     setRemindMin]     = useState(DEFAULT_REMIND_MIN);
   const [saving,        setSaving]        = useState(false);
-
   React.useEffect(() => {
     if (!visible) return;
     (async () => {
@@ -360,7 +389,6 @@ function NotificationsModal({ visible, onClose, t, isRTL }: {
       if (min    !== null) setRemindMin(Number(min));
     })();
   }, [visible]);
-
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -368,21 +396,14 @@ function NotificationsModal({ visible, onClose, t, isRTL }: {
       await AsyncStorage.setItem(STORAGE_KEYS.NOTIF_REMIND, String(remindEnabled));
       await AsyncStorage.setItem(STORAGE_KEYS.REMIND_HOUR,  String(remindHour));
       await AsyncStorage.setItem(STORAGE_KEYS.REMIND_MIN,   String(remindMin));
-
       const { status } = await Notifications.getPermissionsAsync();
-      if (pushEnabled && status !== 'granted') {
-        await Notifications.requestPermissionsAsync();
-      }
-
+      if (pushEnabled && status !== 'granted') await Notifications.requestPermissionsAsync();
       await Notifications.cancelAllScheduledNotificationsAsync();
-
       if (pushEnabled && remindEnabled) {
         await Notifications.scheduleNotificationAsync({
           content: {
             title: isRTL ? '🌿 تذكير يومي' : '🌿 Daily Reminder',
-            body: isRTL
-              ? 'حان وقت مراجعة مهامك وتمارينك اليوم 💪'
-              : "Time to check today's tasks and exercises 💪",
+            body: isRTL ? 'حان وقت مراجعة مهامك وتمارينك اليوم 💪' : "Time to check today's tasks and exercises 💪",
             sound: true,
           },
           trigger: {
@@ -392,140 +413,71 @@ function NotificationsModal({ visible, onClose, t, isRTL }: {
           },
         });
       }
-
       onClose();
-    } catch (e) {
-      Alert.alert(
-        isRTL ? 'خطأ' : 'Error',
-        isRTL ? 'فشل الحفظ، تأكد من صلاحيات الإشعارات' : 'Save failed, check notification permissions'
-      );
+    } catch {
+      Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'فشل الحفظ' : 'Save failed');
     } finally { setSaving(false); }
   };
-
   const pad = (n: number) => String(n).padStart(2, '0');
   const changeHour = (delta: number) => setRemindHour(prev => (prev + delta + 24) % 24);
   const changeMin  = (delta: number) => setRemindMin(prev  => (prev + delta + 60) % 60);
-
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={styles.slideModalSafe}>
         <View style={styles.slideModal}>
           <View style={[styles.modalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}>
-              <Ionicons name="close" size={22} color={Colors.textPrimary} />
-            </TouchableOpacity>
+            <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}><Ionicons name="close" size={22} color={Colors.textPrimary} /></TouchableOpacity>
             <Text style={styles.modalHeaderTitle}>{t.notifications || 'الإشعارات'}</Text>
             <View style={{ width: 36 }} />
           </View>
-
           <ScrollView contentContainerStyle={{ padding: Spacing.xl }}>
-            <Text style={[notifStyles.sectionLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
-              إعدادات عامة
-            </Text>
             <View style={styles.card}>
               <View style={[styles.switchRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <Switch
-                  value={pushEnabled}
-                  onValueChange={setPushEnabled}
-                  trackColor={{ false: Colors.divider, true: Colors.primary + '66' }}
-                  thumbColor={pushEnabled ? Colors.primary : Colors.textMuted}
-                />
+                <Switch value={pushEnabled} onValueChange={setPushEnabled} trackColor={{ false: Colors.divider, true: Colors.primary + '66' }} thumbColor={pushEnabled ? Colors.primary : Colors.textMuted} />
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={[styles.switchLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
-                    🔔 {isRTL ? 'إشعارات التطبيق' : 'App Notifications'}
-                  </Text>
-                  <Text style={[notifStyles.switchDesc, { textAlign: isRTL ? 'right' : 'left' }]}>
-                    {isRTL
-                      ? 'تفعيل أو إيقاف جميع إشعارات التطبيق'
-                      : 'Enable or disable all app notifications'}
-                  </Text>
+                  <Text style={[styles.switchLabel, { textAlign: isRTL ? 'right' : 'left' }]}>🔔 {isRTL ? 'إشعارات التطبيق' : 'App Notifications'}</Text>
                 </View>
               </View>
             </View>
-
-            <Text style={[notifStyles.sectionLabel, { textAlign: isRTL ? 'right' : 'left', marginTop: 16 }]}>
-              تذكير يومي
-            </Text>
             <View style={[styles.card, !pushEnabled && { opacity: 0.4 }]}>
               <View style={[styles.switchRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <Switch
-                  value={remindEnabled && pushEnabled}
-                  onValueChange={v => setRemindEnabled(v)}
-                  disabled={!pushEnabled}
-                  trackColor={{ false: Colors.divider, true: '#F4A32B66' }}
-                  thumbColor={remindEnabled && pushEnabled ? '#F4A32B' : Colors.textMuted}
-                />
+                <Switch value={remindEnabled && pushEnabled} onValueChange={v => setRemindEnabled(v)} disabled={!pushEnabled} trackColor={{ false: Colors.divider, true: '#F4A32B66' }} thumbColor={remindEnabled && pushEnabled ? '#F4A32B' : Colors.textMuted} />
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={[styles.switchLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
-                    ⏰ {isRTL ? 'تذكير يومي بالمهام' : 'Daily Task Reminder'}
-                  </Text>
-                  <Text style={[notifStyles.switchDesc, { textAlign: isRTL ? 'right' : 'left' }]}>
-                    {isRTL
-                      ? 'إشعار يومي يذكرك بمراجعة مهامك وتمارينك'
-                      : 'Daily notification to review tasks and exercises'}
-                  </Text>
+                  <Text style={[styles.switchLabel, { textAlign: isRTL ? 'right' : 'left' }]}>⏰ {isRTL ? 'تذكير يومي بالمهام' : 'Daily Task Reminder'}</Text>
                 </View>
               </View>
-
               {remindEnabled && pushEnabled && (
                 <>
                   <View style={styles.divider} />
-                  <View style={notifStyles.timePickerWrap}>
-                    <Text style={[notifStyles.timePickerLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
+                  <View style={{ padding: Spacing.base, gap: 12 }}>
+                    <Text style={{ textAlign: isRTL ? 'right' : 'left', fontSize: FontSize.sm, fontWeight: '700', color: Colors.textPrimary }}>
                       {isRTL ? '🕐 وقت التذكير' : '🕐 Reminder Time'}
                     </Text>
-                    <View style={notifStyles.timePicker}>
-                      <View style={notifStyles.timeUnit}>
-                        <TouchableOpacity onPress={() => changeHour(1)} style={notifStyles.timeArrow}>
-                          <Ionicons name="chevron-up" size={20} color={Colors.primary} />
-                        </TouchableOpacity>
-                        <View style={notifStyles.timeValueBox}>
-                          <Text style={notifStyles.timeValue}>{pad(remindHour)}</Text>
-                        </View>
-                        <TouchableOpacity onPress={() => changeHour(-1)} style={notifStyles.timeArrow}>
-                          <Ionicons name="chevron-down" size={20} color={Colors.primary} />
-                        </TouchableOpacity>
-                      </View>
-
-                      <Text style={notifStyles.timeSep}>:</Text>
-
-                      <View style={notifStyles.timeUnit}>
-                        <TouchableOpacity onPress={() => changeMin(5)} style={notifStyles.timeArrow}>
-                          <Ionicons name="chevron-up" size={20} color={Colors.primary} />
-                        </TouchableOpacity>
-                        <View style={notifStyles.timeValueBox}>
-                          <Text style={notifStyles.timeValue}>{pad(remindMin)}</Text>
-                        </View>
-                        <TouchableOpacity onPress={() => changeMin(-5)} style={notifStyles.timeArrow}>
-                          <Ionicons name="chevron-down" size={20} color={Colors.primary} />
-                        </TouchableOpacity>
-                      </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                      {[['remindHour', changeHour], ['remindMin', changeMin]].map((_, ci) => {
+                        const isHour = ci === 0;
+                        const val    = isHour ? remindHour : remindMin;
+                        const change = isHour ? changeHour : changeMin;
+                        const step   = isHour ? 1 : 5;
+                        return (
+                          <React.Fragment key={ci}>
+                            {ci === 1 && <Text style={{ fontSize: 28, fontWeight: '900', color: Colors.primary }}>:</Text>}
+                            <View style={{ alignItems: 'center', gap: 4 }}>
+                              <TouchableOpacity onPress={() => change(step)} style={{ padding: 6, borderRadius: 10, backgroundColor: Colors.primary + '12' }}><Ionicons name="chevron-up" size={20} color={Colors.primary} /></TouchableOpacity>
+                              <View style={{ width: 56, height: 48, borderRadius: 12, backgroundColor: Colors.primary + '10', borderWidth: 1.5, borderColor: Colors.primary + '30', alignItems: 'center', justifyContent: 'center' }}>
+                                <Text style={{ fontSize: 22, fontWeight: '800', color: Colors.primary }}>{pad(val)}</Text>
+                              </View>
+                              <TouchableOpacity onPress={() => change(-step)} style={{ padding: 6, borderRadius: 10, backgroundColor: Colors.primary + '12' }}><Ionicons name="chevron-down" size={20} color={Colors.primary} /></TouchableOpacity>
+                            </View>
+                          </React.Fragment>
+                        );
+                      })}
                     </View>
-
-                    <Text style={notifStyles.timeHint}>
-                      {isRTL
-                        ? `هتوصلك إشعار كل يوم الساعة ${pad(remindHour)}:${pad(remindMin)}`
-                        : `You'll get a notification every day at ${pad(remindHour)}:${pad(remindMin)}`}
-                    </Text>
                   </View>
                 </>
               )}
             </View>
-
-            <View style={notifStyles.unavailableCard}>
-              <Ionicons name="information-circle-outline" size={16} color="#888" />
-              <Text style={notifStyles.unavailableText}>
-                {isRTL
-                  ? 'إشعارات البريد الإلكتروني وتحديثات التطبيق تحتاج اتصال بالسيرفر وغير متاحة حالياً.'
-                  : 'Email notifications and app updates require a server connection and are not available yet.'}
-              </Text>
-            </View>
-
-            <PrimaryButton
-              title={saving ? (isRTL ? 'جاري الحفظ…' : 'Saving…') : (isRTL ? '💾 حفظ الإعدادات' : '💾 Save Settings')}
-              onPress={handleSave}
-              style={{ marginTop: Spacing.base }}
-            />
+            <PrimaryButton title={saving ? (isRTL ? 'جاري الحفظ…' : 'Saving…') : (isRTL ? '💾 حفظ الإعدادات' : '💾 Save Settings')} onPress={handleSave} style={{ marginTop: Spacing.base }} />
           </ScrollView>
         </View>
       </SafeAreaView>
@@ -538,9 +490,9 @@ function HelpModal({ visible, onClose, t, isRTL }: {
   visible: boolean; onClose: () => void; t: any; isRTL: boolean;
 }) {
   const faqs = [
-    { q: t.faq1q || 'كيف أحدّث ملفي الشخصي؟',   a: t.faq1a || 'اذهب إلى المزيد ← تعديل الملف الشخصي وحدّث بياناتك.' },
-    { q: t.faq2q || 'كيف أغيّر اللغة؟',           a: t.faq2a || 'اذهب إلى المزيد ← اللغة واختر لغتك المفضلة.' },
-    { q: t.faq3q || 'كيف أتواصل مع الدعم؟',       a: t.faq3a || 'راسلنا على support@rahati.app وسنرد خلال 24 ساعة.' },
+    { q: t.faq1q || 'كيف أحدّث ملفي الشخصي؟',   a: t.faq1a || 'اذهب إلى المزيد ← تعديل الملف الشخصي.' },
+    { q: t.faq2q || 'كيف أغيّر اللغة؟',           a: t.faq2a || 'اذهب إلى المزيد ← اللغة.' },
+    { q: t.faq3q || 'كيف أتواصل مع الدعم؟',       a: t.faq3a || 'راسلنا على support@rahati.app' },
   ];
   const [expanded, setExpanded] = useState<number | null>(null);
   return (
@@ -548,9 +500,7 @@ function HelpModal({ visible, onClose, t, isRTL }: {
       <SafeAreaView style={styles.slideModalSafe}>
         <View style={styles.slideModal}>
           <View style={[styles.modalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}>
-              <Ionicons name="close" size={22} color={Colors.textPrimary} />
-            </TouchableOpacity>
+            <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}><Ionicons name="close" size={22} color={Colors.textPrimary} /></TouchableOpacity>
             <Text style={styles.modalHeaderTitle}>{t.help}</Text>
             <View style={{ width: 36 }} />
           </View>
@@ -563,9 +513,7 @@ function HelpModal({ visible, onClose, t, isRTL }: {
                     <Ionicons name={expanded === i ? 'chevron-up' : 'chevron-back'} size={16} color={Colors.textMuted} />
                     <Text style={[styles.faqQ, { flex: 1, textAlign: isRTL ? 'right' : 'left' }]}>{faq.q}</Text>
                   </TouchableOpacity>
-                  {expanded === i && (
-                    <Text style={[styles.faqA, { textAlign: isRTL ? 'right' : 'left' }]}>{faq.a}</Text>
-                  )}
+                  {expanded === i && <Text style={[styles.faqA, { textAlign: isRTL ? 'right' : 'left' }]}>{faq.a}</Text>}
                   {i < faqs.length - 1 && <View style={styles.divider} />}
                 </View>
               ))}
@@ -578,7 +526,7 @@ function HelpModal({ visible, onClose, t, isRTL }: {
 }
 
 // ─── Main Screen ──────────────────────────────────────────
-type ModalKey = 'logout' | 'editProfile' | 'language' | 'notifications' | 'help' | null;
+type ModalKey = 'logout' | 'editProfile' | 'language' | 'notifications' | 'help' | 'energy' | null;
 
 export default function MoreScreen() {
   const { user, logout, updateProfile } = useAuth();
@@ -590,8 +538,6 @@ export default function MoreScreen() {
 
   const [taskTotal, setTaskTotal] = useState(0);
   const [taskDone,  setTaskDone]  = useState(0);
-  const [exTotal,   setExTotal]   = useState(0);
-  const [exDone,    setExDone]    = useState(0);
   const [energy,    setEnergy]    = useState(50);
 
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -605,53 +551,24 @@ export default function MoreScreen() {
       const loadStats = async () => {
         try {
           const today    = new Date();
-          const todayKey = toKey(today);
-
+          const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
           const [coreTRaw, extraTRaw] = await Promise.all([
             AsyncStorage.getItem(STORAGE_KEYS.CORE_TASKS),
             AsyncStorage.getItem(STORAGE_KEYS.EXTRA_TASKS),
           ]);
-
           const coreTasks:     any[] = coreTRaw  ? JSON.parse(coreTRaw)  : [];
           const allExtraTasks: any[] = extraTRaw ? JSON.parse(extraTRaw) : [];
-          const extraTasks = allExtraTasks.filter(
-            (tk: any) => !tk.date || tk.date === todayKey
-          );
-          const allTasksTotal = coreTasks.length + extraTasks.length;
-
-          const exListRaw = await AsyncStorage.getItem(STORAGE_KEYS.CORE_EX);
-          const coreEx: any[] = exListRaw ? JSON.parse(exListRaw) : [];
-          const exSlotsTotal = coreEx.length > 0 ? allTasksTotal : 0;
-
+          const extraTasks = allExtraTasks.filter((tk: any) => !tk.date || tk.date === todayKey);
+          setTaskTotal(coreTasks.length + extraTasks.length);
           const planDoneRaw = await AsyncStorage.getItem(getPlanDoneKey(today));
-          const doneIds: Set<string> = planDoneRaw
-            ? new Set(JSON.parse(planDoneRaw))
-            : new Set();
-
+          const doneIds: Set<string> = planDoneRaw ? new Set(JSON.parse(planDoneRaw)) : new Set();
           const coreTaskIds  = new Set(coreTasks.map((t: any)  => t.key ?? t.id));
           const extraTaskIds = new Set(extraTasks.map((t: any) => t.key ?? t.id));
-          const taskDoneCount = [...doneIds].filter(
-            id => coreTaskIds.has(id) || extraTaskIds.has(id)
-          ).length;
-
-          const rawExDone = [...doneIds].filter(
-            id => id.startsWith('exercise_')
-          ).length;
-          const exDoneCount = Math.min(rawExDone, exSlotsTotal);
-
-          setTaskTotal(allTasksTotal);
-          setTaskDone(taskDoneCount);
-          setExTotal(exSlotsTotal);
-          setExDone(exDoneCount);
-
+          setTaskDone([...doneIds].filter(id => coreTaskIds.has(id) || extraTaskIds.has(id)).length);
           const energyRaw = await AsyncStorage.getItem(STORAGE_KEYS.ENERGY);
           if (energyRaw !== null) setEnergy(Number(energyRaw));
-
-        } catch (e) {
-          console.warn('[MoreScreen] Stats load error:', e);
-        }
+        } catch (e) { console.warn('[MoreScreen] Stats load error:', e); }
       };
-
       loadStats();
     }, [])
   );
@@ -659,21 +576,18 @@ export default function MoreScreen() {
   const open  = (key: ModalKey) => setActiveModal(key);
   const close = ()              => setActiveModal(null);
 
-  // ✅ FIX: handleSaveProfile بيكال updateProfile من AuthContext مباشرة
-  //    updateProfile بيعمل setUser + يحفظ في rahati_current_user + يحدّث rahati_accounts
   const handleSaveProfile = async (data: UserFields) => {
-    await updateProfile({
-      firstName: data.firstName,
-      lastName:  data.lastName,
-      email:     data.email,
-      age:       data.age,
-      gender:    data.gender,
-    });
+    await updateProfile({ firstName: data.firstName, lastName: data.lastName, email: data.email, age: data.age, gender: data.gender });
   };
 
   const handleLanguageSelect = async (lang: 'ar' | 'en') => {
     await AsyncStorage.setItem('app_language', lang);
     setLang(lang);
+  };
+
+  const handleSaveEnergy = async (val: number) => {
+    setEnergy(val);
+    await AsyncStorage.setItem(STORAGE_KEYS.ENERGY, String(val));
   };
 
   const handleAvatarPressIn = () => {
@@ -685,14 +599,8 @@ export default function MoreScreen() {
 
   const handlePickAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert(t.error || 'خطأ', t.photoPermissionRequired || 'مطلوب إذن الوصول للصور');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true, aspect: [1,1], quality: 0.7, base64: true,
-    });
+    if (!permission.granted) { Alert.alert(t.error || 'خطأ', t.photoPermissionRequired || 'مطلوب إذن'); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1,1], quality: 0.7, base64: true });
     if (!result.canceled && result.assets[0]) {
       const dataUri = `data:image/jpeg;base64,${result.assets[0].base64}`;
       await AsyncStorage.setItem('user_avatar', dataUri);
@@ -711,15 +619,10 @@ export default function MoreScreen() {
     { key: 'help',          icon: 'help-circle-outline',   label: t.help          || 'المساعدة',    color: '#29B6D4' },
   ];
 
-  const initials = user
-    ? `${(user.firstName||'?')[0]}${(user.lastName||'?')[0]}`.toUpperCase()
-    : '?';
+  const initials = user ? `${(user.firstName||'?')[0]}${(user.lastName||'?')[0]}`.toUpperCase() : '?';
 
   const eColor = energy >= 70 ? '#4CAF82' : energy >= 40 ? '#F4A32B' : '#E05C5C';
   const eBg    = energy >= 70 ? '#E8F5EF' : energy >= 40 ? '#FEF3E2' : '#FDEAEA';
-
-  const taskPct = taskTotal > 0 ? Math.round((taskDone / taskTotal) * 100) : 0;
-  const exPct   = exTotal   > 0 ? Math.round((exDone   / exTotal)   * 100) : 0;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -727,24 +630,18 @@ export default function MoreScreen() {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
+        {/* ── Header — no back button ── */}
         <View style={styles.topBar}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="chevron-back" size={24} color={Colors.primary} />
-          </TouchableOpacity>
+          <View style={{ width: 40 }} />
           <Text style={styles.pageTitle}>{t.profile || 'حسابي'}</Text>
-          <TouchableOpacity style={styles.backBtn} onPress={() => open('editProfile')}>
+          <TouchableOpacity style={styles.editBtn} onPress={() => open('editProfile')}>
             <Ionicons name="pencil-outline" size={20} color={Colors.primary} />
           </TouchableOpacity>
         </View>
 
         {/* ── Avatar Card ── */}
         <View style={styles.avatarCard}>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPressIn={handleAvatarPressIn}
-            onPressOut={handleAvatarPressOut}
-            onPress={() => {}}
-          >
+          <TouchableOpacity activeOpacity={0.85} onPressIn={handleAvatarPressIn} onPressOut={handleAvatarPressOut} onPress={() => {}}>
             <View style={styles.avatarWrapper}>
               <View style={styles.avatarCircle}>
                 {avatarUri
@@ -756,14 +653,17 @@ export default function MoreScreen() {
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
-
           <Text style={styles.avatarName}>{user?.firstName} {user?.lastName}</Text>
           <Text style={styles.avatarEmail}>{user?.email}</Text>
           <Text style={styles.avatarHint}>{t.longPressHint || '👆 اضغط مطوّل لخيارات الصورة'}</Text>
         </View>
 
-        {/* ── Energy Bar ── */}
-        <View style={[styles.energyCard, { backgroundColor: eBg, borderColor: eColor + '33' }]}>
+        {/* ── Energy Bar — قابلة للضغط لفتح التعديل ── */}
+        <TouchableOpacity
+          onPress={() => open('energy')}
+          activeOpacity={0.85}
+          style={[styles.energyCard, { backgroundColor: eBg, borderColor: eColor + '33' }]}
+        >
           <Text style={{ fontSize: 20 }}>{energy >= 70 ? '⚡' : energy >= 40 ? '🔋' : '🪫'}</Text>
           <View style={{ flex: 1 }}>
             <Text style={[styles.energyLabel, { color: eColor }]}>
@@ -775,13 +675,16 @@ export default function MoreScreen() {
               <View style={[styles.energyBarFill, { width: `${energy}%` as any, backgroundColor: eColor }]} />
             </View>
           </View>
-          <Text style={[styles.energyPct, { color: eColor }]}>{energy}%</Text>
-        </View>
+          <View style={{ alignItems: 'flex-end', gap: 2 }}>
+            <Text style={[styles.energyPct, { color: eColor }]}>{energy}%</Text>
+            <Text style={{ fontSize: 10, color: eColor, opacity: 0.7 }}>
+              {isRTL ? 'اضغط للتعديل' : 'tap to edit'}
+            </Text>
+          </View>
+        </TouchableOpacity>
 
         {/* ── Account Info ── */}
-        <Text style={[styles.sectionLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
-          {t.accountInfo || 'معلومات الحساب'}
-        </Text>
+        <Text style={[styles.sectionLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.accountInfo || 'معلومات الحساب'}</Text>
         <View style={styles.card}>
           <InfoRow label={t.firstName || 'الاسم الأول'} value={user?.firstName || ''} isRTL={isRTL} />
           <View style={styles.divider} />
@@ -791,26 +694,17 @@ export default function MoreScreen() {
           <View style={styles.divider} />
           <InfoRow label={t.age       || 'العمر'} value={user?.age ? `${user.age} ${t.years || 'سنة'}` : ''} isRTL={isRTL} />
           <View style={styles.divider} />
-          <InfoRow
-            label={t.gender || 'الجنس'}
-            value={
-              user?.gender === 'male'   ? (t.male   || 'ذكر')  :
-              user?.gender === 'female' ? (t.female || 'أنثى') : ''
-            }
-            isRTL={isRTL}
-          />
+          <InfoRow label={t.gender || 'الجنس'} value={user?.gender === 'male' ? (t.male || 'ذكر') : user?.gender === 'female' ? (t.female || 'أنثى') : ''} isRTL={isRTL} />
         </View>
 
         {/* ── Quick Links ── */}
-        <Text style={[styles.sectionLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
-          {isRTL ? 'روابط سريعة' : 'Quick Links'}
-        </Text>
+        <Text style={[styles.sectionLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{isRTL ? 'روابط سريعة' : 'Quick Links'}</Text>
         <View style={styles.quickLinksRow}>
           {[
             { label: isRTL ? 'خطتي'    : 'My Plan',    icon: 'calendar-outline',     color: '#7C5CBF', bg: '#F0EBFA', route: '/tabs/home'          },
             { label: isRTL ? 'تمارين'  : 'Exercises',  icon: 'fitness-outline',       color: '#4CAF82', bg: '#E8F5EF', route: '/tabs/exercises'    },
             { label: t.tasks || (isRTL ? 'مهامي' : 'Tasks'), icon: 'checkbox-outline', color: '#5B9BD5', bg: '#E8F1FB', route: '/tabs/tasks'        },
-            { label: isRTL ? 'إشعارات' : 'Alerts',     icon: 'notifications-outline', color: '#C97B3A', bg: '#FEF3E2', route: '/tabs/notification' },
+            { label: isRTL ? 'دكاترة'  : 'Doctors',    icon: 'medkit-outline',        color: '#C97B3A', bg: '#FEF3E2', route: '/tabs/doctors'      },
           ].map((item, i) => (
             <TouchableOpacity key={i} style={[styles.quickLink, { backgroundColor: item.bg }]}
               onPress={() => router.push(item.route as any)} activeOpacity={0.8}>
@@ -821,9 +715,7 @@ export default function MoreScreen() {
         </View>
 
         {/* ── Settings ── */}
-        <Text style={[styles.sectionLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
-          {t.settings || 'الإعدادات'}
-        </Text>
+        <Text style={[styles.sectionLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.settings || 'الإعدادات'}</Text>
         <View style={styles.card}>
           {MENU.map((item, i) => (
             <MenuRow key={item.key} icon={item.icon} label={item.label}
@@ -851,11 +743,18 @@ export default function MoreScreen() {
       <EditProfileModal visible={activeModal === 'editProfile'} onClose={close}
         user={user} onSave={handleSaveProfile} t={t} isRTL={isRTL} />
 
-      <LanguageModal visible={activeModal === 'language'} onClose={close}
-        isRTL={isRTL} t={t} onSelect={handleLanguageSelect} />
-
+      <LanguageModal visible={activeModal === 'language'} onClose={close} isRTL={isRTL} t={t} onSelect={handleLanguageSelect} />
       <NotificationsModal visible={activeModal === 'notifications'} onClose={close} t={t} isRTL={isRTL} />
-      <HelpModal          visible={activeModal === 'help'}          onClose={close} t={t} isRTL={isRTL} />
+      <HelpModal visible={activeModal === 'help'} onClose={close} t={t} isRTL={isRTL} />
+
+      {/* ── Energy Edit Modal ── */}
+      <EnergyEditModal
+        visible={activeModal === 'energy'}
+        onClose={close}
+        currentEnergy={energy}
+        onSave={handleSaveEnergy}
+        isRTL={isRTL}
+      />
 
       {/* Logout Confirm */}
       <Modal visible={activeModal === 'logout'} transparent animationType="fade" onRequestClose={close}>
@@ -868,11 +767,7 @@ export default function MoreScreen() {
             <Text style={styles.modalBody}>{t.logoutConfirm || 'هل أنت متأكد من تسجيل الخروج؟'}</Text>
             <View style={styles.modalBtns}>
               <OutlineButton title={t.cancel || 'إلغاء'} onPress={close} style={{ flex: 1 }} />
-              <PrimaryButton
-                title={t.confirm || 'تأكيد'}
-                onPress={() => { close(); logout(); router.replace('/auth/sign-in'); }}
-                style={{ flex: 1, backgroundColor: Colors.danger }}
-              />
+              <PrimaryButton title={t.confirm || 'تأكيد'} onPress={() => { close(); logout(); router.replace('/auth/sign-in'); }} style={{ flex: 1, backgroundColor: Colors.danger }} />
             </View>
           </View>
         </View>
@@ -881,55 +776,43 @@ export default function MoreScreen() {
   );
 }
 
-// ─── Notification Styles ──────────────────────────────────
-const notifStyles = StyleSheet.create({
-  sectionLabel: {
-    fontSize: 11, fontWeight: '700', color: Colors.textMuted,
-    letterSpacing: 0.8, marginBottom: 8, textTransform: 'uppercase',
+// ─── Energy Modal Styles ──────────────────────────────────
+const energyModal = StyleSheet.create({
+  sheet: {
+    backgroundColor: Colors.background,
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    padding: Spacing.xl, gap: 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12, shadowRadius: 14, elevation: 10,
   },
-  switchDesc: {
-    fontSize: 11, color: Colors.textMuted, marginTop: 1,
+  handle: { width: 40, height: 4, backgroundColor: Colors.border, borderRadius: 2, alignSelf: 'center' },
+  title:  { fontSize: 20, fontWeight: '800', color: Colors.textPrimary, textAlign: 'center' },
+  sub:    { fontSize: 13, color: Colors.textMuted, textAlign: 'center', marginTop: -8 },
+  valueWrap: {
+    alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 10,
+    borderWidth: 2, borderRadius: 20, paddingHorizontal: 20, paddingVertical: 10,
   },
-  timePickerWrap: {
-    padding: Spacing.base, gap: 12,
+  valueNum:   { fontSize: 36, fontWeight: '900' },
+  valueEmoji: { fontSize: 28 },
+  barBg:   { height: 10, backgroundColor: Colors.border, borderRadius: 5, overflow: 'hidden', marginHorizontal: 4 },
+  barFill: { height: 10, borderRadius: 5 },
+  controls: { flexDirection: 'row', justifyContent: 'center', gap: 10 },
+  controlBtn: {
+    borderWidth: 1.5, borderRadius: 12,
+    paddingHorizontal: 18, paddingVertical: 10,
+    backgroundColor: Colors.white,
   },
-  timePickerLabel: {
-    fontSize: FontSize.sm, fontWeight: '700', color: Colors.textPrimary,
-  },
-  timePicker: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-  },
-  timeUnit: {
+  controlText: { fontSize: 16, fontWeight: '800' },
+  quickRow:  { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' },
+  quickBtn: {
     alignItems: 'center', gap: 4,
+    borderWidth: 1.5, borderColor: Colors.border,
+    borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8,
+    backgroundColor: Colors.white, minWidth: 60,
   },
-  timeArrow: {
-    padding: 6, borderRadius: 10, backgroundColor: Colors.primary + '12',
-  },
-  timeValueBox: {
-    width: 56, height: 48, borderRadius: 12,
-    backgroundColor: Colors.primary + '10',
-    borderWidth: 1.5, borderColor: Colors.primary + '30',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  timeValue: {
-    fontSize: 22, fontWeight: '800', color: Colors.primary,
-  },
-  timeSep: {
-    fontSize: 28, fontWeight: '900', color: Colors.primary, marginBottom: 4,
-  },
-  timeHint: {
-    fontSize: 12, color: Colors.textMuted, textAlign: 'center',
-    backgroundColor: Colors.primary + '08', borderRadius: 8,
-    paddingHorizontal: 12, paddingVertical: 6,
-  },
-  unavailableCard: {
-    flexDirection: 'row', gap: 8, alignItems: 'flex-start',
-    backgroundColor: '#f5f5f5', borderRadius: 12,
-    padding: 12, marginTop: 16,
-  },
-  unavailableText: {
-    flex: 1, fontSize: 11, color: '#888', lineHeight: 17,
-  },
+  quickLabel: { fontSize: 10, fontWeight: '700' },
+  saveBtn:     { borderRadius: Radius.xl, paddingVertical: 14, alignItems: 'center' },
+  saveBtnText: { fontSize: FontSize.base, fontWeight: '800', color: '#fff' },
 });
 
 // ─── Styles ───────────────────────────────────────────────
@@ -938,7 +821,7 @@ const styles = StyleSheet.create({
   content: { padding: Spacing.xl },
 
   topBar: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.xl },
-  backBtn: {
+  editBtn: {
     width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.white,
     alignItems: 'center', justifyContent: 'center',
     shadowColor: Colors.shadowDark, shadowOffset: { width:0,height:1 }, shadowOpacity:1, shadowRadius:3, elevation:2,
@@ -950,44 +833,23 @@ const styles = StyleSheet.create({
     alignItems: 'center', marginBottom: Spacing.xl,
     shadowColor: Colors.shadow, shadowOffset:{width:0,height:4}, shadowOpacity:1, shadowRadius:12, elevation:4,
   },
-  avatarWrapper: { width:80, height:80, marginBottom:4 },
-  avatarCircle: {
-    width:80, height:80, borderRadius:40, backgroundColor: Colors.primaryLight,
-    borderWidth:3, borderColor:'rgba(255,255,255,0.35)',
-    alignItems:'center', justifyContent:'center', overflow:'hidden',
-  },
+  avatarWrapper:  { width:80, height:80, marginBottom:4 },
+  avatarCircle:   { width:80, height:80, borderRadius:40, backgroundColor: Colors.primaryLight, borderWidth:3, borderColor:'rgba(255,255,255,0.35)', alignItems:'center', justifyContent:'center', overflow:'hidden' },
   avatarImage:    { width:80, height:80, borderRadius:40 },
   avatarInitials: { fontSize:26, fontWeight:'800', color:Colors.white },
-  cameraBadge: {
-    position:'absolute', bottom:-2, right:-2, width:26, height:26, borderRadius:13,
-    backgroundColor:Colors.primary, borderWidth:2, borderColor:Colors.white,
-    alignItems:'center', justifyContent:'center', elevation:3,
-    shadowColor:'#000', shadowOffset:{width:0,height:1}, shadowOpacity:0.2, shadowRadius:2,
-  },
-  avatarName:  { fontSize:FontSize.lg, fontWeight:'800', color:Colors.white, marginBottom:2, marginTop:8 },
-  avatarEmail: { fontSize:FontSize.sm, color:'rgba(255,255,255,0.75)' },
-  avatarHint:  { fontSize:11, color:'rgba(255,255,255,0.55)', marginTop:6, marginBottom:16 },
+  cameraBadge:    { position:'absolute', bottom:-2, right:-2, width:26, height:26, borderRadius:13, backgroundColor:Colors.primary, borderWidth:2, borderColor:Colors.white, alignItems:'center', justifyContent:'center', elevation:3, shadowColor:'#000', shadowOffset:{width:0,height:1}, shadowOpacity:0.2, shadowRadius:2 },
+  avatarName:     { fontSize:FontSize.lg, fontWeight:'800', color:Colors.white, marginBottom:2, marginTop:8 },
+  avatarEmail:    { fontSize:FontSize.sm, color:'rgba(255,255,255,0.75)' },
+  avatarHint:     { fontSize:11, color:'rgba(255,255,255,0.55)', marginTop:6, marginBottom:16 },
 
-  energyCard: {
-    flexDirection:'row', alignItems:'center', gap:12,
-    borderRadius:16, padding:14, marginBottom:Spacing.xl,
-    borderWidth:1,
-  },
-  energyLabel:   { fontSize:13, fontWeight:'700', marginBottom:6 },
-  energyBarBg:   { height:6, borderRadius:3, overflow:'hidden' },
-  energyBarFill: { height:6, borderRadius:3 },
-  energyPct:     { fontSize:16, fontWeight:'900' },
+  energyCard:   { flexDirection:'row', alignItems:'center', gap:12, borderRadius:16, padding:14, marginBottom:Spacing.xl, borderWidth:1 },
+  energyLabel:  { fontSize:13, fontWeight:'700', marginBottom:6 },
+  energyBarBg:  { height:6, borderRadius:3, overflow:'hidden' },
+  energyBarFill:{ height:6, borderRadius:3 },
+  energyPct:    { fontSize:16, fontWeight:'900' },
 
-  sectionLabel: {
-    fontSize:FontSize.xs, fontWeight:'700', color:Colors.textMuted,
-    letterSpacing:1, marginBottom:8, textTransform:'uppercase',
-  },
-
-  card: {
-    backgroundColor:Colors.white, borderRadius:Radius.xl, marginBottom:Spacing.xl,
-    overflow:'hidden', shadowColor:Colors.shadowDark,
-    shadowOffset:{width:0,height:2}, shadowOpacity:1, shadowRadius:6, elevation:2,
-  },
+  sectionLabel: { fontSize:FontSize.xs, fontWeight:'700', color:Colors.textMuted, letterSpacing:1, marginBottom:8, textTransform:'uppercase' },
+  card: { backgroundColor:Colors.white, borderRadius:Radius.xl, marginBottom:Spacing.xl, overflow:'hidden', shadowColor:Colors.shadowDark, shadowOffset:{width:0,height:2}, shadowOpacity:1, shadowRadius:6, elevation:2 },
   divider: { height:1, backgroundColor:Colors.divider, marginHorizontal:Spacing.base },
 
   infoRow:   { justifyContent:'space-between', alignItems:'center', paddingHorizontal:Spacing.base, paddingVertical:14 },
@@ -1001,63 +863,30 @@ const styles = StyleSheet.create({
   menuValue:     { fontSize:FontSize.sm, color:Colors.textMuted },
 
   quickLinksRow: { flexDirection:'row', gap:10, marginBottom:Spacing.xl },
-  quickLink: {
-    flex:1, borderRadius:14, paddingVertical:14,
-    alignItems:'center', gap:6,
-  },
+  quickLink:     { flex:1, borderRadius:14, paddingVertical:14, alignItems:'center', gap:6 },
   quickLinkText: { fontSize:11, fontWeight:'700' },
 
-  logoutBtn: {
-    alignItems:'center', justifyContent:'center', gap:8,
-    backgroundColor:Colors.dangerLight, borderRadius:Radius.xl,
-    paddingVertical:16, marginBottom:Spacing.base,
-  },
+  logoutBtn:   { alignItems:'center', justifyContent:'center', gap:8, backgroundColor:Colors.dangerLight, borderRadius:Radius.xl, paddingVertical:16, marginBottom:Spacing.base },
   logoutText:  { fontSize:FontSize.base, fontWeight:'600', color:Colors.danger },
   versionText: { textAlign:'center', fontSize:FontSize.xs, color:Colors.textMuted },
 
-  overlay: {
-    flex:1, backgroundColor:'rgba(0,0,0,0.45)',
-    alignItems:'center', justifyContent:'center', padding:Spacing.xl,
-  },
-  modalCard: {
-    backgroundColor:Colors.white, borderRadius:Radius.xxl, padding:Spacing.xxl,
-    width:'100%', alignItems:'center',
-    shadowColor:Colors.shadow, shadowOffset:{width:0,height:8}, shadowOpacity:1, shadowRadius:20, elevation:8,
-  },
-  modalIconWrap: {
-    width:64, height:64, borderRadius:32,
-    alignItems:'center', justifyContent:'center', marginBottom:14,
-  },
-  modalTitle: { fontSize:FontSize.xl, fontWeight:'800', color:Colors.textPrimary, marginBottom:8 },
-  modalBody:  { fontSize:FontSize.base, color:Colors.textSecondary, textAlign:'center', marginBottom:Spacing.xl },
-  modalBtns:  { flexDirection:'row', gap:12, width:'100%' },
+  overlay:      { flex:1, backgroundColor:'rgba(0,0,0,0.45)', alignItems:'center', justifyContent:'center', padding:Spacing.xl },
+  modalCard:    { backgroundColor:Colors.white, borderRadius:Radius.xxl, padding:Spacing.xxl, width:'100%', alignItems:'center', shadowColor:Colors.shadow, shadowOffset:{width:0,height:8}, shadowOpacity:1, shadowRadius:20, elevation:8 },
+  modalIconWrap:{ width:64, height:64, borderRadius:32, alignItems:'center', justifyContent:'center', marginBottom:14 },
+  modalTitle:   { fontSize:FontSize.xl, fontWeight:'800', color:Colors.textPrimary, marginBottom:8 },
+  modalBody:    { fontSize:FontSize.base, color:Colors.textSecondary, textAlign:'center', marginBottom:Spacing.xl },
+  modalBtns:    { flexDirection:'row', gap:12, width:'100%' },
 
-  slideModalSafe: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'flex-end',
-  },
-  slideModal: {
-    backgroundColor: Colors.background,
-    borderTopLeftRadius: Radius.xxl,
-    borderTopRightRadius: Radius.xxl,
-    maxHeight: '92%',
-  },
-  modalHeader: {
-    alignItems:'center', paddingHorizontal:Spacing.base, paddingVertical:Spacing.base,
-    borderBottomWidth:1, borderBottomColor:Colors.divider,
-  },
-  modalCloseBtn:    { width:36, height:36, borderRadius:18, backgroundColor:Colors.divider, alignItems:'center', justifyContent:'center' },
+  slideModalSafe: { flex:1, backgroundColor:'rgba(0,0,0,0.45)', justifyContent:'flex-end' },
+  slideModal:     { backgroundColor:Colors.background, borderTopLeftRadius:Radius.xxl, borderTopRightRadius:Radius.xxl, maxHeight:'92%' },
+  modalHeader:    { alignItems:'center', paddingHorizontal:Spacing.base, paddingVertical:Spacing.base, borderBottomWidth:1, borderBottomColor:Colors.divider },
+  modalCloseBtn:  { width:36, height:36, borderRadius:18, backgroundColor:Colors.divider, alignItems:'center', justifyContent:'center' },
   modalHeaderTitle: { flex:1, fontSize:FontSize.lg, fontWeight:'700', color:Colors.textPrimary, textAlign:'center' },
 
   editFormContent: { padding:Spacing.xl, paddingBottom:40 },
   fieldWrap:   { marginBottom:Spacing.base },
   fieldLabel:  { fontSize:FontSize.sm, fontWeight:'600', color:Colors.textSecondary, marginBottom:6 },
-  fieldInput:  {
-    backgroundColor:Colors.white, borderRadius:Radius.lg, paddingHorizontal:Spacing.base,
-    paddingVertical:12, fontSize:FontSize.base, color:Colors.textPrimary,
-    borderWidth:1, borderColor:Colors.divider,
-  },
+  fieldInput:  { backgroundColor:Colors.white, borderRadius:Radius.lg, paddingHorizontal:Spacing.base, paddingVertical:12, fontSize:FontSize.base, color:Colors.textPrimary, borderWidth:1, borderColor:Colors.divider },
   genderRow:           { gap:10 },
   genderBtn:           { flex:1, flexDirection:'row', alignItems:'center', justifyContent:'center', gap:8, borderRadius:Radius.lg, borderWidth:1.5, borderColor:Colors.divider, paddingVertical:12, backgroundColor:Colors.white },
   genderBtnActive:     { backgroundColor:Colors.primary, borderColor:Colors.primary },
@@ -1089,11 +918,4 @@ const styles = StyleSheet.create({
   actionBtnIcon:  { width:40, height:40, borderRadius:20, alignItems:'center', justifyContent:'center' },
   actionBtnEmoji: { fontSize:20 },
   actionBtnText:  { flex:1, fontSize:FontSize.base, fontWeight:'600', color:Colors.textPrimary },
-});
-
-const mStat = StyleSheet.create({
-  card:  { flex:1, alignItems:'center', paddingVertical:12, gap:3 },
-  icon:  { fontSize:18 },
-  value: { fontSize:16, fontWeight:'900' },
-  label: { fontSize:10, color:'rgba(255,255,255,0.7)', fontWeight:'600' },
 });

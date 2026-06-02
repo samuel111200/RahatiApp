@@ -2,68 +2,37 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  StatusBar, TextInput, Modal,
+  StatusBar, TextInput, Modal, SectionList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { router } from 'expo-router';
-import { collection, query, where, onSnapshot, addDoc, getDocs } from 'firebase/firestore';
+import {
+  collection, query, where, onSnapshot,
+  addDoc, getDocs,
+} from 'firebase/firestore';
 import { db, FSUser } from '../../utils/firebaseConfig';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/Languagecontext';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 
-// ─── Static fallback doctors (displayed when no Firestore doctors exist) ──
-const STATIC_DOCTORS = [
-  {
-    id: 's1', firebaseUid: '',
-    name: 'د. أحمد محمود', nameEn: 'Dr. Ahmed Mahmoud',
-    specialty: 'علاج طبيعي', specialtyEn: 'Physical Therapy',
-    rating: 4.9, reviews: 128, experience: 12, available: true,
-    emoji: '🩺', color: '#5B9BD5', bg: '#E8F1FB',
-    tags: ['تمارين علاجية', 'إعادة تأهيل', 'آلام الظهر'],
-    tagsEn: ['Therapeutic Exercises', 'Rehabilitation', 'Back Pain'],
-  },
-  {
-    id: 's2', firebaseUid: '',
-    name: 'د. سارة علي', nameEn: 'Dr. Sara Ali',
-    specialty: 'طب الطاقة والعافية', specialtyEn: 'Energy & Wellness Medicine',
-    rating: 4.8, reviews: 95, experience: 8, available: true,
-    emoji: '💊', color: '#4CAF82', bg: '#E8F5EF',
-    tags: ['إدارة الطاقة', 'تغذية', 'تأمل'],
-    tagsEn: ['Energy Management', 'Nutrition', 'Meditation'],
-  },
-  {
-    id: 's3', firebaseUid: '',
-    name: 'د. خالد إبراهيم', nameEn: 'Dr. Khaled Ibrahim',
-    specialty: 'طب الرياضة', specialtyEn: 'Sports Medicine',
-    rating: 4.7, reviews: 204, experience: 15, available: false,
-    emoji: '🏃', color: '#E07B5C', bg: '#FDF0EB',
-    tags: ['تمارين رياضية', 'لياقة بدنية', 'إصابات رياضية'],
-    tagsEn: ['Sports Exercises', 'Physical Fitness', 'Sports Injuries'],
-  },
-  {
-    id: 's4', firebaseUid: '',
-    name: 'د. فاطمة حسن', nameEn: 'Dr. Fatma Hassan',
-    specialty: 'طب نفسي وسلوكي', specialtyEn: 'Psychiatric & Behavioral Medicine',
-    rating: 4.9, reviews: 167, experience: 10, available: true,
-    emoji: '🧠', color: '#D45BAA', bg: '#FCEEF8',
-    tags: ['صحة نفسية', 'إدارة التوتر', 'سلوك'],
-    tagsEn: ['Mental Health', 'Stress Management', 'Behavior'],
-  },
-  {
-    id: 's5', firebaseUid: '',
-    name: 'د. محمد عمر', nameEn: 'Dr. Mohamed Omar',
-    specialty: 'تغذية علاجية', specialtyEn: 'Clinical Nutrition',
-    rating: 4.6, reviews: 89, experience: 6, available: true,
-    emoji: '🥗', color: '#F4A32B', bg: '#FEF3E2',
-    tags: ['تغذية', 'حمية', 'وزن صحي'],
-    tagsEn: ['Nutrition', 'Diet', 'Healthy Weight'],
-  },
-];
-
-type DoctorCard = typeof STATIC_DOCTORS[0];
+type DoctorCard = {
+  id: string;
+  firebaseUid: string;
+  name: string;
+  nameEn: string;
+  specialty: string;
+  specialtyEn: string;
+  reviews: number;
+  experience: number;
+  available: boolean;
+  emoji: string;
+  color: string;
+  bg: string;
+  tags: string[];
+  tagsEn: string[];
+};
 
 const PALETTE = [
   { color: '#7C5CBF', bg: '#F0EBFA', emoji: '🩺' },
@@ -79,83 +48,132 @@ export default function DoctorsScreen() {
   const navigation = useNavigation();
   const { isRTL } = useLang();
   const { user } = useAuth();
-  const [search,      setSearch]      = useState('');
+
+  const [search, setSearch] = useState('');
   const [selectedDoc, setSelectedDoc] = useState<DoctorCard | null>(null);
-  const [showModal,   setShowModal]   = useState(false);
-  const [doctors,     setDoctors]     = useState<DoctorCard[]>([]);
+  const [showModal, setShowModal] = useState(false);
+
+  // كل الدكاترة من Firestore
+  const [allDoctors, setAllDoctors] = useState<DoctorCard[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
 
-  // ─── Load real doctors from Firestore ─────────────────
+  // الدكاترة اللي عندي شات معاهم
+  const [myDoctorIds, setMyDoctorIds] = useState<Set<string>>(new Set());
+  const [loadingRelations, setLoadingRelations] = useState(true);
+
+  // modal الصفحة الكاملة
+  const [showAllDoctorsPage, setShowAllDoctorsPage] = useState(false);
+  const [pageSearch, setPageSearch] = useState('');
+
+  // ─── Load ALL doctors ──────────────────────────────────
   useEffect(() => {
     if (!user?.uid) return;
     const q = query(collection(db, 'users'), where('role', '==', 'doctor'));
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        setLoadingDocs(false);
-        const real: DoctorCard[] = snap.docs.map((d, i) => {
-          const data = d.data() as FSUser;
-          const p = fsPalette(i);
-          return {
-            id:          d.id,
-            firebaseUid: d.id,
-            name:        `د. ${data.firstName} ${data.lastName}`,
-            nameEn:      `Dr. ${data.firstName} ${data.lastName}`,
-            specialty:   data.specialty ?? '',
-            specialtyEn: data.specialty ?? '',
-            rating:      4.8,
-            reviews:     0,
-            experience:  0,
-            available:   true,
-            emoji:       p.emoji,
-            color:       p.color,
-            bg:          p.bg,
-            tags:        [],
-            tagsEn:      [],
-          };
-        });
-        setDoctors(real);
-      },
-      (err) => {
-        console.warn('[Doctors] Firestore error:', err);
-        setLoadingDocs(false);
-      },
-    );
+    const unsub = onSnapshot(q, (snap) => {
+      setLoadingDocs(false);
+      const real: DoctorCard[] = snap.docs.map((d, i) => {
+        const data = d.data() as FSUser;
+        const p = fsPalette(i);
+        return {
+          id:          d.id,
+          firebaseUid: d.id,
+          name:        `د. ${data.firstName} ${data.lastName}`,
+          nameEn:      `Dr. ${data.firstName} ${data.lastName}`,
+          specialty:   data.specialty ?? '',
+          specialtyEn: data.specialty ?? '',
+          reviews:     0,
+          experience:  0,
+          available:   true,
+          emoji:       p.emoji,
+          color:       p.color,
+          bg:          p.bg,
+          tags:        [],
+          tagsEn:      [],
+        };
+      });
+      setAllDoctors(real);
+    }, (err) => {
+      console.warn('[Doctors] error:', err);
+      setLoadingDocs(false);
+    });
     return unsub;
   }, [user?.uid]);
 
-  const filtered = doctors.filter(d => {
+  // ─── Load relationships ────────────────────────────────
+  useEffect(() => {
+    if (!user?.uid) return;
+    const q = query(
+      collection(db, 'relationships'),
+      where('patientId', '==', user.uid),
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      setLoadingRelations(false);
+      setMyDoctorIds(new Set(snap.docs.map(d => d.data().doctorId as string)));
+    }, () => setLoadingRelations(false));
+    return unsub;
+  }, [user?.uid]);
+
+  const loading = loadingDocs || loadingRelations;
+  const hasMyDoctors = myDoctorIds.size > 0;
+
+  const myDoctors    = allDoctors.filter(d =>  myDoctorIds.has(d.firebaseUid));
+  const otherDoctors = allDoctors.filter(d => !myDoctorIds.has(d.firebaseUid));
+  const displayDoctors = hasMyDoctors ? myDoctors : allDoctors;
+
+  // فلترة الشاشة الرئيسية
+  const filtered = displayDoctors.filter(d => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
-    const name = isRTL ? d.name : d.nameEn;
-    const spec = isRTL ? d.specialty : d.specialtyEn;
-    return name.toLowerCase().includes(q) || spec.toLowerCase().includes(q);
+    return (isRTL ? d.name : d.nameEn).toLowerCase().includes(q)
+        || (isRTL ? d.specialty : d.specialtyEn).toLowerCase().includes(q);
   });
 
-  const handleContact = (doc: DoctorCard) => {
-    setSelectedDoc(doc);
+  // ─── Sections للصفحة الكاملة ──────────────────────────
+  const applyPageSearch = (list: DoctorCard[]) => {
+    const q = pageSearch.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter(d =>
+      (isRTL ? d.name : d.nameEn).toLowerCase().includes(q) ||
+      (isRTL ? d.specialty : d.specialtyEn).toLowerCase().includes(q),
+    );
+  };
+
+  const sections = [
+    ...(myDoctors.length > 0 ? [{
+      title: isRTL ? '💬 دكاترتي (بيني وبينهم شات)' : '💬 My Doctors (Active Chats)',
+      data:  applyPageSearch(myDoctors),
+      type:  'mine' as const,
+    }] : []),
+    ...(otherDoctors.length > 0 ? [{
+      title: isRTL ? '🩺 دكاترة أخرى' : '🩺 Other Doctors',
+      data:  applyPageSearch(otherDoctors),
+      type:  'other' as const,
+    }] : []),
+  ];
+
+  // ─── Handlers ─────────────────────────────────────────
+  const handleContact = (docItem: DoctorCard) => {
+    setSelectedDoc(docItem);
     setShowModal(true);
   };
 
   const handleInAppChat = async (docItem: DoctorCard) => {
     setShowModal(false);
+    setShowAllDoctorsPage(false);
     const patientUid = user?.uid;
-
     if (patientUid && docItem.firebaseUid) {
       const patientName = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'مريض';
       try {
-        const existing = await getDocs(
-          query(
-            collection(db, 'relationships'),
-            where('doctorId', '==', docItem.firebaseUid),
-            where('patientId', '==', patientUid),
-          ),
-        );
+        const existing = await getDocs(query(
+          collection(db, 'relationships'),
+          where('doctorId', '==', docItem.firebaseUid),
+          where('patientId', '==', patientUid),
+        ));
         if (existing.empty) {
           await addDoc(collection(db, 'relationships'), {
             doctorId:    docItem.firebaseUid,
             patientId:   patientUid,
-            patientName: patientName,
+            patientName,
             doctorName:  isRTL ? docItem.name : docItem.nameEn,
             status:      'pending',
             requestedAt: Date.now(),
@@ -163,7 +181,6 @@ export default function DoctorsScreen() {
         }
       } catch {}
     }
-
     router.push({
       pathname: '/tabs/doctorchat',
       params: {
@@ -178,21 +195,132 @@ export default function DoctorsScreen() {
     });
   };
 
+  // ─── Doctor Card Inner Content ─────────────────────────
+  const renderDoctorCardContent = (doc: DoctorCard, showContactBtn = true) => {
+    const hasChat = myDoctorIds.has(doc.firebaseUid);
+
+    return (
+      <View style={[styles.card, { borderLeftColor: doc.color, borderLeftWidth: 4 }]}>
+        <View style={[styles.cardTop, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <View style={[styles.avatarCircle, { backgroundColor: doc.bg }]}>
+            <Text style={styles.avatarEmoji}>{doc.emoji}</Text>
+          </View>
+          <View style={[styles.cardInfo, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+            <View style={[styles.nameRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Text style={styles.docName}>{isRTL ? doc.name : doc.nameEn}</Text>
+              <View style={[styles.availBadge, { backgroundColor: doc.available ? '#E8F5EF' : '#F5F5F5' }]}>
+                <View style={[styles.availDot, { backgroundColor: doc.available ? '#4CAF82' : '#ccc' }]} />
+                <Text style={[styles.availText, { color: doc.available ? '#4CAF82' : '#aaa' }]}>
+                  {doc.available ? (isRTL ? 'متاح' : 'Available') : (isRTL ? 'مشغول' : 'Busy')}
+                </Text>
+              </View>
+            </View>
+            <Text style={[styles.specialty, { color: doc.color }]}>
+              {isRTL ? doc.specialty : doc.specialtyEn}
+            </Text>
+            <View style={[styles.metaRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <View style={styles.metaItem}>
+                {doc.reviews > 0 && <Text style={styles.metaLight}>({doc.reviews})</Text>}
+              </View>
+              {doc.experience > 0 && (
+                <>
+                  <View style={styles.metaDot} />
+                  <View style={styles.metaItem}>
+                    <Ionicons name="briefcase-outline" size={12} color={Colors.textMuted} />
+                    <Text style={styles.metaText}>
+                      {doc.experience} {isRTL ? 'سنة خبرة' : 'yrs exp'}
+                    </Text>
+                  </View>
+                </>
+              )}
+            </View>
+          </View>
+        </View>
+
+        {(isRTL ? doc.tags : doc.tagsEn).length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tagsScroll}>
+            {(isRTL ? doc.tags : doc.tagsEn).map((tag, i) => (
+              <View key={i} style={[styles.tag, { backgroundColor: doc.bg }]}>
+                <Text style={[styles.tagText, { color: doc.color }]}>{tag}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        )}
+
+        {/* زرار "تواصل الآن" — بس لو مفيش شات */}
+        {showContactBtn && !hasChat && (
+          <TouchableOpacity
+            style={[styles.contactBtn, { backgroundColor: doc.available ? doc.color : '#ddd' }]}
+            onPress={() => handleContact(doc)}
+            activeOpacity={doc.available ? 0.8 : 1}
+            disabled={!doc.available}
+          >
+            <Ionicons
+              name="chatbubble-ellipses-outline"
+              size={16}
+              color={doc.available ? '#fff' : '#aaa'}
+            />
+            <Text style={[styles.contactBtnText, { color: doc.available ? '#fff' : '#aaa' }]}>
+              {doc.available
+                ? (isRTL ? 'تواصل الآن' : 'Contact Now')
+                : (isRTL ? 'غير متاح حالياً' : 'Not Available')}
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* بادج "افتح الشات" — بس لو عنده شات */}
+        {showContactBtn && hasChat && (
+          <View style={[styles.openChatBadge, { backgroundColor: doc.bg }]}>
+            <Ionicons name="chatbubbles" size={14} color={doc.color} />
+            <Text style={[styles.openChatText, { color: doc.color }]}>
+              {isRTL ? 'اضغط لفتح الشات' : 'Tap to open chat'}
+            </Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  // ─── Doctor Card Component (shared) ───────────────────
+  // لو عنده شات → كل الكارد TouchableOpacity يفتح الشات مباشرة
+  // لو مفيش شات → الكارد عادي والزرار هو اللي بيعمل الأكشن
+  const renderDoctorCard = (doc: DoctorCard, showContactBtn = true) => {
+    const hasChat = myDoctorIds.has(doc.firebaseUid);
+
+    if (hasChat) {
+      return (
+        <TouchableOpacity
+          key={doc.id}
+          activeOpacity={0.85}
+          onPress={() => handleInAppChat(doc)}
+        >
+          {renderDoctorCardContent(doc, showContactBtn)}
+        </TouchableOpacity>
+      );
+    }
+
+    return (
+      <View key={doc.id}>
+        {renderDoctorCardContent(doc, showContactBtn)}
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar backgroundColor={Colors.background} barStyle="dark-content" />
 
       {/* ── Header ── */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="chevron-back" size={22} color={Colors.primary} />
-        </TouchableOpacity>
+        <View style={{ width: 40 }} />
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>{isRTL ? 'تواصل مع دكتور' : 'Contact a Doctor'}</Text>
+          <Text style={styles.headerTitle}>
+            {hasMyDoctors ? (isRTL ? 'دكاترتي' : 'My Doctors') : (isRTL ? 'تواصل مع دكتور' : 'Contact a Doctor')}
+          </Text>
           <Text style={styles.headerSub}>
-            {loadingDocs
+            {loading
               ? (isRTL ? 'جاري التحميل...' : 'Loading...')
-              : (isRTL ? `${doctors.length} دكاترة متاحون` : `${doctors.length} doctors available`)}
+              : (isRTL ? `${displayDoctors.length} دكاترة متاحون` : `${displayDoctors.length} doctors available`)}
           </Text>
         </View>
         <View style={{ width: 40 }} />
@@ -220,13 +348,13 @@ export default function DoctorsScreen() {
         <View style={styles.greenDot} />
         <Text style={styles.availableText}>
           {isRTL
-            ? `${doctors.filter(d => d.available).length} دكاترة متاحون الآن للتواصل`
-            : `${doctors.filter(d => d.available).length} doctors available now`}
+            ? `${displayDoctors.filter(d => d.available).length} دكاترة متاحون الآن للتواصل`
+            : `${displayDoctors.filter(d => d.available).length} doctors available now`}
         </Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-        {!loadingDocs && doctors.length === 0 && (
+        {!loading && displayDoctors.length === 0 && (
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>🩺</Text>
             <Text style={styles.emptyText}>
@@ -234,92 +362,119 @@ export default function DoctorsScreen() {
             </Text>
           </View>
         )}
-        {filtered.map((doc) => (
-          <View key={doc.id} style={[styles.card, { borderLeftColor: doc.color, borderLeftWidth: 4 }]}>
 
-            {/* ── Top Row ── */}
-            <View style={[styles.cardTop, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <View style={[styles.avatarCircle, { backgroundColor: doc.bg }]}>
-                <Text style={styles.avatarEmoji}>{doc.emoji}</Text>
-              </View>
+        {filtered.map(doc => renderDoctorCard(doc))}
 
-              <View style={[styles.cardInfo, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                <View style={[styles.nameRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <Text style={styles.docName}>{isRTL ? doc.name : doc.nameEn}</Text>
-                  <View style={[styles.availBadge, { backgroundColor: doc.available ? '#E8F5EF' : '#F5F5F5' }]}>
-                    <View style={[styles.availDot, { backgroundColor: doc.available ? '#4CAF82' : '#ccc' }]} />
-                    <Text style={[styles.availText, { color: doc.available ? '#4CAF82' : '#aaa' }]}>
-                      {doc.available
-                        ? (isRTL ? 'متاح' : 'Available')
-                        : (isRTL ? 'مشغول' : 'Busy')}
-                    </Text>
-                  </View>
-                </View>
-
-                <Text style={[styles.specialty, { color: doc.color }]}>
-                  {isRTL ? doc.specialty : doc.specialtyEn}
-                </Text>
-
-                <View style={[styles.metaRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                  <View style={styles.metaItem}>
-                    <Ionicons name="star" size={12} color="#F4A32B" />
-                    <Text style={styles.metaText}>{doc.rating}</Text>
-                    {doc.reviews > 0 && <Text style={styles.metaLight}>({doc.reviews})</Text>}
-                  </View>
-                  {doc.experience > 0 && (
-                    <>
-                      <View style={styles.metaDot} />
-                      <View style={styles.metaItem}>
-                        <Ionicons name="briefcase-outline" size={12} color={Colors.textMuted} />
-                        <Text style={styles.metaText}>
-                          {doc.experience} {isRTL ? 'سنة خبرة' : 'yrs exp'}
-                        </Text>
-                      </View>
-                    </>
-                  )}
-                </View>
-              </View>
-            </View>
-
-            {/* ── Tags ── */}
-            {(isRTL ? doc.tags : doc.tagsEn).length > 0 && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tagsScroll}>
-                {(isRTL ? doc.tags : doc.tagsEn).map((tag, i) => (
-                  <View key={i} style={[styles.tag, { backgroundColor: doc.bg }]}>
-                    <Text style={[styles.tagText, { color: doc.color }]}>{tag}</Text>
-                  </View>
-                ))}
-              </ScrollView>
-            )}
-
-            {/* ── Contact Button ── */}
-            <TouchableOpacity
-              style={[
-                styles.contactBtn,
-                { backgroundColor: doc.available ? doc.color : '#ddd' },
-              ]}
-              onPress={() => handleContact(doc)}
-              activeOpacity={doc.available ? 0.8 : 1}
-              disabled={!doc.available}
-            >
-              <Ionicons
-                name="chatbubble-ellipses-outline"
-                size={16}
-                color={doc.available ? '#fff' : '#aaa'}
-              />
-              <Text style={[styles.contactBtnText, { color: doc.available ? '#fff' : '#aaa' }]}>
-                {doc.available
-                  ? (isRTL ? 'تواصل الآن' : 'Contact Now')
-                  : (isRTL ? 'غير متاح حالياً' : 'Not Available')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        ))}
+        {/* ── Add Doctor Button ── */}
+        {hasMyDoctors && otherDoctors.length > 0 && (
+          <TouchableOpacity
+            style={styles.addDoctorBtn}
+            onPress={() => { setPageSearch(''); setShowAllDoctorsPage(true); }}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="add-circle-outline" size={20} color={Colors.primary} />
+            <Text style={styles.addDoctorBtnText}>
+              {isRTL ? 'إضافة طبيب جديد' : 'Add New Doctor'}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* ── Contact Modal ── */}
+      {/* ══════════════════════════════════════════════════════
+          صفحة كاملة — كل الدكاترة مقسمين
+      ══════════════════════════════════════════════════════ */}
+      <Modal
+        visible={showAllDoctorsPage}
+        transparent={false}
+        animationType="slide"
+        onRequestClose={() => setShowAllDoctorsPage(false)}
+      >
+        <SafeAreaView style={styles.safe}>
+          <StatusBar backgroundColor={Colors.background} barStyle="dark-content" />
+
+          {/* Header الصفحة */}
+          <View style={styles.header}>
+            <View style={styles.headerCenter}>
+              <Text style={styles.headerTitle}>
+                {isRTL ? 'كل الدكاترة' : 'All Doctors'}
+              </Text>
+              <Text style={styles.headerSub}>
+                {isRTL ? `${allDoctors.length} دكتور` : `${allDoctors.length} doctors`}
+              </Text>
+            </View>
+            <View style={{ width: 40 }} />
+          </View>
+
+          {/* Search */}
+          <View style={styles.searchWrap}>
+            <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
+            <TextInput
+              value={pageSearch}
+              onChangeText={setPageSearch}
+              placeholder={isRTL ? 'ابحث عن دكتور أو تخصص...' : 'Search doctor or specialty...'}
+              placeholderTextColor={Colors.textMuted}
+              style={[styles.searchInput, { textAlign: isRTL ? 'right' : 'left' }]}
+            />
+            {pageSearch.length > 0 && (
+              <TouchableOpacity onPress={() => setPageSearch('')}>
+                <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* SectionList مقسم */}
+          <SectionList
+            sections={sections}
+            keyExtractor={item => item.id}
+            contentContainerStyle={[styles.list, { paddingBottom: 40 }]}
+            showsVerticalScrollIndicator={false}
+            stickySectionHeadersEnabled={false}
+            renderSectionHeader={({ section }) => (
+              <View style={[
+                styles.sectionHeader,
+                {
+                  backgroundColor: section.type === 'mine'
+                    ? Colors.primaryUltraLight
+                    : '#F5F5F5',
+                  borderLeftColor: section.type === 'mine'
+                    ? Colors.primary
+                    : Colors.textMuted,
+                },
+              ]}>
+                <Text style={[
+                  styles.sectionHeaderText,
+                  { color: section.type === 'mine' ? Colors.primary : Colors.textSecondary },
+                ]}>
+                  {section.title}
+                </Text>
+                <Text style={[
+                  styles.sectionCount,
+                  { color: section.type === 'mine' ? Colors.primary : Colors.textMuted },
+                ]}>
+                  {section.data.length}
+                </Text>
+              </View>
+            )}
+            renderItem={({ item }) => (
+              <View style={{ marginBottom: 14 }}>
+                {renderDoctorCard(item)}
+              </View>
+            )}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyEmoji}>🔍</Text>
+                <Text style={styles.emptyText}>
+                  {isRTL ? 'لا توجد نتائج' : 'No results found'}
+                </Text>
+              </View>
+            }
+          />
+        </SafeAreaView>
+      </Modal>
+
+      {/* ══ Contact Modal ══ */}
       <Modal
         visible={showModal}
         transparent
@@ -334,7 +489,6 @@ export default function DoctorsScreen() {
         {selectedDoc && (
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
-
             <View style={[styles.modalDocRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <View style={[styles.modalAvatar, { backgroundColor: selectedDoc.bg }]}>
                 <Text style={{ fontSize: 32 }}>{selectedDoc.emoji}</Text>
@@ -391,16 +545,10 @@ const styles = StyleSheet.create({
 
   header: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: Spacing.base, paddingVertical: 12,
-  },
-  backBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: Colors.white, alignItems: 'center', justifyContent: 'center',
-    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12, shadowRadius: 4, elevation: 2,
+    paddingHorizontal: Spacing.base, paddingVertical: 12
   },
   headerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: Colors.textPrimary },
+  headerTitle: { fontSize: 22, fontWeight: 'bold', color: Colors.textPrimary },
   headerSub: { fontSize: 12, color: Colors.textMuted, marginTop: 2 },
 
   searchWrap: {
@@ -463,6 +611,36 @@ const styles = StyleSheet.create({
   },
   contactBtnText: { fontSize: FontSize.sm, fontWeight: '700' },
 
+  // ── بادج "افتح الشات" ──
+  openChatBadge: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, borderRadius: Radius.lg, paddingVertical: 10,
+  },
+  openChatText: { fontSize: FontSize.sm, fontWeight: '700' },
+
+  // Section headers
+  sectionHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
+    marginBottom: 12, borderLeftWidth: 4,
+  },
+  sectionHeaderText: { fontSize: FontSize.base, fontWeight: '800', flex: 1 },
+  sectionCount: {
+    fontSize: 13, fontWeight: '700',
+    backgroundColor: 'rgba(0,0,0,0.06)',
+    paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10,
+  },
+
+  // Add Doctor Button
+  addDoctorBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, borderRadius: Radius.lg, paddingVertical: 14,
+    borderWidth: 2, borderColor: Colors.primary,
+    borderStyle: 'dashed', backgroundColor: Colors.primaryUltraLight,
+  },
+  addDoctorBtnText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.primary },
+
+  // Contact Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
   modalSheet: {
     backgroundColor: Colors.white,

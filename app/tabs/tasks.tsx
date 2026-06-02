@@ -7,7 +7,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Chip } from '../../components/UI';
 import { useLang } from '../../context/Languagecontext';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
@@ -52,7 +52,6 @@ function todayKey() {
 // ─── Main Screen ─────────────────────────────────────────
 export default function TasksScreen() {
   const { t, isRTL } = useLang();
-  const navigation   = useNavigation();
 
   const TODAY = todayKey();
 
@@ -87,7 +86,6 @@ export default function TasksScreen() {
 
   const longPressTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  // ── Load from AsyncStorage ──
   useFocusEffect(useCallback(() => {
     loadAllTasks();
   }, []));
@@ -116,7 +114,6 @@ export default function TasksScreen() {
     }
   }
 
-  // ── Derived ──
   const SECTION_TASKS = activeSection === 'core' ? coreTasks : extraTasks;
   const visible       = filter === 'all'
     ? SECTION_TASKS
@@ -124,7 +121,6 @@ export default function TasksScreen() {
 
   const getLabel = (task: Task) => task.name ?? task.key;
 
-  // ── Long press handlers ──
   function handleLongPressStart(task: Task) {
     longPressTimers.current[task.key] = setTimeout(() => {
       const label = getLabel(task);
@@ -155,7 +151,6 @@ export default function TasksScreen() {
     }
   }
 
-  // ── Convert task (core ↔ extra) ──
   async function handleConvertTask(task: Task) {
     const newTaskType: TaskType = task.type === 'core' ? 'extra' : 'core';
     const convertedTask: Task = {
@@ -196,7 +191,6 @@ export default function TasksScreen() {
     });
   }
 
-  // ── Delete task ──
   async function handleDeleteTask(task: Task) {
     if (task.type === 'core') {
       const updated = coreTasks.filter(tk => tk.key !== task.key);
@@ -221,7 +215,6 @@ export default function TasksScreen() {
     });
   }
 
-  // ── Open add modal ──
   const openModal = () => {
     setNewName('');
     setNewIcon('');
@@ -235,7 +228,6 @@ export default function TasksScreen() {
     setModalVisible(true);
   };
 
-  // ── Close modal & reset ──
   const closeModal = () => {
     Keyboard.dismiss();
     setModalVisible(false);
@@ -249,7 +241,6 @@ export default function TasksScreen() {
     setSaving(false);
   };
 
-  // ── Add new task ──
   const addTask = async () => {
     if (!newName.trim()) {
       setNameError(true);
@@ -319,25 +310,12 @@ export default function TasksScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* ── Header ── */}
+        {/* ── Header — بدون سهم رجوع ── */}
+        // topBar
         <View style={styles.topBar}>
-          <TouchableOpacity
-            style={styles.iconBtn}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="chevron-back" size={22} color="#7C5CBF" />
-          </TouchableOpacity>
-
-          <View style={styles.titleBlock}>
-            <Text style={styles.title}>{t.myTasks}</Text>
-            <Text style={styles.subtitle}>
-              {isRTL
-                ? `${SECTION_TASKS.length} ${t.from ?? 'مهمة'}`
-                : `${SECTION_TASKS.length} task${SECTION_TASKS.length !== 1 ? 's' : ''}`}
-            </Text>
-          </View>
-
+          <View style={{ width: 40 }} />{" "}
+          {/* placeholder بدل titleBlock يكون flex:1 */}
+          <Text style={styles.title}>{t.myTasks}</Text>
           <TouchableOpacity
             style={styles.iconBtn}
             onPress={openModal}
@@ -346,86 +324,166 @@ export default function TasksScreen() {
             <Ionicons name="add" size={22} color={Colors.primary} />
           </TouchableOpacity>
         </View>
-
         {/* ── Section Toggle ── */}
         <View style={styles.sectionToggle}>
           <TouchableOpacity
-            style={[styles.sectionBtn, activeSection === 'core' && styles.sectionBtnActive]}
-            onPress={() => { setActiveSection('core'); setFilter('all'); }}
+            style={[
+              styles.sectionBtn,
+              activeSection === "core" && styles.sectionBtnActive,
+            ]}
+            onPress={() => {
+              setActiveSection("core");
+              setFilter("all");
+            }}
             activeOpacity={0.8}
           >
-            <Ionicons name="star" size={14} color={activeSection === 'core' ? '#fff' : '#7C5CBF'} />
-            <Text style={[styles.sectionBtnText, activeSection === 'core' && styles.sectionBtnTextActive]}>
-              {isRTL ? 'الأساسي' : 'Core'}
+            <Ionicons
+              name="star"
+              size={14}
+              color={activeSection === "core" ? "#fff" : "#7C5CBF"}
+            />
+            <Text
+              style={[
+                styles.sectionBtnText,
+                activeSection === "core" && styles.sectionBtnTextActive,
+              ]}
+            >
+              {isRTL ? "الأساسي" : "Core"}
             </Text>
-            <View style={[styles.sectionCount, { backgroundColor: activeSection === 'core' ? 'rgba(255,255,255,0.3)' : '#7C5CBF22' }]}>
-              <Text style={[styles.sectionCountText, { color: activeSection === 'core' ? '#fff' : '#7C5CBF' }]}>
+            <View
+              style={[
+                styles.sectionCount,
+                {
+                  backgroundColor:
+                    activeSection === "core"
+                      ? "rgba(255,255,255,0.3)"
+                      : "#7C5CBF22",
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.sectionCountText,
+                  { color: activeSection === "core" ? "#fff" : "#7C5CBF" },
+                ]}
+              >
                 {coreTasks.length}
               </Text>
             </View>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.sectionBtn, activeSection === 'extra' && styles.sectionBtnActive]}
-            onPress={() => { setActiveSection('extra'); setFilter('all'); }}
+            style={[
+              styles.sectionBtn,
+              activeSection === "extra" && styles.sectionBtnActive,
+            ]}
+            onPress={() => {
+              setActiveSection("extra");
+              setFilter("all");
+            }}
             activeOpacity={0.8}
           >
-            <Ionicons name="flash" size={14} color={activeSection === 'extra' ? '#fff' : '#7C5CBF'} />
-            <Text style={[styles.sectionBtnText, activeSection === 'extra' && styles.sectionBtnTextActive]}>
-              {isRTL ? 'الإضافي' : 'Extra'}
+            <Ionicons
+              name="flash"
+              size={14}
+              color={activeSection === "extra" ? "#fff" : "#7C5CBF"}
+            />
+            <Text
+              style={[
+                styles.sectionBtnText,
+                activeSection === "extra" && styles.sectionBtnTextActive,
+              ]}
+            >
+              {isRTL ? "الإضافي" : "Extra"}
             </Text>
-            <View style={[styles.sectionCount, { backgroundColor: activeSection === 'extra' ? 'rgba(255,255,255,0.3)' : '#7C5CBF22' }]}>
-              <Text style={[styles.sectionCountText, { color: activeSection === 'extra' ? '#fff' : '#7C5CBF' }]}>
+            <View
+              style={[
+                styles.sectionCount,
+                {
+                  backgroundColor:
+                    activeSection === "extra"
+                      ? "rgba(255,255,255,0.3)"
+                      : "#7C5CBF22",
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.sectionCountText,
+                  { color: activeSection === "extra" ? "#fff" : "#7C5CBF" },
+                ]}
+              >
                 {extraTasks.length}
               </Text>
             </View>
           </TouchableOpacity>
         </View>
-
         {/* ── Section hint ── */}
-        <View style={[styles.sectionHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <View
+          style={[
+            styles.sectionHint,
+            { flexDirection: isRTL ? "row-reverse" : "row" },
+          ]}
+        >
           <Ionicons
-            name={activeSection === 'core' ? 'refresh-circle-outline' : 'calendar-outline'}
+            name={
+              activeSection === "core"
+                ? "refresh-circle-outline"
+                : "calendar-outline"
+            }
             size={13}
             color="#7C5CBF99"
           />
           <Text style={styles.sectionHintText}>
-            {activeSection === 'core'
-              ? (isRTL ? 'مهام يومية ثابتة — اضغط مطولاً للخيارات' : 'Daily fixed tasks — long press for options')
-              : (isRTL ? 'مهام إضافية ليوم واحد فقط — اضغط مطولاً للخيارات' : 'Extra tasks for today only — long press for options')}
+            {activeSection === "core"
+              ? isRTL
+                ? "مهام يومية ثابتة — اضغط مطولاً للخيارات"
+                : "Daily fixed tasks — long press for options"
+              : isRTL
+                ? "مهام إضافية ليوم واحد فقط — اضغط مطولاً للخيارات"
+                : "Extra tasks for today only — long press for options"}
           </Text>
         </View>
-
         {/* ── Filters ── */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={[
             styles.filters,
-            { flexDirection: isRTL ? 'row-reverse' : 'row' },
+            { flexDirection: isRTL ? "row-reverse" : "row" },
           ]}
           style={{ marginBottom: Spacing.base }}
           keyboardShouldPersistTaps="handled"
         >
           {FILTERS.map((f) => (
-            <Chip key={f.k} label={f.l} active={filter === f.k} onPress={() => setFilter(f.k)} />
+            <Chip
+              key={f.k}
+              label={f.l}
+              active={filter === f.k}
+              onPress={() => setFilter(f.k)}
+            />
           ))}
         </ScrollView>
-
         {/* ── Tasks ── */}
         <View style={styles.taskList}>
           {SECTION_TASKS.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={{ fontSize: 44 }}>{activeSection === 'core' ? '⭐' : '⚡'}</Text>
+              <Text style={{ fontSize: 44 }}>
+                {activeSection === "core" ? "⭐" : "⚡"}
+              </Text>
               <Text style={styles.emptyText}>
                 {isRTL
-                  ? (activeSection === 'core' ? 'مفيش مهام أساسية بعد' : 'مفيش مهام إضافية لليوم دة')
-                  : (activeSection === 'core' ? 'No core tasks yet' : 'No extra tasks for today')}
+                  ? activeSection === "core"
+                    ? "مفيش مهام أساسية بعد"
+                    : "مفيش مهام إضافية لليوم دة"
+                  : activeSection === "core"
+                    ? "No core tasks yet"
+                    : "No extra tasks for today"}
               </Text>
               <TouchableOpacity style={styles.emptyAddBtn} onPress={openModal}>
                 <Ionicons name="add" size={16} color="#7C5CBF" />
                 <Text style={styles.emptyAddText}>
-                  {isRTL ? 'أضف مهمة' : 'Add Task'}
+                  {isRTL ? "أضف مهمة" : "Add Task"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -433,7 +491,9 @@ export default function TasksScreen() {
             <View style={styles.emptyState}>
               <Text style={{ fontSize: 36 }}>📭</Text>
               <Text style={styles.emptyText}>
-                {isRTL ? 'لا توجد مهام في هذا التصنيف' : 'No tasks in this category'}
+                {isRTL
+                  ? "لا توجد مهام في هذا التصنيف"
+                  : "No tasks in this category"}
               </Text>
             </View>
           ) : (
@@ -445,36 +505,83 @@ export default function TasksScreen() {
                 activeOpacity={0.85}
                 style={[
                   styles.taskCard,
-                  { flexDirection: isRTL ? 'row-reverse' : 'row' },
+                  { flexDirection: isRTL ? "row-reverse" : "row" },
                 ]}
               >
-                {/* Icon */}
                 <View style={[styles.taskIcon, { backgroundColor: task.bg }]}>
                   <Text style={{ fontSize: 28 }}>{task.icon}</Text>
                 </View>
 
-                {/* Info */}
-                <View style={[styles.taskInfo, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                  <View style={[styles.taskTitleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <Text style={styles.taskTitle}>
-                      {getLabel(task)}
-                    </Text>
-                    <View style={[styles.typeBadge, { backgroundColor: task.type === 'core' ? '#7C5CBF22' : '#F4A32B22' }]}>
-                      <Text style={[styles.typeBadgeText, { color: task.type === 'core' ? '#7C5CBF' : '#C97B3A' }]}>
-                        {task.type === 'core' ? '⭐' : '⚡'}
+                <View
+                  style={[
+                    styles.taskInfo,
+                    { alignItems: isRTL ? "flex-end" : "flex-start" },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.taskTitleRow,
+                      { flexDirection: isRTL ? "row-reverse" : "row" },
+                    ]}
+                  >
+                    <Text style={styles.taskTitle}>{getLabel(task)}</Text>
+                    <View
+                      style={[
+                        styles.typeBadge,
+                        {
+                          backgroundColor:
+                            task.type === "core" ? "#7C5CBF22" : "#F4A32B22",
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.typeBadgeText,
+                          {
+                            color: task.type === "core" ? "#7C5CBF" : "#C97B3A",
+                          },
+                        ]}
+                      >
+                        {task.type === "core" ? "⭐" : "⚡"}
                       </Text>
                     </View>
                   </View>
-                  <View style={[styles.taskMetaRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <Ionicons name="time-outline" size={12} color={Colors.textMuted} />
+                  <View
+                    style={[
+                      styles.taskMetaRow,
+                      { flexDirection: isRTL ? "row-reverse" : "row" },
+                    ]}
+                  >
+                    <Ionicons
+                      name="time-outline"
+                      size={12}
+                      color={Colors.textMuted}
+                    />
                     <Text style={styles.taskTime}> {task.time}</Text>
                   </View>
-                  <View style={[styles.energyRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <View
+                    style={[
+                      styles.energyRow,
+                      { flexDirection: isRTL ? "row-reverse" : "row" },
+                    ]}
+                  >
                     <View style={styles.energyTrack}>
-                      <View style={[styles.energyFill, { width: `${task.energy}%` as any, backgroundColor: task.color }]} />
+                      <View
+                        style={[
+                          styles.energyFill,
+                          {
+                            width: `${task.energy}%` as any,
+                            backgroundColor: task.color,
+                          },
+                        ]}
+                      />
                     </View>
-                    <View style={[styles.energyBadge, { backgroundColor: task.bg }]}>
-                      <Text style={[styles.energyPct, { color: task.color }]}>{task.energy}%</Text>
+                    <View
+                      style={[styles.energyBadge, { backgroundColor: task.bg }]}
+                    >
+                      <Text style={[styles.energyPct, { color: task.color }]}>
+                        {task.energy}%
+                      </Text>
                     </View>
                   </View>
                 </View>
@@ -482,7 +589,6 @@ export default function TasksScreen() {
             ))
           )}
         </View>
-
         <View style={{ height: 100 }} />
       </ScrollView>
 
@@ -495,12 +601,12 @@ export default function TasksScreen() {
         statusBarTranslucent={false}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={{ flex: 1 }}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
         >
           <TouchableOpacity
-            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }}
+            style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)" }}
             activeOpacity={1}
             onPress={closeModal}
           />
@@ -515,73 +621,118 @@ export default function TasksScreen() {
 
               <View style={styles.modalHeaderRow}>
                 <Text style={styles.modalTitle}>
-                  {isRTL ? 'إضافة مهمة جديدة' : 'Add New Task'}
+                  {isRTL ? "إضافة مهمة جديدة" : "Add New Task"}
                 </Text>
-                <TouchableOpacity onPress={closeModal} style={styles.modalCloseBtn} activeOpacity={0.7}>
+                <TouchableOpacity
+                  onPress={closeModal}
+                  style={styles.modalCloseBtn}
+                  activeOpacity={0.7}
+                >
                   <Ionicons name="close" size={20} color="#888" />
                 </TouchableOpacity>
               </View>
 
-              {/* Task Type */}
-              <Text style={styles.fieldLabel}>{isRTL ? 'نوع المهمة' : 'Task Type'}</Text>
+              <Text style={styles.fieldLabel}>
+                {isRTL ? "نوع المهمة" : "Task Type"}
+              </Text>
               <View style={styles.typeRow}>
                 <TouchableOpacity
-                  style={[styles.typeBtn, newType === 'core' && styles.typeBtnActive]}
-                  onPress={() => setNewType('core')}
+                  style={[
+                    styles.typeBtn,
+                    newType === "core" && styles.typeBtnActive,
+                  ]}
+                  onPress={() => setNewType("core")}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="star" size={16} color={newType === 'core' ? '#fff' : '#7C5CBF'} />
-                  <Text style={[styles.typeBtnText, newType === 'core' && styles.typeBtnTextActive]}>
-                    {isRTL ? 'أساسي 🔁' : 'Core 🔁'}
+                  <Ionicons
+                    name="star"
+                    size={16}
+                    color={newType === "core" ? "#fff" : "#7C5CBF"}
+                  />
+                  <Text
+                    style={[
+                      styles.typeBtnText,
+                      newType === "core" && styles.typeBtnTextActive,
+                    ]}
+                  >
+                    {isRTL ? "أساسي 🔁" : "Core 🔁"}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.typeBtn, newType === 'extra' && styles.typeBtnActive]}
-                  onPress={() => setNewType('extra')}
+                  style={[
+                    styles.typeBtn,
+                    newType === "extra" && styles.typeBtnActive,
+                  ]}
+                  onPress={() => setNewType("extra")}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="flash" size={16} color={newType === 'extra' ? '#fff' : '#7C5CBF'} />
-                  <Text style={[styles.typeBtnText, newType === 'extra' && styles.typeBtnTextActive]}>
-                    {isRTL ? 'إضافي ⚡ (اليوم بس)' : 'Extra ⚡ (Today only)'}
+                  <Ionicons
+                    name="flash"
+                    size={16}
+                    color={newType === "extra" ? "#fff" : "#7C5CBF"}
+                  />
+                  <Text
+                    style={[
+                      styles.typeBtnText,
+                      newType === "extra" && styles.typeBtnTextActive,
+                    ]}
+                  >
+                    {isRTL ? "إضافي ⚡ (اليوم بس)" : "Extra ⚡ (Today only)"}
                   </Text>
                 </TouchableOpacity>
               </View>
 
-              {/* Task Name */}
-              <Text style={styles.fieldLabel}>{isRTL ? 'اسم المهمة *' : 'Task name *'}</Text>
+              <Text style={styles.fieldLabel}>
+                {isRTL ? "اسم المهمة *" : "Task name *"}
+              </Text>
               <TextInput
                 style={[
                   styles.fieldInput,
                   nameError && styles.fieldInputError,
-                  { textAlign: isRTL ? 'right' : 'left' },
+                  { textAlign: isRTL ? "right" : "left" },
                 ]}
-                placeholder={isRTL ? 'مثال: قراءة كتاب...' : 'e.g. Read a book...'}
+                placeholder={
+                  isRTL ? "مثال: قراءة كتاب..." : "e.g. Read a book..."
+                }
                 placeholderTextColor={Colors.textMuted}
                 value={newName}
-                onChangeText={(v) => { setNewName(v); if (v.trim()) setNameError(false); }}
+                onChangeText={(v) => {
+                  setNewName(v);
+                  if (v.trim()) setNameError(false);
+                }}
                 autoFocus={false}
                 returnKeyType="next"
               />
               {nameError && (
-                <Text style={styles.errorText}>{isRTL ? 'الرجاء إدخال اسم المهمة' : 'Please enter task name'}</Text>
+                <Text style={styles.errorText}>
+                  {isRTL ? "الرجاء إدخال اسم المهمة" : "Please enter task name"}
+                </Text>
               )}
 
-              {/* Icon */}
-              <Text style={styles.fieldLabel}>{isRTL ? 'الإيقونة (إيموجي)' : 'Icon (emoji)'}</Text>
+              <Text style={styles.fieldLabel}>
+                {isRTL ? "الإيقونة (إيموجي)" : "Icon (emoji)"}
+              </Text>
               <TextInput
-                style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
+                style={[
+                  styles.fieldInput,
+                  { textAlign: isRTL ? "right" : "left" },
+                ]}
                 placeholder="📌"
                 placeholderTextColor={Colors.textMuted}
                 value={newIcon}
                 onChangeText={setNewIcon}
               />
 
-              {/* Time */}
-              <Text style={styles.fieldLabel}>{isRTL ? 'الوقت' : 'Time'}</Text>
-              <View style={[styles.timeRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Text style={styles.fieldLabel}>{isRTL ? "الوقت" : "Time"}</Text>
+              <View
+                style={[
+                  styles.timeRow,
+                  { flexDirection: isRTL ? "row-reverse" : "row" },
+                ]}
+              >
                 <TextInput
                   style={[styles.fieldInput, { flex: 1 }]}
-                  placeholder={isRTL ? '09:00 ص' : '09:00 AM'}
+                  placeholder={isRTL ? "09:00 ص" : "09:00 AM"}
                   placeholderTextColor={Colors.textMuted}
                   value={newTimeStart}
                   onChangeText={setNewTimeStart}
@@ -590,7 +741,7 @@ export default function TasksScreen() {
                 <Text style={styles.timeSep}>—</Text>
                 <TextInput
                   style={[styles.fieldInput, { flex: 1 }]}
-                  placeholder={isRTL ? '10:00 ص' : '10:00 AM'}
+                  placeholder={isRTL ? "10:00 ص" : "10:00 AM"}
                   placeholderTextColor={Colors.textMuted}
                   value={newTimeEnd}
                   onChangeText={setNewTimeEnd}
@@ -598,35 +749,52 @@ export default function TasksScreen() {
                 />
               </View>
 
-              {/* Category */}
-              <Text style={styles.fieldLabel}>{isRTL ? 'التصنيف' : 'Category'}</Text>
-              <View style={[styles.catRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Text style={styles.fieldLabel}>
+                {isRTL ? "التصنيف" : "Category"}
+              </Text>
+              <View
+                style={[
+                  styles.catRow,
+                  { flexDirection: isRTL ? "row-reverse" : "row" },
+                ]}
+              >
                 {CAT_OPTIONS.map((opt) => (
                   <TouchableOpacity
                     key={opt.k}
-                    style={[styles.catBtn, newCat === opt.k && styles.catBtnActive]}
+                    style={[
+                      styles.catBtn,
+                      newCat === opt.k && styles.catBtnActive,
+                    ]}
                     onPress={() => setNewCat(opt.k)}
                     activeOpacity={0.8}
                   >
-                    <Text style={[styles.catBtnText, newCat === opt.k && styles.catBtnTextActive]}>
+                    <Text
+                      style={[
+                        styles.catBtnText,
+                        newCat === opt.k && styles.catBtnTextActive,
+                      ]}
+                    >
                       {opt.l}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              {/* Energy */}
-              <Text style={styles.fieldLabel}>{isRTL ? 'الطاقة المستهلكة (%)' : 'Energy consumed (%)'}</Text>
+              <Text style={styles.fieldLabel}>
+                {isRTL ? "الطاقة المستهلكة (%)" : "Energy consumed (%)"}
+              </Text>
               <TextInput
-                style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
-                placeholder={isRTL ? 'مثال: 20' : 'e.g. 20'}
+                style={[
+                  styles.fieldInput,
+                  { textAlign: isRTL ? "right" : "left" },
+                ]}
+                placeholder={isRTL ? "مثال: 20" : "e.g. 20"}
                 placeholderTextColor={Colors.textMuted}
                 keyboardType="number-pad"
                 value={newEnergy}
                 onChangeText={setNewEnergy}
               />
 
-              {/* Submit */}
               <TouchableOpacity
                 style={[styles.submitBtn, saving && { opacity: 0.6 }]}
                 onPress={addTask}
@@ -635,8 +803,12 @@ export default function TasksScreen() {
               >
                 <Text style={styles.submitText}>
                   {saving
-                    ? (isRTL ? 'جاري الحفظ...' : 'Saving...')
-                    : (isRTL ? '✚ إضافة المهمة' : '✚ Add Task')}
+                    ? isRTL
+                      ? "جاري الحفظ..."
+                      : "Saving..."
+                    : isRTL
+                      ? "✚ إضافة المهمة"
+                      : "✚ Add Task"}
                 </Text>
               </TouchableOpacity>
             </ScrollView>
@@ -649,140 +821,229 @@ export default function TasksScreen() {
 
 // ─── Styles ──────────────────────────────────────────────
 const styles = StyleSheet.create({
-  safe:    { flex: 1, backgroundColor: Colors.background },
+  safe: { flex: 1, backgroundColor: Colors.background },
   content: { padding: Spacing.xl },
 
-  topBar: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.base },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.base,
+  },
   iconBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    alignItems: 'center', justifyContent: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: Colors.white,
     shadowColor: Colors.shadowDark,
-    shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.8, shadowRadius: 3, elevation: 2,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.8,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  titleBlock: { flex: 1, alignItems: 'center' },
-  title:      { fontSize: 22, fontWeight: '800', color: Colors.textPrimary },
-  subtitle:   { fontSize: FontSize.sm, color: Colors.textMuted, marginTop: 2 },
+  titleBlock: { flex: 1, alignItems: "center" },
+  title: { fontSize: 22, fontWeight: "800", color: Colors.textPrimary },
 
   sectionToggle: {
-    flexDirection: 'row',
-    backgroundColor: '#F0EBFA',
+    flexDirection: "row",
+    backgroundColor: "#F0EBFA",
     borderRadius: 16,
     padding: 4,
     marginBottom: 6,
     gap: 4,
   },
   sectionBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, paddingVertical: 10, borderRadius: 12,
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 12,
   },
-  sectionBtnActive:     { backgroundColor: '#7C5CBF' },
-  sectionBtnText:       { fontSize: 13, fontWeight: '700', color: '#7C5CBF' },
-  sectionBtnTextActive: { color: '#fff' },
+  sectionBtnActive: { backgroundColor: "#7C5CBF" },
+  sectionBtnText: { fontSize: 13, fontWeight: "700", color: "#7C5CBF" },
+  sectionBtnTextActive: { color: "#fff" },
   sectionCount: {
-    width: 20, height: 20, borderRadius: 10,
-    alignItems: 'center', justifyContent: 'center',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  sectionCountText: { fontSize: 10, fontWeight: '800' },
+  sectionCountText: { fontSize: 10, fontWeight: "800" },
 
   sectionHint: {
-    alignItems: 'center', gap: 5,
+    alignItems: "center",
+    gap: 5,
     marginBottom: Spacing.base,
   },
-  sectionHintText: { fontSize: 11, color: '#7C5CBF99', fontStyle: 'italic' },
+  sectionHintText: { fontSize: 11, color: "#7C5CBF99", fontStyle: "italic" },
 
   filters: { gap: 8, paddingVertical: 4 },
 
   taskList: { gap: 14 },
-  emptyState: { alignItems: 'center', paddingTop: 40, gap: 12 },
-  emptyText:  { fontSize: 14, color: Colors.textMuted, textAlign: 'center' },
+  emptyState: { alignItems: "center", paddingTop: 40, gap: 12 },
+  emptyText: { fontSize: 14, color: Colors.textMuted, textAlign: "center" },
   emptyAddBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    borderWidth: 1.5, borderColor: '#7C5CBF', borderRadius: 12,
-    paddingVertical: 8, paddingHorizontal: 16, backgroundColor: '#F0EBFA',
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1.5,
+    borderColor: "#7C5CBF",
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: "#F0EBFA",
   },
-  emptyAddText: { fontSize: 13, fontWeight: '700', color: '#7C5CBF' },
+  emptyAddText: { fontSize: 13, fontWeight: "700", color: "#7C5CBF" },
 
   taskCard: {
-    backgroundColor: Colors.white, borderRadius: Radius.xl,
-    padding: Spacing.base, alignItems: 'center', gap: 12,
+    backgroundColor: Colors.white,
+    borderRadius: Radius.xl,
+    padding: Spacing.base,
+    alignItems: "center",
+    gap: 12,
     shadowColor: Colors.shadowDark,
-    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 6, elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    elevation: 2,
   },
 
-  taskIcon:     { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
-  taskInfo:     { flex: 1, gap: 4 },
-  taskTitleRow: { alignItems: 'center', gap: 6 },
-  taskTitle:    { fontSize: FontSize.base, fontWeight: '700', color: Colors.textPrimary },
-  typeBadge:    { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
-  typeBadgeText:{ fontSize: 11 },
-  taskMetaRow:  { alignItems: 'center', gap: 2 },
-  taskTime:     { fontSize: FontSize.xs, color: Colors.textMuted },
-  energyRow:    { alignItems: 'center', gap: 8, width: '100%' },
-  energyTrack:  { flex: 1, height: 4, backgroundColor: Colors.border, borderRadius: 2, overflow: 'hidden' },
-  energyFill:   { height: '100%', borderRadius: 2 },
-  energyBadge:  { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  energyPct:    { fontSize: 10, fontWeight: '700' },
+  taskIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  taskInfo: { flex: 1, gap: 4 },
+  taskTitleRow: { alignItems: "center", gap: 6 },
+  taskTitle: {
+    fontSize: FontSize.base,
+    fontWeight: "700",
+    color: Colors.textPrimary,
+  },
+  typeBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  typeBadgeText: { fontSize: 11 },
+  taskMetaRow: { alignItems: "center", gap: 2 },
+  taskTime: { fontSize: FontSize.xs, color: Colors.textMuted },
+  energyRow: { alignItems: "center", gap: 8, width: "100%" },
+  energyTrack: {
+    flex: 1,
+    height: 4,
+    backgroundColor: Colors.border,
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  energyFill: { height: "100%", borderRadius: 2 },
+  energyBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  energyPct: { fontSize: 10, fontWeight: "700" },
 
-  // ── Modal ──
   modalSheet: {
     backgroundColor: Colors.white,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: Spacing.xl,
-    maxHeight: '90%',
+    maxHeight: "90%",
   },
   modalHandle: {
-    width: 40, height: 4, backgroundColor: Colors.border, borderRadius: 2,
-    alignSelf: 'center', marginBottom: 12,
+    width: 40,
+    height: 4,
+    backgroundColor: Colors.border,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 12,
   },
   modalHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 20,
   },
-  modalTitle:   { fontSize: 18, fontWeight: '800', color: Colors.textPrimary },
+  modalTitle: { fontSize: 18, fontWeight: "800", color: Colors.textPrimary },
   modalCloseBtn: {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: '#F0F0F0',
-    alignItems: 'center', justifyContent: 'center',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#F0F0F0",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
-  typeRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  typeRow: { flexDirection: "row", gap: 10, marginBottom: 14 },
   typeBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, borderWidth: 1.5, borderColor: '#7C5CBF',
-    borderRadius: 12, paddingVertical: 10, backgroundColor: '#F0EBFA',
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderWidth: 1.5,
+    borderColor: "#7C5CBF",
+    borderRadius: 12,
+    paddingVertical: 10,
+    backgroundColor: "#F0EBFA",
   },
-  typeBtnActive:     { backgroundColor: '#7C5CBF' },
-  typeBtnText:       { fontSize: 12, fontWeight: '700', color: '#7C5CBF' },
-  typeBtnTextActive: { color: '#fff' },
+  typeBtnActive: { backgroundColor: "#7C5CBF" },
+  typeBtnText: { fontSize: 12, fontWeight: "700", color: "#7C5CBF" },
+  typeBtnTextActive: { color: "#fff" },
 
   fieldLabel: {
-    fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary,
-    marginBottom: 6, textAlign: 'right',
+    fontSize: FontSize.sm,
+    fontWeight: "600",
+    color: Colors.textSecondary,
+    marginBottom: 6,
+    textAlign: "right",
   },
   fieldInput: {
-    borderWidth: 1.5, borderColor: Colors.border, borderRadius: Radius.lg,
-    padding: 10, fontSize: FontSize.base, color: Colors.textPrimary,
-    backgroundColor: Colors.background, marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    borderRadius: Radius.lg,
+    padding: 10,
+    fontSize: FontSize.base,
+    color: Colors.textPrimary,
+    backgroundColor: Colors.background,
+    marginBottom: 14,
   },
-  fieldInputError: { borderColor: '#E24B4A' },
+  fieldInputError: { borderColor: "#E24B4A" },
   errorText: {
-    fontSize: FontSize.xs, color: '#E24B4A',
-    textAlign: 'right', marginTop: -10, marginBottom: 8,
+    fontSize: FontSize.xs,
+    color: "#E24B4A",
+    textAlign: "right",
+    marginTop: -10,
+    marginBottom: 8,
   },
-  timeRow:          { gap: 10, marginBottom: 14, alignItems: 'center' },
-  timeSep:          { color: Colors.textMuted, fontSize: 18, marginBottom: 14 },
-  catRow:           { gap: 10, marginBottom: 14 },
-  catBtn:           { flex: 1, paddingVertical: 10, borderRadius: Radius.lg, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center', backgroundColor: Colors.background },
-  catBtnActive:     { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  catBtnText:       { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textSecondary },
-  catBtnTextActive: { color: '#fff' },
+  timeRow: { gap: 10, marginBottom: 14, alignItems: "center" },
+  timeSep: { color: Colors.textMuted, fontSize: 18, marginBottom: 14 },
+  catRow: { gap: 10, marginBottom: 14 },
+  catBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: Radius.lg,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    alignItems: "center",
+    backgroundColor: Colors.background,
+  },
+  catBtnActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  catBtnText: {
+    fontSize: FontSize.sm,
+    fontWeight: "700",
+    color: Colors.textSecondary,
+  },
+  catBtnTextActive: { color: "#fff" },
   submitBtn: {
-    backgroundColor: Colors.primary, borderRadius: Radius.xl,
-    paddingVertical: 14, alignItems: 'center', marginTop: 4,
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.xl,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 4,
   },
-  submitText: { fontSize: FontSize.base, fontWeight: '800', color: '#fff' },
+  submitText: { fontSize: FontSize.base, fontWeight: "800", color: "#fff" },
 });

@@ -367,9 +367,8 @@ export default function DoctorChatScreen() {
           </View>
         </View>
 
-        <TouchableOpacity style={[styles.callBtn, { backgroundColor: doctorBg }]} activeOpacity={0.8}>
-          <Ionicons name="call-outline" size={18} color={doctorColor} />
-        </TouchableOpacity>
+        {/* spacer بدل زرار الاتصال */}
+        <View style={{ width: 38 }} />
       </View>
 
       {/* ── Notice (local mode only) ── */}
@@ -496,10 +495,6 @@ const styles = StyleSheet.create({
   },
   headerName: { fontSize: FontSize.base, fontWeight: '700', color: Colors.textPrimary },
   headerSpec: { fontSize: 11, fontWeight: '600', marginTop: 1 },
-  callBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    alignItems: 'center', justifyContent: 'center',
-  },
 
   noticeBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
