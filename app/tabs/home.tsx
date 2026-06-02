@@ -12,8 +12,8 @@ import {
   startAllWatchers,
   areWatchersRunning,
 } from './notificationService';
+import MedicationNote from '../../components/Medicationnote';
 
-// ─── Types ───────────────────────────────────────────────
 interface PlanTask {
   id: string;
   title: string;
@@ -32,12 +32,10 @@ interface PlanTask {
 
 type CompletionStatus = 'done' | 'pending' | 'locked';
 
-// ─── Storage Keys ─────────────────────────────────────────
 const CORE_TASKS_KEY      = 'core_tasks';
 const EXTRA_TASKS_KEY     = 'extra_tasks';
 const CORE_EXERCISES_KEY  = 'core_exercises';
 
-// ─── Helpers ─────────────────────────────────────────────
 const DAYS_AR   = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
 const MONTHS_AR = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 
@@ -173,7 +171,6 @@ async function saveDoneIds(date: Date, ids: Set<string>) {
 
 const TODAY_KEY = toKey(new Date());
 
-// ─── Done Badge Component ─────────────────────────────────
 function DoneBadge({ status, onPress }: {
   status: CompletionStatus;
   onPress: () => void;
@@ -241,7 +238,6 @@ const badge = StyleSheet.create({
   },
 });
 
-// ─── Calendar Picker ──────────────────────────────────────
 function CalendarPicker({ visible, selected, onSelect, onClose }: {
   visible: boolean;
   selected: Date;
@@ -318,7 +314,6 @@ function CalendarPicker({ visible, selected, onSelect, onClose }: {
   );
 }
 
-// ─── Task Card ───────────────────────────────────────────
 function TaskCard({ task, energy, isLast, status, onToggleDone, selectedDate }: {
   task: PlanTask;
   energy: number;
@@ -414,7 +409,6 @@ function TaskCard({ task, energy, isLast, status, onToggleDone, selectedDate }: 
   );
 }
 
-// ─── Progress Bar ─────────────────────────────────────────
 function ProgressBar({ total, done }: { total: number; done: number }) {
   if (total === 0) return null;
   const pct = Math.round((done / total) * 100);
@@ -446,7 +440,6 @@ const prog = StyleSheet.create({
   congrats:  { fontSize: 13, color: '#4CAF82', fontWeight: '700', textAlign: 'center', marginTop: 8 },
 });
 
-// ─── Main Screen ─────────────────────────────────────────
 export default function PlanScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showCal, setShowCal]           = useState(false);
@@ -585,17 +578,16 @@ export default function PlanScreen() {
     <View style={s.safe}>
       <StatusBar backgroundColor="#f8f5ff" barStyle="dark-content" translucent={false} />
 
-      {/* ── Navbar — بدون سهم رجوع وبدون أيكون إشعارات ── */}
-  <View style={s.navbar}>
-  <View style={{ width: 40 }} /> {/* placeholder */}
-  <Text style={s.navTitle}>خطتي اليوم</Text>
-  <View style={s.calBtnWrapper}>
-    <TouchableOpacity onPress={() => setShowCal(true)} style={s.navIconBtn}>
-      <Ionicons name="calendar-outline" size={22} color="#7C5CBF" />
-    </TouchableOpacity>
-    <View style={s.calDot} />
-  </View>
-</View>
+      <View style={s.navbar}>
+        <View style={{ width: 40 }} />
+        <Text style={s.navTitle}>خطتي اليوم</Text>
+        <View style={s.calBtnWrapper}>
+          <TouchableOpacity onPress={() => setShowCal(true)} style={s.navIconBtn}>
+            <Ionicons name="calendar-outline" size={22} color="#7C5CBF" />
+          </TouchableOpacity>
+          <View style={s.calDot} />
+        </View>
+      </View>
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
 
@@ -703,25 +695,27 @@ export default function PlanScreen() {
         onSelect={setSelectedDate}
         onClose={() => setShowCal(false)}
       />
+
+      {/* ✅ زرار الأدوية العائم */}
+      <MedicationNote />
     </View>
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────
 const s = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: '#f8f5ff',
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 8,
   },
-navbar: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  paddingHorizontal: 16,
-  paddingVertical: 8,
-  backgroundColor: '#f8f5ff',
-},
+  navbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#f8f5ff',
+  },
   navIconBtn: {
     width: 40, height: 40, borderRadius: 20,
     alignItems: 'center', justifyContent: 'center',
@@ -730,7 +724,7 @@ navbar: {
     shadowOpacity: 0.12, shadowRadius: 4, elevation: 2,
   },
   navCenter: { flex: 1, alignItems: 'center' },
-navTitle: { fontSize: 18, fontWeight: '700', color: '#2d2d2d' },
+  navTitle: { fontSize: 18, fontWeight: '700', color: '#2d2d2d' },
   navRight:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
   calBtnWrapper: { position: 'relative', alignItems: 'center' },
   calDot: {

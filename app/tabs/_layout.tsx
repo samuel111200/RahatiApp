@@ -12,7 +12,7 @@ import {
   startAllWatchers,
   stopAllWatchers,
 } from './notificationService';
-
+import MedicationNote from "../../components/Medicationnote"; // ← أضف الاستيراد
 const HIDDEN_ROUTES = ['startup', 'notification', 'doctorchat', 'Exercisesessionscreen'];
 
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
@@ -85,19 +85,21 @@ export default function TabsLayout() {
   }, []);
 
   return (
-    <Tabs
-      tabBar={(props) => <CustomTabBar {...props} />}
-      screenOptions={{ headerShown: false }}
-    >
-      <Tabs.Screen name="startup" />
-      <Tabs.Screen name="home" />
-      <Tabs.Screen name="tasks" />
-      <Tabs.Screen name="exercises" />
-      <Tabs.Screen name="doctors" />
-      <Tabs.Screen name="more" />
-      <Tabs.Screen name="doctorchat" />
-      <Tabs.Screen name="Exercisesessionscreen" />
-    </Tabs>
+    <View style={{ flex: 1 }}>
+      <Tabs
+        tabBar={(props) => <CustomTabBar {...props} />}
+        screenOptions={{ headerShown: false }}
+      >
+        <Tabs.Screen name="home" />
+        <Tabs.Screen name="tasks" />
+        <Tabs.Screen name="exercises" />
+        <Tabs.Screen name="doctors" />
+        <Tabs.Screen name="more" />
+        <Tabs.Screen name="doctorchat" />
+        <Tabs.Screen name="Exercisesessionscreen" />
+      </Tabs>
+      <MedicationNote/> {/* ← ده هيخلي الزرار يظهر في كل صفحات المريض */}
+    </View>
   );
 }
 

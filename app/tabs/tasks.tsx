@@ -310,11 +310,8 @@ export default function TasksScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* ── Header — بدون سهم رجوع ── */}
-        // topBar
         <View style={styles.topBar}>
-          <View style={{ width: 40 }} />{" "}
-          {/* placeholder بدل titleBlock يكون flex:1 */}
+          <View style={{ width: 40 }} />
           <Text style={styles.title}>{t.myTasks}</Text>
           <TouchableOpacity
             style={styles.iconBtn}
@@ -418,7 +415,6 @@ export default function TasksScreen() {
             </View>
           </TouchableOpacity>
         </View>
-        {/* ── Section hint ── */}
         <View
           style={[
             styles.sectionHint,
@@ -444,7 +440,6 @@ export default function TasksScreen() {
                 : "Extra tasks for today only — long press for options"}
           </Text>
         </View>
-        {/* ── Filters ── */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -452,7 +447,7 @@ export default function TasksScreen() {
             styles.filters,
             { flexDirection: isRTL ? "row-reverse" : "row" },
           ]}
-          style={{ marginBottom: Spacing.base }}
+          style={{ marginBottom: Spacing.base, alignSelf: "center" }}
           keyboardShouldPersistTaps="handled"
         >
           {FILTERS.map((f) => (
@@ -464,7 +459,6 @@ export default function TasksScreen() {
             />
           ))}
         </ScrollView>
-        {/* ── Tasks ── */}
         <View style={styles.taskList}>
           {SECTION_TASKS.length === 0 ? (
             <View style={styles.emptyState}>
@@ -592,7 +586,6 @@ export default function TasksScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* ─── Add Task Modal ─── */}
       <Modal
         visible={modalVisible}
         transparent
@@ -779,7 +772,6 @@ export default function TasksScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
-
               <Text style={styles.fieldLabel}>
                 {isRTL ? "الطاقة المستهلكة (%)" : "Energy consumed (%)"}
               </Text>

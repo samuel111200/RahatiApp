@@ -1221,7 +1221,7 @@ const DEFAULT_COORDINATION_EXERCISES: Exercise[] = [
 // ─── Main Screen ──────────────────────────────────────────
 // ════════════════════════════════════════════════════════════
 export default function ExercisesScreen() {
-  const { t, isRTL } = useLang();
+  const { isRTL } = useLang();
   const router = useRouter();
 
   const [therapyList,      setTherapyList]      = useState<Exercise[]>([]);
@@ -1434,30 +1434,6 @@ export default function ExercisesScreen() {
     });
   }
 
-  async function handleConvertExercise(item: Exercise, targetType: SectionKey) {
-    const converted: Exercise = { ...item, type: targetType };
-    const [oldList, oldSetter, oldKey] = getListAndSetter(item.type);
-    const updatedOld = oldList.filter(e => e.key !== item.key);
-    oldSetter(updatedOld);
-    await AsyncStorage.setItem(oldKey, JSON.stringify(updatedOld));
-    const [newList, newSetter, newStorageKey] = getListAndSetter(targetType);
-    const updatedNew = [...newList, converted];
-    newSetter(updatedNew);
-    await AsyncStorage.setItem(newStorageKey, JSON.stringify(updatedNew));
-    await AsyncStorage.setItem('data_changed_at', Date.now().toString());
-    setActiveSection(targetType);
-    setSelected(converted.key);
-    const targetConfig = SECTION_CONFIGS.find(s => s.key === targetType)!;
-    suppressTaskListNotifOnce();
-    await notify({
-      title: isRTL ? 'تم النقل ✅' : 'Exercise Moved ✅',
-      body: isRTL
-        ? `"${item.title}" اتنقل لـ${targetConfig.labelAr}`
-        : `"${item.titleEn}" moved to ${targetConfig.labelEn}`,
-      emoji: item.emoji, type: 'add',
-    });
-  }
-
   const openAddModal = () => {
     setNewName(''); setNewEmoji('🏋️'); setNewMinutes('2');
     setNewDesc(''); setNewType(activeSection); setSavingEx(false); setShowAdd(true);
@@ -1622,9 +1598,8 @@ export default function ExercisesScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <View style={styles.container}>
 
-        {/* ✅ FIX: navbar بـ paddingTop مضبوط بالنسبة للـ content */}
 <View style={styles.navbar}>
-  <View style={{ width: 40 }} /> {/* placeholder */}
+  <View style={{ width: 40 }} />
   <Text style={styles.navTitle}>
     {isRTL ? 'تمارين اليوم' : "Today's Exercises"}
   </Text>
@@ -1754,8 +1729,6 @@ export default function ExercisesScreen() {
             </TouchableOpacity>
           ))}
         </View>
-
-        {/* ✅ FIX: paddingBottom: 18 ثابت فوق الـ bottom bar */}
         <View style={styles.timerWrap}>
           <TouchableOpacity
             style={[styles.timerBtn, { backgroundColor: ex.bg, borderColor: ex.color }]}
@@ -1768,8 +1741,6 @@ export default function ExercisesScreen() {
           </TouchableOpacity>
         </View>
       </View>
-
-      {/* ══ Add Exercise Modal ══ */}
       <Modal visible={showAdd} transparent animationType="slide" onRequestClose={closeAddModal} statusBarTranslucent={false}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
           <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }} activeOpacity={1} onPress={closeAddModal} />
@@ -1822,7 +1793,6 @@ export default function ExercisesScreen() {
     </SafeAreaView>
   );
 }
-
 // ─── Styles ───────────────────────────────────────────────
 const styles = StyleSheet.create({
   safe:      { flex: 1, backgroundColor: Colors.background },
