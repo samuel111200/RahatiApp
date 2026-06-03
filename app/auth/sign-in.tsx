@@ -6,12 +6,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/Languagecontext';
 import { PrimaryButton, InputField } from '../../components/UI';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
-
 export default function PatientSignInScreen() {
   const { signIn, logout } = useAuth();
   const { t, isRTL } = useLang();
@@ -30,12 +28,6 @@ export default function PatientSignInScreen() {
     setErrors(e);
     return Object.keys(e).length === 0;
   };
-
-  const handleDevReset = async () => {
-    await AsyncStorage.clear();
-    Alert.alert('✅ تم المسح', 'أُعيد تعيين التطبيق — أغلقه وافتحه من جديد');
-  };
-
   const handleSignIn = async () => {
     if (!validate()) return;
     setLoading(true);
@@ -75,12 +67,6 @@ export default function PatientSignInScreen() {
         >
           <View style={styles.orbTR} />
           <View style={styles.orbBL} />
-
-          <TouchableOpacity style={styles.devBtn} onPress={handleDevReset} activeOpacity={0.7}>
-            <Ionicons name="refresh-circle-outline" size={16} color="#fff" />
-            <Text style={styles.devBtnText}>Reset App</Text>
-          </TouchableOpacity>
-
           <View style={styles.roleBadgeRow}>
             <View style={styles.roleBadge}>
               <Text style={styles.roleBadgeEmoji}>🧑‍⚕️</Text>
@@ -209,6 +195,4 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: Colors.primary + '40',
   },
   switchRoleText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary, flex: 1, textAlign: 'center' },
-  devBtn: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end', marginTop: 12, marginRight: 4, backgroundColor: '#FF6B6B', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, gap: 4 },
-  devBtnText: { color: '#fff', fontSize: 11, fontWeight: '700' },
 });
