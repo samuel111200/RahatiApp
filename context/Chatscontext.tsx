@@ -3,9 +3,7 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 import {
   collection, doc, addDoc, deleteDoc, updateDoc, query, where, getDocs,
 } from 'firebase/firestore';
-import { Alert } from 'react-native';
 import { auth, db } from '../utils/firebaseConfig';
-import { saveInAppNotification } from '../app/tabs/notificationService';
 
 function onFirestoreError(op: string, e: unknown) {
   console.warn(`[Chats] Firestore error in ${op}:`, e);
@@ -91,13 +89,6 @@ export function ChatsProvider({ children }: { children: React.ReactNode }) {
           : c,
       ),
     );
-
-    saveInAppNotification({
-      title: 'رسالة مُرسَلة ✅',
-      body: `أرسلت رسالة: "${text.slice(0, 40)}${text.length > 40 ? '...' : ''}"`,
-      emoji: '💬',
-      type: 'update',
-    }).catch(() => {});
   }, []);
 
   const getExercises = useCallback((patientId: string): PatientExercise[] => {
@@ -127,13 +118,6 @@ export function ChatsProvider({ children }: { children: React.ReactNode }) {
         assignedBy: uid,
       }).catch(e => onFirestoreError('assignExercise', e));
     }
-
-    saveInAppNotification({
-      title: `تمرين مُضاف 🏋️`,
-      body: `تم تعيين "${exercise.emoji} ${exercise.title}" للمريض`,
-      emoji: '🏋️',
-      type: 'add',
-    }).catch(() => {});
   }, []);
 
   const removeExercise = useCallback((patientId: string, exerciseId: string) => {

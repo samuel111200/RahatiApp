@@ -257,7 +257,6 @@ export default function ExerciseSessionScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      {/* ── Video ── */}
       <View style={[styles.videoWrap, { borderColor: color + '33' }]}>
         <Video
           source={videoSource}
@@ -308,7 +307,6 @@ export default function ExerciseSessionScreen() {
         )}
       </View>
 
-      {/* ── Timer Block ── */}
       <View style={[styles.timerBlock, { backgroundColor: bg }]}>
         <View style={styles.timerRow}>
           <View style={[styles.emojiBubble, { backgroundColor: accent, borderColor: color + '55' }]}>
@@ -341,7 +339,6 @@ export default function ExerciseSessionScreen() {
         </View>
       </View>
 
-      {/* ── Stop Button ── */}
       <View style={styles.bottomWrap}>
         <TouchableOpacity
           style={[styles.stopBtn, { backgroundColor: bg, borderColor: color }]}
@@ -355,7 +352,6 @@ export default function ExerciseSessionScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ══ Done Modal ══ */}
       <Modal visible={showDone} transparent animationType="fade">
         <View style={modal.overlay}>
           <View style={[modal.box, { borderTopColor: color }]}>

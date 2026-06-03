@@ -349,7 +349,6 @@ export default function DoctorChatScreen() {
     <SafeAreaView style={styles.safe}>
       <StatusBar backgroundColor="#F8F5FF" barStyle="dark-content" />
 
-      {/* ── Header ── */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backBtn} activeOpacity={0.8}>
           <Ionicons name="arrow-back" size={22} color={doctorColor} />
@@ -367,11 +366,9 @@ export default function DoctorChatScreen() {
           </View>
         </View>
 
-        {/* spacer بدل زرار الاتصال */}
         <View style={{ width: 38 }} />
       </View>
 
-      {/* ── Notice (local mode only) ── */}
       {!isFirebase && (
         <View style={[styles.noticeBanner, { borderColor: doctorColor + '30' }]}>
           <Ionicons name="information-circle-outline" size={14} color={doctorColor} />

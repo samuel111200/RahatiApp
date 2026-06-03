@@ -37,7 +37,6 @@ export default function RoleChoose() {
     >
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-      {/* ── Logo ── */}
       <View style={styles.logoSection}>
         <Image
           source={require('../../assets/images/logo.png')}
@@ -48,16 +47,13 @@ export default function RoleChoose() {
         <Text style={styles.appNameEn}>{t.appTagline}</Text>
       </View>
 
-      {/* ── Heading ── */}
       <View style={styles.headingWrap}>
         <Text style={styles.title}>{t.docRoleTitle}</Text>
         <Text style={styles.subtitle}>{t.docRoleSubtitle}</Text>
       </View>
 
-      {/* ── Role Cards ── */}
       <View style={styles.rolesCol}>
 
-        {/* Doctor */}
         <TouchableOpacity
           style={[styles.roleCard, selectedRole === 'doctor' && styles.roleCardActive]}
           onPress={() => setSelectedRole('doctor')}
@@ -79,7 +75,6 @@ export default function RoleChoose() {
           )}
         </TouchableOpacity>
 
-        {/* Patient */}
         <TouchableOpacity
           style={[styles.roleCard, selectedRole === 'patient' && styles.roleCardActive]}
           onPress={() => setSelectedRole('patient')}
@@ -102,7 +97,6 @@ export default function RoleChoose() {
         </TouchableOpacity>
       </View>
 
-      {/* ── Continue Button ── */}
       <TouchableOpacity
         style={[styles.continueBtn, !selectedRole && styles.continueBtnDisabled]}
         onPress={handleContinue}

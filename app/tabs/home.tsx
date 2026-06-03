@@ -695,8 +695,6 @@ export default function PlanScreen() {
         onSelect={setSelectedDate}
         onClose={() => setShowCal(false)}
       />
-
-      {/* ✅ زرار الأدوية العائم */}
       <MedicationNote />
     </View>
   );

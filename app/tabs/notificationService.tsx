@@ -157,7 +157,9 @@ export async function notify(
       const already = await AsyncStorage.getItem(params.dedupKey);
       if (already) return;
       await AsyncStorage.setItem(params.dedupKey, "1");
-    } catch { /* لو فضل، ما نوقفش الأبلكيشن */ }
+    } catch {
+      void 0;
+    }
   }
 
   // ابعت push بس
@@ -634,7 +636,7 @@ export function startCompletionWatcher() {
           const exKey   = slotIdx >= 0 ? withoutPrefix.substring(0, slotIdx) : withoutPrefix;
           const idx     = slotIdx >= 0 ? parseInt(withoutPrefix.substring(slotIdx + 5), 10) : 0;
           const ex      = exercises.find((e: any) => String(e.key ?? e.id ?? e.title) === exKey)
-                       ?? exercises[idx % Math.max(exercises.length, 1)];
+          ?? exercises[idx % Math.max(exercises.length, 1)];
 
           await notify(
             {

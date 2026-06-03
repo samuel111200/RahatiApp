@@ -73,17 +73,14 @@ export default function PatientSignInScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* ── Background orbs ── */}
           <View style={styles.orbTR} />
           <View style={styles.orbBL} />
 
-          {/* ── DEV Reset ── */}
           <TouchableOpacity style={styles.devBtn} onPress={handleDevReset} activeOpacity={0.7}>
             <Ionicons name="refresh-circle-outline" size={16} color="#fff" />
             <Text style={styles.devBtnText}>Reset App</Text>
           </TouchableOpacity>
 
-          {/* ── Role badge ── */}
           <View style={styles.roleBadgeRow}>
             <View style={styles.roleBadge}>
               <Text style={styles.roleBadgeEmoji}>🧑‍⚕️</Text>
@@ -93,13 +90,11 @@ export default function PatientSignInScreen() {
             </View>
           </View>
 
-          {/* ── Title ── */}
           <View style={[styles.titleBlock, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
             <Text style={styles.title}>{t.signIn}</Text>
             <Text style={styles.subtitle}>{t.welcome}</Text>
           </View>
 
-          {/* ── Form card ── */}
           <View style={styles.card}>
             <InputField
               label={t.email}
@@ -130,7 +125,6 @@ export default function PatientSignInScreen() {
             />
           </View>
 
-          {/* ── Sign up link ── */}
           <TouchableOpacity
             onPress={() => router.push('/auth/sign-up-1')}
             style={styles.signUpRow}
@@ -142,10 +136,8 @@ export default function PatientSignInScreen() {
             </Text>
           </TouchableOpacity>
 
-          {/* ── Sign in button ── */}
           <PrimaryButton title={t.signIn} onPress={handleSignIn} loading={loading} />
 
-          {/* ── Switch role ── */}
           <TouchableOpacity
             onPress={() => router.replace('/Doctor/RoleChoose')}
             style={styles.switchRoleBtn}

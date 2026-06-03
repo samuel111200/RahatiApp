@@ -66,7 +66,6 @@ export default function PatientSignUp2Screen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
-          {/* ── Header row: back + step ── */}
           <View style={styles.topRow}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
               <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={22} color={Colors.primary} />
@@ -75,7 +74,6 @@ export default function PatientSignUp2Screen() {
             <Text style={styles.stepLabel}>{t.step2of2}</Text>
           </View>
 
-          {/* ── Role badge ── */}
           <View style={styles.roleBadgeRow}>
             <View style={styles.roleBadge}>
               <Text style={styles.roleBadgeEmoji}>🧑‍⚕️</Text>
@@ -85,11 +83,9 @@ export default function PatientSignUp2Screen() {
             </View>
           </View>
 
-          {/* ── Title ── */}
           <Text style={[styles.title, { textAlign: isRTL ? 'right' : 'left' }]}>{t.accountData}</Text>
           <Text style={[styles.subtitle, { textAlign: isRTL ? 'right' : 'left' }]}>{t.createAccount}</Text>
 
-          {/* ── Summary card ── */}
           <View style={[styles.summaryCard, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <View style={styles.summaryAvatar}>
               <Text style={{ fontSize: 22 }}>🧑‍⚕️</Text>
@@ -103,7 +99,6 @@ export default function PatientSignUp2Screen() {
             <Ionicons name="checkmark-circle" size={20} color="#4CAF82" />
           </View>
 
-          {/* ── Form ── */}
           <View style={styles.card}>
             <InputField
               label={t.email}
@@ -133,7 +128,6 @@ export default function PatientSignUp2Screen() {
               }
             />
 
-            {/* ── Password hint ── */}
             <Text style={styles.passHint}>
               {isRTL ? '🔒 كلمة المرور 6 أحرف على الأقل' : '🔒 At least 6 characters'}
             </Text>

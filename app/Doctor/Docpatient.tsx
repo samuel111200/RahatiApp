@@ -266,7 +266,6 @@ function ExerciseManagementModal({
   return (
     <Modal visible={visible} transparent={false} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={{ flex: 1, backgroundColor: '#F8F5FF' }} edges={['top', 'bottom']}>
-        {/* Header */}
         <View style={exStyles.header}>
           <TouchableOpacity onPress={onClose} style={exStyles.backBtn} activeOpacity={0.8}>
             <Ionicons name="arrow-back" size={22} color={DOC_COLOR} />
@@ -282,7 +281,6 @@ function ExerciseManagementModal({
           </View>
         </View>
 
-        {/* Exercise List */}
         <ScrollView
           contentContainerStyle={exStyles.listContent}
           showsVerticalScrollIndicator={false}
@@ -323,7 +321,6 @@ function ExerciseManagementModal({
             ))
           )}
 
-          {/* Add Form */}
           {showAddForm && (
             <View style={exStyles.addForm}>
               <Text style={exStyles.addFormTitle}>{t(isRTL, '➕ تمرين جديد', '➕ New Exercise')}</Text>
@@ -385,7 +382,6 @@ function ExerciseManagementModal({
           )}
         </ScrollView>
 
-        {/* Bottom Bar */}
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={exStyles.bottomBar}>
             {!showAddForm && (

@@ -40,7 +40,6 @@ export default function PatientSignUp1Screen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
-          {/* ── Header row: back + step ── */}
           <View style={styles.topRow}>
             <TouchableOpacity onPress={() => router.replace('/auth/sign-in')} style={styles.backBtn}>
               <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={22} color={Colors.primary} />
@@ -49,7 +48,6 @@ export default function PatientSignUp1Screen() {
             <Text style={styles.stepLabel}>{t.step1of2}</Text>
           </View>
 
-          {/* ── Role badge ── */}
           <View style={styles.roleBadgeRow}>
             <View style={styles.roleBadge}>
               <Text style={styles.roleBadgeEmoji}>🧑‍⚕️</Text>
@@ -59,11 +57,9 @@ export default function PatientSignUp1Screen() {
             </View>
           </View>
 
-          {/* ── Title ── */}
           <Text style={[styles.title, { textAlign: isRTL ? 'right' : 'left' }]}>{t.personalInfo}</Text>
           <Text style={[styles.subtitle, { textAlign: isRTL ? 'right' : 'left' }]}>{t.enterPersonalInfo}</Text>
 
-          {/* ── Form ── */}
           <View style={styles.card}>
             <View style={[styles.nameRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <View style={styles.halfField}>
@@ -97,7 +93,6 @@ export default function PatientSignUp1Screen() {
 
           <PrimaryButton title={t.continueBtn} onPress={handleContinue} style={styles.btn} />
 
-          {/* ── Have account ── */}
           <TouchableOpacity onPress={() => router.replace('/auth/sign-in')} style={styles.loginRow}>
             <Text style={styles.loginText}>
               {t.haveAccount}{' '}
@@ -105,7 +100,6 @@ export default function PatientSignUp1Screen() {
             </Text>
           </TouchableOpacity>
 
-          {/* ── Switch role ── */}
           <TouchableOpacity onPress={() => router.replace('/Doctor/RoleChoose')} style={styles.switchRoleBtn} activeOpacity={0.7}>
             <View style={styles.switchRoleInner}>
               <Ionicons name="swap-horizontal-outline" size={16} color={Colors.primary} />

@@ -420,7 +420,6 @@ export default function MedicationNote() {
 
   return (
     <>
-      {/* ── Floating Plus Button ── */}
       <Animated.View
         style={[floatSt.btnWrap, { bottom: bottomPos, opacity: btnOpacity }]}
         pointerEvents="box-none"
@@ -436,7 +435,6 @@ export default function MedicationNote() {
         </TouchableOpacity>
       </Animated.View>
 
-      {/* ── Note Panel ── */}
       {open && (
         <Modal
           visible={open}
@@ -461,7 +459,6 @@ export default function MedicationNote() {
               },
             ]}
           >
-            {/* Header */}
             <View style={noteSt.header}>
               <TouchableOpacity onPress={closeNote} style={noteSt.closeBtn}>
                 <Ionicons name="chevron-down" size={20} color="#7C5CBF" />

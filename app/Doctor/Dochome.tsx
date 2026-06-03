@@ -292,7 +292,6 @@ export default function DocHome() {
       <StatusBar backgroundColor="#F8F5FF" barStyle="dark-content" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-        {/* Header */}
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>{isRTL ? `أهلاً، د. ${docName} 👋` : `Hello, Dr. ${docName} 👋`}</Text>
@@ -308,7 +307,6 @@ export default function DocHome() {
           </TouchableOpacity>
         </View>
 
-        {/* Stats */}
         <View style={styles.statsStrip}>
           <View style={[styles.statPill,{backgroundColor:DOC_COLOR_LIGHT}]}>
             <Text style={[styles.statPillNum,{color:DOC_COLOR}]}>{acceptedCount}</Text>
@@ -324,14 +322,12 @@ export default function DocHome() {
           </View>
         </View>
 
-        {/* Search */}
         <View style={[styles.searchBar,{flexDirection:isRTL?'row-reverse':'row'}]}>
           <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
           <TextInput value={search} onChangeText={setSearch} placeholder={isRTL?'ابحث عن مريض...':'Search patient...'} placeholderTextColor={Colors.textMuted} style={[styles.searchInput,{textAlign:isRTL?'right':'left'}]} />
           {search.length>0 && <TouchableOpacity onPress={()=>setSearch('')}><Ionicons name="close-circle" size={18} color={Colors.textMuted} /></TouchableOpacity>}
         </View>
 
-        {/* Filter Tabs */}
         <View style={[styles.tabs,{flexDirection:isRTL?'row-reverse':'row'}]}>
           {([{key:'all',label:'الكل',count:patients.length},{key:'accepted',label:'نشطون',count:acceptedCount},{key:'pending',label:'انتظار',count:pendingCount}] as const).map(item=>(
             <TouchableOpacity key={item.key} onPress={()=>setTab(item.key)} style={[styles.tabBtn,tab===item.key&&styles.tabBtnActive]} activeOpacity={0.8}>
@@ -341,7 +337,6 @@ export default function DocHome() {
           ))}
         </View>
 
-        {/* List */}
         {loading ? (
           <View style={styles.emptyState}><Text style={styles.emptyEmoji}>⏳</Text><Text style={styles.emptyTitle}>جاري التحميل...</Text></View>
         ) : sorted.length===0 ? <EmptyState /> : (

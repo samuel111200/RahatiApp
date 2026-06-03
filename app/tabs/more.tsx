@@ -104,7 +104,6 @@ function EnergyEditModal({ visible, onClose, currentEnergy, onSave, isRTL }: {
           {isRTL ? 'اختر المستوى المناسب لطاقتك' : 'Choose the level that matches your energy'}
         </Text>
 
-        {/* slider value display */}
         <View style={[energyModal.valueWrap, { borderColor: eColor + '40' }]}>
           <Text style={[energyModal.valueNum, { color: eColor }]}>{value}%</Text>
           <Text style={energyModal.valueEmoji}>
@@ -112,12 +111,10 @@ function EnergyEditModal({ visible, onClose, currentEnergy, onSave, isRTL }: {
           </Text>
         </View>
 
-        {/* bar */}
         <View style={energyModal.barBg}>
           <View style={[energyModal.barFill, { width: `${value}%`, backgroundColor: eColor }]} />
         </View>
 
-        {/* +/- controls */}
         <View style={energyModal.controls}>
           <TouchableOpacity
             style={[energyModal.controlBtn, { borderColor: eColor }]}
@@ -149,7 +146,6 @@ function EnergyEditModal({ visible, onClose, currentEnergy, onSave, isRTL }: {
           </TouchableOpacity>
         </View>
 
-        {/* quick level buttons */}
         <View style={energyModal.quickRow}>
           {levels.map(l => (
             <TouchableOpacity
@@ -630,7 +626,6 @@ export default function MoreScreen() {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
-        {/* ── Header — no back button ── */}
         <View style={styles.topBar}>
           <View style={{ width: 40 }} />
           <Text style={styles.pageTitle}>{t.profile || 'حسابي'}</Text>
@@ -639,7 +634,6 @@ export default function MoreScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── Avatar Card ── */}
         <View style={styles.avatarCard}>
           <TouchableOpacity activeOpacity={0.85} onPressIn={handleAvatarPressIn} onPressOut={handleAvatarPressOut} onPress={() => {}}>
             <View style={styles.avatarWrapper}>
@@ -658,7 +652,6 @@ export default function MoreScreen() {
           <Text style={styles.avatarHint}>{t.longPressHint || '👆 اضغط مطوّل لخيارات الصورة'}</Text>
         </View>
 
-        {/* ── Energy Bar — قابلة للضغط لفتح التعديل ── */}
         <TouchableOpacity
           onPress={() => open('energy')}
           activeOpacity={0.85}
@@ -683,7 +676,6 @@ export default function MoreScreen() {
           </View>
         </TouchableOpacity>
 
-        {/* ── Account Info ── */}
         <Text style={[styles.sectionLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.accountInfo || 'معلومات الحساب'}</Text>
         <View style={styles.card}>
           <InfoRow label={t.firstName || 'الاسم الأول'} value={user?.firstName || ''} isRTL={isRTL} />
@@ -697,7 +689,6 @@ export default function MoreScreen() {
           <InfoRow label={t.gender || 'الجنس'} value={user?.gender === 'male' ? (t.male || 'ذكر') : user?.gender === 'female' ? (t.female || 'أنثى') : ''} isRTL={isRTL} />
         </View>
 
-        {/* ── Quick Links ── */}
         <Text style={[styles.sectionLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{isRTL ? 'روابط سريعة' : 'Quick Links'}</Text>
         <View style={styles.quickLinksRow}>
           {[
@@ -714,7 +705,6 @@ export default function MoreScreen() {
           ))}
         </View>
 
-        {/* ── Settings ── */}
         <Text style={[styles.sectionLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.settings || 'الإعدادات'}</Text>
         <View style={styles.card}>
           {MENU.map((item, i) => (
@@ -725,7 +715,6 @@ export default function MoreScreen() {
           ))}
         </View>
 
-        {/* ── Logout ── */}
         <TouchableOpacity onPress={() => open('logout')}
           style={[styles.logoutBtn, { flexDirection: isRTL ? 'row-reverse' : 'row' }]} activeOpacity={0.8}>
           <Ionicons name="log-out-outline" size={20} color={Colors.danger} />
@@ -736,7 +725,6 @@ export default function MoreScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* ── Modals ── */}
       <AvatarActionSheet visible={showAvatarSheet} onClose={() => setShowAvatarSheet(false)}
         onPickNew={handlePickAvatar} onDelete={handleDeleteAvatar} hasAvatar={!!avatarUri} t={t} />
 
@@ -747,7 +735,6 @@ export default function MoreScreen() {
       <NotificationsModal visible={activeModal === 'notifications'} onClose={close} t={t} isRTL={isRTL} />
       <HelpModal visible={activeModal === 'help'} onClose={close} t={t} isRTL={isRTL} />
 
-      {/* ── Energy Edit Modal ── */}
       <EnergyEditModal
         visible={activeModal === 'energy'}
         onClose={close}
@@ -756,7 +743,6 @@ export default function MoreScreen() {
         isRTL={isRTL}
       />
 
-      {/* Logout Confirm */}
       <Modal visible={activeModal === 'logout'} transparent animationType="fade" onRequestClose={close}>
         <View style={styles.overlay}>
           <View style={styles.modalCard}>

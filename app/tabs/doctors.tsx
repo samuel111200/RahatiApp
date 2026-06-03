@@ -247,7 +247,6 @@ export default function DoctorsScreen() {
           </ScrollView>
         )}
 
-        {/* زرار "تواصل الآن" — بس لو مفيش شات */}
         {showContactBtn && !hasChat && (
           <TouchableOpacity
             style={[styles.contactBtn, { backgroundColor: doc.available ? doc.color : '#ddd' }]}
@@ -268,7 +267,6 @@ export default function DoctorsScreen() {
           </TouchableOpacity>
         )}
 
-        {/* بادج "افتح الشات" — بس لو عنده شات */}
         {showContactBtn && hasChat && (
           <View style={[styles.openChatBadge, { backgroundColor: doc.bg }]}>
             <Ionicons name="chatbubbles" size={14} color={doc.color} />
@@ -310,7 +308,6 @@ export default function DoctorsScreen() {
     <SafeAreaView style={styles.safe}>
       <StatusBar backgroundColor={Colors.background} barStyle="dark-content" />
 
-      {/* ── Header ── */}
       <View style={styles.header}>
         <View style={{ width: 40 }} />
         <View style={styles.headerCenter}>
@@ -326,7 +323,6 @@ export default function DoctorsScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      {/* ── Search ── */}
       <View style={styles.searchWrap}>
         <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
         <TextInput
@@ -343,7 +339,6 @@ export default function DoctorsScreen() {
         )}
       </View>
 
-      {/* ── Available badge ── */}
       <View style={styles.availableBanner}>
         <View style={styles.greenDot} />
         <Text style={styles.availableText}>
@@ -394,7 +389,6 @@ export default function DoctorsScreen() {
         <SafeAreaView style={styles.safe}>
           <StatusBar backgroundColor={Colors.background} barStyle="dark-content" />
 
-          {/* Header الصفحة */}
           <View style={styles.header}>
             <View style={styles.headerCenter}>
               <Text style={styles.headerTitle}>
@@ -407,7 +401,6 @@ export default function DoctorsScreen() {
             <View style={{ width: 40 }} />
           </View>
 
-          {/* Search */}
           <View style={styles.searchWrap}>
             <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
             <TextInput
@@ -424,7 +417,6 @@ export default function DoctorsScreen() {
             )}
           </View>
 
-          {/* SectionList مقسم */}
           <SectionList
             sections={sections}
             keyExtractor={item => item.id}
@@ -474,7 +466,6 @@ export default function DoctorsScreen() {
         </SafeAreaView>
       </Modal>
 
-      {/* ══ Contact Modal ══ */}
       <Modal
         visible={showModal}
         transparent

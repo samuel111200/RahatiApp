@@ -404,9 +404,6 @@ type DoctorUser = {
 export default function DocMoreScreen() {
   const { user, logout, updateProfile } = useAuth();
   const { t, isRTL, setLang }           = useLang();
-
-  const doctorUser = user as DoctorUser | null;
-
   const [activeModal,     setActiveModal]     = useState<ModalKey>(null);
   const [avatarUri,       setAvatarUri]       = useState<string | null>(null);
   const [showAvatarSheet, setShowAvatarSheet] = useState(false);
@@ -549,7 +546,6 @@ export default function DocMoreScreen() {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
-        {/* ── Top Bar ── */}
         <View style={styles.topBar}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Ionicons name="chevron-back" size={24} color={DOC_COLOR} />
@@ -560,7 +556,6 @@ export default function DocMoreScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── Avatar Card ── */}
         <View style={styles.avatarCard}>
           <View style={styles.docBadge}>
             <Ionicons name="medical" size={12} color="#fff" />
@@ -586,7 +581,6 @@ export default function DocMoreScreen() {
           <Text style={styles.avatarHint}>{isRTL ? '👆 اضغط مطوّل لخيارات الصورة' : '👆 Long press for photo options'}</Text>
         </View>
 
-        {/* ── Doctor Stats ── */}
         <View style={styles.statsRow}>
           <View style={[styles.statCard, { backgroundColor: DOC_COLOR_LIGHT }]}>
             <Text style={styles.statIcon}>👥</Text>
@@ -600,7 +594,6 @@ export default function DocMoreScreen() {
           </View>
         </View>
 
-        {/* ── Account Info ── */}
         <Text style={[styles.sectionLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
           {t.accountInfo || 'معلومات الحساب'}
         </Text>
@@ -624,7 +617,6 @@ export default function DocMoreScreen() {
           />
         </View>
 
-        {/* ── Quick Links ── */}
         <Text style={[styles.sectionLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
           {isRTL ? 'روابط سريعة' : 'Quick Links'}
         </Text>
@@ -642,7 +634,6 @@ export default function DocMoreScreen() {
           ))}
         </View>
 
-        {/* ── Settings ── */}
         <Text style={[styles.sectionLabel, { textAlign: isRTL ? 'right' : 'left' }]}>
           {t.settings || 'الإعدادات'}
         </Text>
@@ -655,7 +646,6 @@ export default function DocMoreScreen() {
           ))}
         </View>
 
-        {/* ── Logout ── */}
         <TouchableOpacity onPress={() => open('logout')}
           style={[styles.logoutBtn, { flexDirection: isRTL ? 'row-reverse' : 'row' }]} activeOpacity={0.8}>
           <Ionicons name="log-out-outline" size={20} color={Colors.danger} />
@@ -666,10 +656,8 @@ export default function DocMoreScreen() {
         <View style={{ height: 20 }} />
       </ScrollView>
 
-      {/* ── Tab Bar ── */}
       <DocTabBar />
 
-      {/* ── Modals ── */}
       <AvatarActionSheet visible={showAvatarSheet} onClose={() => setShowAvatarSheet(false)}
         onPickNew={handlePickAvatar} onDelete={handleDeleteAvatar} hasAvatar={!!avatarUri} t={t} />
 
