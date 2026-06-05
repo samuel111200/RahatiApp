@@ -7,7 +7,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/Languagecontext';
 import { PrimaryButton, InputField } from '../../components/UI';
@@ -30,11 +29,6 @@ export default function DocSignInScreen() {
     else if (password.length < 6)   e.password = t.shortPassword;
     setErrors(e);
     return Object.keys(e).length === 0;
-  };
-
-  const handleDevReset = async () => {
-    await AsyncStorage.clear();
-    Alert.alert('✅ تم المسح', 'أُعيد تعيين التطبيق — أغلقه وافتحه من جديد');
   };
 
   const handleSignIn = async () => {
@@ -76,12 +70,6 @@ export default function DocSignInScreen() {
         >
           <View style={styles.orbTR} />
           <View style={styles.orbBL} />
-
-          <TouchableOpacity style={styles.devBtn} onPress={handleDevReset} activeOpacity={0.7}>
-            <Ionicons name="refresh-circle-outline" size={16} color="#fff" />
-            <Text style={styles.devBtnText}>Reset App</Text>
-          </TouchableOpacity>
-
           <View style={styles.roleBadgeRow}>
             <View style={styles.roleBadge}>
               <Text style={styles.roleBadgeEmoji}>🩺</Text>
@@ -165,17 +153,17 @@ export default function DocSignInScreen() {
 
 const styles = StyleSheet.create({
   safe:   { flex: 1, backgroundColor: Colors.background },
-  scroll: { flexGrow: 1, paddingHorizontal: Spacing.xl, paddingBottom: Spacing.xxxl },
+  scroll: { flexGrow: 1, paddingHorizontal: Spacing.xl, paddingBottom: Spacing.xxxl , justifyContent: 'center'},
 
   orbTR: {
     position: 'absolute', top: -30, right: -50,
     width: 160, height: 160, borderRadius: 80,
-    backgroundColor: Colors.primaryMid, opacity: 0.35,
+    backgroundColor: Colors.primaryMid, opacity: 0.5,
   },
   orbBL: {
     position: 'absolute', bottom: 100, left: -60,
     width: 120, height: 120, borderRadius: 60,
-    backgroundColor: Colors.accentSoft, opacity: 0.4,
+    backgroundColor: Colors.accentSoft, opacity: 0.5,
   },
 
   roleBadgeRow: { alignItems: 'center', paddingTop: 52, paddingBottom: 24 },
@@ -210,6 +198,4 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: Colors.primary + '40',
   },
   switchRoleText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary, flex: 1, textAlign: 'center' },
-  devBtn: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end', marginTop: 12, marginRight: 4, backgroundColor: '#FF6B6B', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, gap: 4 },
-  devBtnText: { color: '#fff', fontSize: 11, fontWeight: '700' },
 });

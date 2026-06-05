@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Modal, TextInput, Alert, Image,
@@ -15,6 +15,10 @@ import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/Languagecontext';
 import { PrimaryButton, OutlineButton } from '../../components/UI';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
+import {
+  collection, query, where, onSnapshot,
+} from 'firebase/firestore';
+import { auth, db, FSRelationship } from '../../utils/firebaseConfig';
 import {
   notifyProfileUpdated,
   notifyLanguageChanged,
@@ -248,7 +252,6 @@ function EditProfileModal({ visible, onClose, user, onSave, t, isRTL }: {
     try {
       onSave(form);
       onClose();
-      // ✅ إشعار حفظ البروفايل يروح لـ doc_notifications
       await notifyProfileUpdated(`${form.firstName} ${form.lastName}`);
     } catch {
       Alert.alert(t.error || 'خطأ', t.saveFailed || 'فشل الحفظ، حاول مجدداً');
@@ -391,16 +394,6 @@ function HelpModal({ visible, onClose, t, isRTL }: {
 // ─── Main Screen ──────────────────────────────────────────
 type ModalKey = 'logout' | 'editProfile' | 'language' | 'help' | null;
 
-type DoctorUser = {
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  age?: string | number;
-  gender?: string;
-  specialty?: string;
-  licenseNumber?: string;
-};
-
 export default function DocMoreScreen() {
   const { user, logout, updateProfile } = useAuth();
   const { t, isRTL, setLang }           = useLang();
@@ -409,13 +402,16 @@ export default function DocMoreScreen() {
   const [showAvatarSheet, setShowAvatarSheet] = useState(false);
   const [specialty,       setSpecialty]       = useState('');
   const [licenseNumber,   setLicenseNumber]   = useState('');
+
+  // ─── Patient stats from Firestore (same source as Dochome) ───
   const [totalPatients,   setTotalPatients]   = useState(0);
   const [activePatients,  setActivePatients]  = useState(0);
   const [pendingPatients, setPendingPatients] = useState(0);
 
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  React.useEffect(() => {
+  // ─── Load avatar + extra fields ───────────────────────
+  useEffect(() => {
     AsyncStorage.getItem('user_avatar').then(uri => { if (uri) setAvatarUri(uri); });
     AsyncStorage.getItem('doctor_extra_fields').then(raw => {
       if (raw) {
@@ -426,29 +422,38 @@ export default function DocMoreScreen() {
     });
   }, []);
 
+  // ─── Extra fields on focus ────────────────────────────
   useFocusEffect(
     useCallback(() => {
-      const loadStats = async () => {
-        try {
-          const patientsRaw  = await AsyncStorage.getItem('doc_patients');
-          const patients: any[] = patientsRaw ? JSON.parse(patientsRaw) : [];
-          setTotalPatients(patients.length);
-          setActivePatients(patients.filter((p: any) => p.status === 'accepted').length);
-          setPendingPatients(patients.filter((p: any) => p.status === 'pending').length);
-
-          const extraRaw = await AsyncStorage.getItem('doctor_extra_fields');
-          if (extraRaw) {
-            const parsed = JSON.parse(extraRaw);
-            setSpecialty(parsed.specialty || '');
-            setLicenseNumber(parsed.licenseNumber || '');
-          }
-        } catch (e) {
-          console.warn('[DocMoreScreen] Stats error:', e);
+      AsyncStorage.getItem('doctor_extra_fields').then(raw => {
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          setSpecialty(parsed.specialty || '');
+          setLicenseNumber(parsed.licenseNumber || '');
         }
-      };
-      loadStats();
+      }).catch(e => console.warn('[DocMoreScreen] extra fields error:', e));
     }, [])
   );
+
+  // ─── Real-time Firestore subscription for patient stats ──
+  useEffect(() => {
+    const doctorId = auth.currentUser?.uid;
+    if (!doctorId) return;
+
+    const q = query(
+      collection(db, 'relationships'),
+      where('doctorId', '==', doctorId),
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const all      = snap.docs.map(d => d.data() as FSRelationship);
+      const accepted = all.filter(r => r.status === 'accepted').length;
+      const pending  = all.filter(r => r.status !== 'accepted').length;
+      setTotalPatients(all.length);
+      setActivePatients(accepted);
+      setPendingPatients(pending);
+    });
+    return unsub;
+  }, [user?.uid]);
 
   const open  = (key: ModalKey) => setActiveModal(key);
   const close = ()              => setActiveModal(null);
@@ -462,18 +467,12 @@ export default function DocMoreScreen() {
       gender:    data.gender,
     } as any);
 
-    const extraFields = {
-      specialty:     data.specialty,
-      licenseNumber: data.licenseNumber,
-    };
+    const extraFields = { specialty: data.specialty, licenseNumber: data.licenseNumber };
     await AsyncStorage.setItem('doctor_extra_fields', JSON.stringify(extraFields));
-
     setSpecialty(data.specialty || '');
     setLicenseNumber(data.licenseNumber || '');
-    // الـ notification بيتبعت جوه EditProfileModal عشان يعرف الاسم الجديد
   };
 
-  // ✅ تغيير اللغة + notification
   const handleLanguageSelect = async (lang: 'ar' | 'en') => {
     await AsyncStorage.setItem('app_language', lang);
     setLang(lang);
@@ -483,7 +482,6 @@ export default function DocMoreScreen() {
   const handleAvatarPressIn  = () => { longPressTimer.current = setTimeout(() => setShowAvatarSheet(true), 500); };
   const handleAvatarPressOut = () => { if (longPressTimer.current) clearTimeout(longPressTimer.current); };
 
-  // ✅ اختيار صورة + notification
   const handlePickAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -498,20 +496,16 @@ export default function DocMoreScreen() {
       const dataUri = `data:image/jpeg;base64,${result.assets[0].base64}`;
       await AsyncStorage.setItem('user_avatar', dataUri);
       setAvatarUri(dataUri);
-      // ✅ notification رفع الصورة
       await notifyAvatarUpdated('added');
     }
   };
 
-  // ✅ حذف الصورة + notification
   const handleDeleteAvatar = async () => {
     await AsyncStorage.removeItem('user_avatar');
     setAvatarUri(null);
-    // ✅ notification حذف الصورة
     await notifyAvatarUpdated('deleted');
   };
 
-  // ✅ تسجيل الخروج + notification
   const handleLogout = async () => {
     close();
     await notifyLogout();
@@ -520,8 +514,8 @@ export default function DocMoreScreen() {
   };
 
   const MENU = [
-    { key: 'language', icon: 'language-outline',    label: t.language || 'اللغة',     color: DOC_COLOR,  value: isRTL ? 'عربي' : 'English' },
-    { key: 'help',     icon: 'help-circle-outline',  label: t.help    || 'المساعدة',  color: '#29B6D4' },
+    { key: 'language', icon: 'language-outline',   label: t.language || 'اللغة',    color: DOC_COLOR, value: isRTL ? 'عربي' : 'English' },
+    { key: 'help',     icon: 'help-circle-outline', label: t.help    || 'المساعدة', color: '#29B6D4' },
   ];
 
   const initials = user
@@ -530,11 +524,7 @@ export default function DocMoreScreen() {
 
   const docTitle = isRTL ? 'د.' : 'Dr.';
 
-  const combinedUser = {
-    ...user,
-    specialty,
-    licenseNumber,
-  };
+  const combinedUser = { ...user, specialty, licenseNumber };
 
   const activePatientsLabel = pendingPatients > 0
     ? (isRTL ? 'مرضى مقبولون' : 'Accepted Patients')
@@ -581,16 +571,22 @@ export default function DocMoreScreen() {
           <Text style={styles.avatarHint}>{isRTL ? '👆 اضغط مطوّل لخيارات الصورة' : '👆 Long press for photo options'}</Text>
         </View>
 
+        {/* ─── Stats من Firestore مباشرة ─── */}
         <View style={styles.statsRow}>
           <View style={[styles.statCard, { backgroundColor: DOC_COLOR_LIGHT }]}>
             <Text style={styles.statIcon}>👥</Text>
             <Text style={[styles.statValue, { color: DOC_COLOR }]}>{activePatients}</Text>
             <Text style={styles.statLabel}>{activePatientsLabel}</Text>
           </View>
+          <View style={[styles.statCard, { backgroundColor: '#FEF3E2' }]}>
+            <Text style={styles.statIcon}>⏳</Text>
+            <Text style={[styles.statValue, { color: '#F4A32B' }]}>{pendingPatients}</Text>
+            <Text style={styles.statLabel}>{isRTL ? 'انتظار' : 'Pending'}</Text>
+          </View>
           <View style={[styles.statCard, { backgroundColor: '#E8F5EF' }]}>
             <Text style={styles.statIcon}>✅</Text>
             <Text style={[styles.statValue, { color: '#4CAF82' }]}>{totalPatients}</Text>
-            <Text style={styles.statLabel}>{isRTL ? 'إجمالي المرضى' : 'Total Patients'}</Text>
+            <Text style={styles.statLabel}>{isRTL ? 'إجمالي' : 'Total'}</Text>
           </View>
         </View>
 
@@ -622,9 +618,8 @@ export default function DocMoreScreen() {
         </Text>
         <View style={styles.quickLinksRow}>
           {[
-            { label: isRTL ? 'المرضى'    : 'Patients',    icon: 'people-outline',        color: DOC_COLOR,  bg: DOC_COLOR_LIGHT, route: '/Doctor/Dochome'   },
-            { label: isRTL ? 'الشاتات'   : 'Chats',       icon: 'chatbubbles-outline',    color: '#4CAF82',  bg: '#E8F5EF',       route: '/Doctor/Docchat'  },
-            { label: isRTL ? 'إشعارات'   : 'Alerts',      icon: 'notifications-outline',  color: '#E05C5C',  bg: '#FDEAEA',       route: '/Doctor/Docnotif' },
+            { label: isRTL ? 'المرضى'  : 'Patients', icon: 'people-outline',     color: DOC_COLOR, bg: DOC_COLOR_LIGHT, route: '/Doctor/Dochome' },
+            { label: isRTL ? 'الشاتات' : 'Chats',    icon: 'chatbubbles-outline', color: '#4CAF82', bg: '#E8F5EF',       route: '/Doctor/Docchat' },
           ].map((item, i) => (
             <TouchableOpacity key={i} style={[styles.quickLink, { backgroundColor: item.bg }]}
               onPress={() => router.push(item.route as any)} activeOpacity={0.8}>

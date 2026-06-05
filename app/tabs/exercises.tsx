@@ -41,6 +41,9 @@ type Exercise = {
   animType: 'hipMarch' | 'armRaise' | 'standingRow' | 'legCurl' | 'rollUp' | 'achillesRelease' | 'bounce' | 'sway';
   type: ExerciseType;
   custom?: boolean;
+  fromDoctor?: boolean;
+  completed?: boolean;
+  doctorItemId?: string;
 };
 
 // ─── Storage Keys ─────────────────────────────────────────
@@ -127,6 +130,16 @@ const SECTION_CONFIGS: SectionConfig[] = [
     emoji: '🎯',
   },
 ];
+
+// ─── Section color map ────────────────────────────────────
+const SECTION_COLOR_MAP: Record<SectionKey, string> = {
+  therapy:      '#5B9BD5',
+  yoga:         '#4CAF82',
+  aerobic:      '#E07B5C',
+  endurance:    '#D45BAA',
+  strength:     '#7B5EA7',
+  coordination: '#2A9D8F',
+};
 
 // ─── Section badge styles ─────────────────────────────────
 const SECTION_BADGE: Record<SectionKey, { bg: string; color: string; label: string }> = {
@@ -529,7 +542,6 @@ const DEFAULT_ENDURANCE_EXERCISES: Exercise[] = [
   },
 ];
 
-// ─── Default Strength Exercises ───────────────────────────
 const DEFAULT_STRENGTH_EXERCISES: Exercise[] = [
   {
     key: 'marchingInPlace',
@@ -599,281 +611,8 @@ const DEFAULT_STRENGTH_EXERCISES: Exercise[] = [
     animType: 'bounce',
     type: 'strength',
   },
-  {
-    key: 'hipStrength',
-    emoji: '🦴',
-    title: 'تقوية مفصل وعضلات الورك',
-    titleEn: 'Hip Joint & Muscle Strengthening',
-    duration: '5 دقائق',
-    durationEn: '5 minutes',
-    durationSeconds: 300,
-    color: '#7B5EA7',
-    bg: '#F0EBF8',
-    accent: '#E0D5F2',
-    desc: 'تقوية عضلات ومفصل الورك لتحسين الثبات وتسهيل المشي والحركة اليومية',
-    descEn: 'Strengthens hip muscles and joint to improve stability and ease daily walking and movement',
-    steps: [
-      'قف بجانب كرسي أو حائط للدعم',
-      'قف مستقيماً مع توزيع الوزن بالتساوي',
-      'ارفع ساقك اليمنى للجانب ببطء مع إبقاء الجسم مستقيماً',
-      'اثبت في الوضع لثانيتين ثم أنزل الساق ببطء',
-      'كرر 10 مرات ثم انتقل للساق اليسرى',
-      'ارفع ساقك للخلف ببطء دون أن تنحني للأمام',
-      'اثبت لثانيتين ثم أنزل ببطء، وكرر 10 مرات لكل ساق',
-    ],
-    stepsEn: [
-      'Stand next to a chair or wall for support',
-      'Stand straight with weight evenly distributed',
-      'Slowly lift your right leg out to the side while keeping your body upright',
-      'Hold for two seconds then slowly lower your leg',
-      'Repeat 10 times then switch to the left leg',
-      'Slowly lift your leg backward without leaning forward',
-      'Hold for two seconds then lower slowly, repeat 10 times for each leg',
-    ],
-    animType: 'legCurl',
-    type: 'strength',
-  },
-  {
-    key: 'seatedTwistKnee',
-    emoji: '🔄',
-    title: 'لف الجسم ولمس الركبة المعاكسة أثناء الجلوس',
-    titleEn: 'Seated Twist & Opposite Knee Touch',
-    duration: '5 دقائق',
-    durationEn: '5 minutes',
-    durationSeconds: 300,
-    color: '#7B5EA7',
-    bg: '#F0EBF8',
-    accent: '#E0D5F2',
-    desc: 'تحسين مرونة العمود الفقري وتقوية عضلات الجذع والبطن أثناء الجلوس',
-    descEn: 'Improves spinal flexibility and strengthens core and abdominal muscles while seated',
-    steps: [
-      'اجلس على كرسي باستقامة مع إبقاء قدميك مسطحتين على الأرض',
-      'ضع يديك على صدرك أو مدّ ذراعيك للأمام',
-      'أدر جسمك ببطء نحو اليمين وامتد بيدك اليسرى لتلمس ركبتك اليمنى',
-      'اثبت في الوضع لثانيتين مع التنفس',
-      'عد ببطء إلى وضع البداية',
-      'أدر جسمك نحو اليسار وامتد بيدك اليمنى لتلمس ركبتك اليسرى',
-      'اثبت لثانيتين ثم عد للبداية — هذا تكرار واحد، اعمل 10 إلى 15 تكراراً',
-    ],
-    stepsEn: [
-      'Sit straight on a chair with feet flat on the floor',
-      'Place your hands on your chest or extend them forward',
-      'Slowly rotate your body to the right and reach your left hand to touch your right knee',
-      'Hold for two seconds while breathing',
-      'Slowly return to the starting position',
-      'Rotate your body to the left and reach your right hand to touch your left knee',
-      'Hold for two seconds then return — this is one repetition, do 10 to 15 repetitions',
-    ],
-    animType: 'rollUp',
-    type: 'strength',
-  },
-  {
-    key: 'armLegStrength',
-    emoji: '💪',
-    title: 'تقوية الذراعين والساقين',
-    titleEn: 'Arm & Leg Strengthening',
-    duration: '5 دقائق',
-    durationEn: '5 minutes',
-    durationSeconds: 300,
-    color: '#7B5EA7',
-    bg: '#F0EBF8',
-    accent: '#E0D5F2',
-    desc: 'تمرين شامل لتقوية عضلات الذراعين والساقين في نفس الوقت لتحسين القوة العامة',
-    descEn: 'A comprehensive exercise to strengthen arm and leg muscles simultaneously for overall strength improvement',
-    steps: [
-      'اجلس على كرسي باستقامة أو قف مستنداً لدعم خفيف',
-      'أمسك زجاجتي مياه أو أوزاناً خفيفة في يديك',
-      'ارفع ذراعيك ببطء نحو الكتفين (رفع بايسبس) وأنزلهما',
-      'مد ساقك اليمنى بشكل مستقيم واثبت لثانيتين ثم أنزل',
-      'كرر رفع الذراعين ثم مد الساق اليسرى',
-      'استمر في التناوب بين الذراعين والساقين',
-      'اعمل من 10 إلى 12 تكراراً لكل طرف مع تنفس منتظم',
-    ],
-    stepsEn: [
-      'Sit straight on a chair or stand with light support',
-      'Hold two water bottles or light weights in your hands',
-      'Slowly raise your arms toward your shoulders (bicep curl) then lower them',
-      'Extend your right leg straight and hold for two seconds then lower',
-      'Repeat the arm raise then extend the left leg',
-      'Continue alternating between arms and legs',
-      'Do 10 to 12 repetitions for each limb with steady breathing',
-    ],
-    animType: 'armRaise',
-    type: 'strength',
-  },
-  {
-    key: 'standingArmTrunk',
-    emoji: '🧍',
-    title: 'تقوية الذراعين وجذع الجسم أثناء الوقوف',
-    titleEn: 'Standing Arm & Trunk Strengthening',
-    duration: '5 دقائق',
-    durationEn: '5 minutes',
-    durationSeconds: 300,
-    color: '#7B5EA7',
-    bg: '#F0EBF8',
-    accent: '#E0D5F2',
-    desc: 'تقوية عضلات الذراعين وجذع الجسم لتحسين الثبات والوضعية الصحيحة',
-    descEn: 'Strengthens arm and trunk muscles to improve stability and correct posture',
-    steps: [
-      'قف مستقيماً بجانب كرسي أو حائط للدعم عند الحاجة',
-      'افتح قدميك بعرض الكتفين مع توزيع الوزن بالتساوي',
-      'أمسك وزناً خفيفاً أو زجاجة مياه في يدك اليمنى',
-      'ارفع ذراعك اليمنى ببطء للأمام حتى مستوى الكتف مع إبقاء الجذع مستقيماً',
-      'اثبت لثانيتين ثم أنزل الذراع ببطء',
-      'كرر 10 مرات ثم انتقل لليد اليسرى',
-      'أضف دوراناً خفيفاً للجذع مع رفع الذراع لزيادة تنشيط عضلات الجذع',
-    ],
-    stepsEn: [
-      'Stand straight next to a chair or wall for support if needed',
-      'Open your feet shoulder-width apart with weight evenly distributed',
-      'Hold a light weight or water bottle in your right hand',
-      'Slowly raise your right arm forward to shoulder level while keeping the trunk straight',
-      'Hold for two seconds then slowly lower your arm',
-      'Repeat 10 times then switch to the left hand',
-      'Add a slight trunk rotation with the arm raise to further activate core muscles',
-    ],
-    animType: 'standingRow',
-    type: 'strength',
-  },
-  {
-    key: 'lyingTwistArms',
-    emoji: '🛌',
-    title: 'لفّ الجسم مع مد الذراعين أثناء الاستلقاء',
-    titleEn: 'Lying Twist with Arm Extension',
-    duration: '5 دقائق',
-    durationEn: '5 minutes',
-    durationSeconds: 300,
-    color: '#7B5EA7',
-    bg: '#F0EBF8',
-    accent: '#E0D5F2',
-    desc: 'تحسين مرونة العمود الفقري وتمديد عضلات الجذع والكتفين بشكل آمن أثناء الاستلقاء',
-    descEn: 'Improves spinal flexibility and stretches trunk and shoulder muscles safely while lying down',
-    steps: [
-      'استلقِ على ظهرك على سطح مستوٍ ومريح',
-      'افتح ذراعيك للجانبين بشكل أفقي على مستوى الكتفين',
-      'اثنِ ركبتيك مع إبقاء قدميك مسطحتين على الأرض',
-      'أمِل ركبتيك ببطء نحو اليمين حتى الأرض أو أقرب ما تستطيع',
-      'أبقِ كتفيك ملامستين للأرض وانظر نحو اليسار',
-      'اثبت 5 ثوانٍ مع تنفس عميق ثم عد للمنتصف ببطء',
-      'كرر نحو اليسار واثبت 5 ثوانٍ، ثم كرر الحركة من 5 إلى 8 مرات لكل جانب',
-    ],
-    stepsEn: [
-      'Lie on your back on a comfortable flat surface',
-      'Extend both arms out to the sides at shoulder level',
-      'Bend your knees while keeping your feet flat on the ground',
-      'Slowly lower both knees to the right toward the floor or as far as comfortable',
-      'Keep both shoulders touching the floor and look to the left',
-      'Hold for 5 seconds with deep breathing then slowly return to center',
-      'Repeat to the left and hold for 5 seconds, then repeat 5 to 8 times on each side',
-    ],
-    animType: 'sway',
-    type: 'strength',
-  },
-  {
-    key: 'backBridgeLying',
-    emoji: '🌉',
-    title: 'تمرين تقوس الظهر أثناء الاستلقاء',
-    titleEn: 'Back Bridge While Lying Down',
-    duration: '5 دقائق',
-    durationEn: '5 minutes',
-    durationSeconds: 300,
-    color: '#7B5EA7',
-    bg: '#F0EBF8',
-    accent: '#E0D5F2',
-    desc: 'تقوية عضلات الظهر والأرداف والجذع مع تخفيف آلام أسفل الظهر',
-    descEn: 'Strengthens back, glute, and core muscles while relieving lower back pain',
-    steps: [
-      'استلقِ على ظهرك مع ثني ركبتيك وإبقاء قدميك مسطحتين على الأرض',
-      'ضع ذراعيك بجانبك بشكل مريح على الأرض',
-      'اضغط ببطء بكعبيك على الأرض وارفع وركيك نحو الأعلى',
-      'استمر في الرفع حتى يصبح جسمك خطاً مستقيماً من الكتفين حتى الركبتين',
-      'اثبت في القمة لثانيتين إلى خمس ثوانٍ مع إبقاء البطن مشدوداً',
-      'أنزل وركيك ببطء إلى الأرض فقرة فقرة',
-      'استرِح لثانيتين ثم كرر من 8 إلى 12 مرة',
-    ],
-    stepsEn: [
-      'Lie on your back with knees bent and feet flat on the floor',
-      'Place your arms comfortably at your sides on the ground',
-      'Slowly press your heels into the floor and lift your hips upward',
-      'Continue lifting until your body forms a straight line from shoulders to knees',
-      'Hold at the top for two to five seconds while keeping your core engaged',
-      'Slowly lower your hips back to the floor one vertebra at a time',
-      'Rest for two seconds then repeat 8 to 12 times',
-    ],
-    animType: 'rollUp',
-    type: 'strength',
-  },
-  {
-    key: 'upperFlexArmStrength',
-    emoji: '🤸',
-    title: 'تمرين مرونة الجزء العلوي وتقوية الذراعين',
-    titleEn: 'Upper Body Flexibility & Arm Strengthening',
-    duration: '5 دقائق',
-    durationEn: '5 minutes',
-    durationSeconds: 300,
-    color: '#7B5EA7',
-    bg: '#F0EBF8',
-    accent: '#E0D5F2',
-    desc: 'تحسين مرونة الجزء العلوي من الجسم وتقوية عضلات الذراعين والكتفين معاً',
-    descEn: 'Improves upper body flexibility and strengthens arm and shoulder muscles together',
-    steps: [
-      'اجلس على كرسي أو قف باستقامة',
-      'ابدأ بتمديد الرقبة: أمِل رأسك ببطء نحو الكتف الأيمن واثبت 5 ثوانٍ ثم كرر للأيسر',
-      'دوّر كتفيك للأمام 5 مرات ثم للخلف 5 مرات ببطء',
-      'أمسك وزناً خفيفاً أو زجاجة مياه وارفع ذراعيك ببطء للأمام حتى مستوى الكتف',
-      'أنزل الذراعين ببطء ثم ارفعهما للجانبين حتى مستوى الكتف',
-      'أنزل ببطء واثنِ الذراعين نحو الكتفين (رفع بايسبس)',
-      'اعمل من 10 إلى 12 تكراراً لكل حركة مع تنفس منتظم',
-    ],
-    stepsEn: [
-      'Sit on a chair or stand straight',
-      'Start with neck stretching: slowly tilt your head toward the right shoulder and hold for 5 seconds, then repeat to the left',
-      'Roll your shoulders forward 5 times then backward 5 times slowly',
-      'Hold a light weight or water bottle and slowly raise both arms forward to shoulder level',
-      'Slowly lower your arms then raise them out to the sides to shoulder level',
-      'Lower slowly then bend your arms toward your shoulders (bicep curl)',
-      'Do 10 to 12 repetitions for each movement with steady breathing',
-    ],
-    animType: 'armRaise',
-    type: 'strength',
-  },
-  {
-    key: 'trunkBackFlexibility',
-    emoji: '🌀',
-    title: 'تمارين مرونة الجذع والظهر',
-    titleEn: 'Trunk & Back Flexibility Exercises',
-    duration: '5 دقائق',
-    durationEn: '5 minutes',
-    durationSeconds: 300,
-    color: '#7B5EA7',
-    bg: '#F0EBF8',
-    accent: '#E0D5F2',
-    desc: 'تحسين مرونة الجذع والظهر وتخفيف التيبس وآلام أسفل الظهر',
-    descEn: 'Improves trunk and back flexibility while reducing stiffness and lower back pain',
-    steps: [
-      'اجلس على كرسي باستقامة مع إبقاء قدميك مسطحتين على الأرض',
-      'ضع يديك على ركبتيك أو على جانبي الكرسي للدعم',
-      'انحنِ ببطء للأمام من منطقة الخصر حتى تشعر بتمديد خفيف في الظهر',
-      'اثبت 5 ثوانٍ مع تنفس عميق ثم ارجع للوضع المستقيم ببطء',
-      'انحنِ ببطء للجانب الأيمن واثبت 5 ثوانٍ ثم عد للمركز',
-      'انحنِ للجانب الأيسر واثبت 5 ثوانٍ ثم عد',
-      'أدر الجذع ببطء يميناً ويساراً 5 مرات لكل جانب مع إبقاء الوركين ثابتين',
-    ],
-    stepsEn: [
-      'Sit straight on a chair with feet flat on the floor',
-      'Place your hands on your knees or on the sides of the chair for support',
-      'Slowly bend forward from the waist until you feel a gentle stretch in your back',
-      'Hold for 5 seconds with deep breathing then slowly return upright',
-      'Slowly bend to the right side and hold for 5 seconds then return to center',
-      'Bend to the left side and hold for 5 seconds then return',
-      'Slowly rotate the trunk right and left 5 times each side while keeping hips still',
-    ],
-    animType: 'sway',
-    type: 'strength',
-  },
 ];
 
-// ─── Default Coordination Exercises ──────────────────────
 const DEFAULT_COORDINATION_EXERCISES: Exercise[] = [
   {
     key: 'towelArmStrength',
@@ -943,278 +682,6 @@ const DEFAULT_COORDINATION_EXERCISES: Exercise[] = [
     animType: 'hipMarch',
     type: 'coordination',
   },
-  {
-    key: 'heelTapStanding',
-    emoji: '👣',
-    title: 'النقر بكعب القدم أثناء الوقوف',
-    titleEn: 'Standing Heel Tap Exercise',
-    duration: '5 دقائق',
-    durationEn: '5 minutes',
-    durationSeconds: 300,
-    color: '#2A9D8F',
-    bg: '#E6F5F3',
-    accent: '#C8EBE7',
-    desc: 'تحسين التوازن والتناسق الحركي وتقوية عضلات أسفل الساق أثناء الوقوف',
-    descEn: 'Improves balance and motor coordination, and strengthens lower leg muscles while standing',
-    steps: [
-      'قف مستقيماً بجانب كرسي أو حائط للدعم',
-      'افتح قدميك بعرض الكتفين مع توزيع الوزن بالتساوي',
-      'ارفع قدمك اليمنى ببطء ثم انقرها بكعبها خطوة للأمام',
-      'أعد القدم اليمنى للوضع الأصلي',
-      'كرر نفس الحركة مع القدم اليسرى — هذا تكرار واحد',
-      'ركّز على وضع الكعب بدقة في نفس النقطة في كل مرة',
-      'اعمل من 10 إلى 15 تكراراً لكل قدم مع تنفس منتظم',
-    ],
-    stepsEn: [
-      'Stand straight next to a chair or wall for support',
-      'Open your feet shoulder-width apart with weight evenly distributed',
-      'Slowly lift your right foot then tap its heel one step forward',
-      'Return your right foot to the starting position',
-      'Repeat the same movement with your left foot — this counts as one repetition',
-      'Focus on placing your heel precisely at the same spot each time',
-      'Do 10 to 15 repetitions for each foot with steady breathing',
-    ],
-    animType: 'hipMarch',
-    type: 'coordination',
-  },
-  {
-    key: 'kneeCircleStanding',
-    emoji: '🔵',
-    title: 'دوران الركبة أثناء الوقوف',
-    titleEn: 'Standing Knee Circle Exercise',
-    duration: '5 دقائق',
-    durationEn: '5 minutes',
-    durationSeconds: 300,
-    color: '#2A9D8F',
-    bg: '#E6F5F3',
-    accent: '#C8EBE7',
-    desc: 'تحسين مرونة مفصل الركبة والتناسق الحركي وتقوية عضلات الفخذ أثناء الوقوف',
-    descEn: 'Improves knee joint flexibility, motor coordination, and strengthens thigh muscles while standing',
-    steps: [
-      'قف مستقيماً بجانب كرسي أو حائط للدعم',
-      'ارفع ركبتك اليمنى ببطء حتى مستوى الورك أو أقل إن لزم',
-      'دوّر الركبة في دوائر صغيرة للأمام 5 مرات',
-      'ثم دوّرها للخلف 5 مرات',
-      'أنزل القدم ببطء إلى الأرض',
-      'كرر نفس الحركة مع الركبة اليسرى',
-      'اعمل من 2 إلى 3 مجموعات لكل ركبة مع أخذ استراحة بين المجموعات',
-    ],
-    stepsEn: [
-      'Stand straight next to a chair or wall for support',
-      'Slowly raise your right knee to hip level or lower if needed',
-      'Rotate the knee in small circles forward 5 times',
-      'Then rotate it backward 5 times',
-      'Slowly lower your foot back to the floor',
-      'Repeat the same movement with the left knee',
-      'Do 2 to 3 sets for each knee with rest between sets',
-    ],
-    animType: 'legCurl',
-    type: 'coordination',
-  },
-  {
-    key: 'legSwingBalance',
-    emoji: '🦵',
-    title: 'تأرجح الساق والثبات أثناء الوقوف',
-    titleEn: 'Standing Leg Swing & Balance',
-    duration: '5 دقائق',
-    durationEn: '5 minutes',
-    durationSeconds: 300,
-    color: '#2A9D8F',
-    bg: '#E6F5F3',
-    accent: '#C8EBE7',
-    desc: 'تحسين التوازن الديناميكي والتناسق الحركي من خلال تأرجح الساق المتحكم',
-    descEn: 'Improves dynamic balance and motor coordination through controlled leg swinging',
-    steps: [
-      'قف مستقيماً وامسك ظهر كرسي أو حائط بيد واحدة للدعم',
-      'انقل وزنك على قدمك اليسرى وارفع قدمك اليمنى قليلاً عن الأرض',
-      'أرجح ساقك اليمنى للأمام ببطء بحركة منضبطة',
-      'ثم أرجعها للخلف ببطء بنفس الإيقاع',
-      'ركّز على إبقاء جسمك مستقيماً دون تأرجح الجذع',
-      'اعمل 10 تأرجحات للأمام والخلف ثم انتقل للساق اليسرى',
-      'حاول تقليل الاعتماد على الدعم تدريجياً مع تحسن توازنك',
-    ],
-    stepsEn: [
-      'Stand straight and hold a chair back or wall with one hand for support',
-      'Shift your weight onto your left foot and lift your right foot slightly off the ground',
-      'Slowly swing your right leg forward in a controlled motion',
-      'Then slowly swing it backward at the same rhythm',
-      'Focus on keeping your body upright without swaying your trunk',
-      'Do 10 forward and backward swings then switch to the left leg',
-      'Gradually try to reduce reliance on support as your balance improves',
-    ],
-    animType: 'legCurl',
-    type: 'coordination',
-  },
-  {
-    key: 'pelvisTiltSeated',
-    emoji: '🪑',
-    title: 'إمالة الحوض أثناء الجلوس',
-    titleEn: 'Seated Pelvic Tilt',
-    duration: '5 دقائق',
-    durationEn: '5 minutes',
-    durationSeconds: 300,
-    color: '#2A9D8F',
-    bg: '#E6F5F3',
-    accent: '#C8EBE7',
-    desc: 'تقوية عضلات الجذع وتحسين وضعية الجسم والتناسق الحركي للحوض',
-    descEn: 'Strengthens core muscles and improves posture and pelvic motor coordination',
-    steps: [
-      'اجلس على حافة كرسي باستقامة مع إبقاء قدميك مسطحتين على الأرض',
-      'ضع يديك على وركيك لتشعر بالحركة',
-      'أمِل حوضك ببطء للأمام حتى تشعر بتقوس خفيف في أسفل ظهرك',
-      'اثبت لثانيتين مع تنفس طبيعي',
-      'أمِل حوضك ببطء للخلف حتى يستوي أسفل ظهرك أو يميل للخلف قليلاً',
-      'اثبت لثانيتين ثم عد للوضع المحايد',
-      'اعمل من 10 إلى 15 تكراراً بحركة سلسة ومنتظمة',
-    ],
-    stepsEn: [
-      'Sit on the edge of a chair upright with feet flat on the floor',
-      'Place your hands on your hips to feel the movement',
-      'Slowly tilt your pelvis forward until you feel a gentle arch in your lower back',
-      'Hold for two seconds with natural breathing',
-      'Slowly tilt your pelvis backward until your lower back flattens or tilts slightly back',
-      'Hold for two seconds then return to the neutral position',
-      'Do 10 to 15 repetitions with smooth, steady movement',
-    ],
-    animType: 'sway',
-    type: 'coordination',
-  },
-  {
-    key: 'trunkRotationStanding',
-    emoji: '🔄',
-    title: 'دوران الجذع أثناء الوقوف',
-    titleEn: 'Standing Trunk Rotation',
-    duration: '5 دقائق',
-    durationEn: '5 minutes',
-    durationSeconds: 300,
-    color: '#2A9D8F',
-    bg: '#E6F5F3',
-    accent: '#C8EBE7',
-    desc: 'تحسين مرونة العمود الفقري والتنسيق الحركي وتقوية عضلات الجذع أثناء الوقوف',
-    descEn: 'Improves spinal flexibility, motor coordination, and strengthens trunk muscles while standing',
-    steps: [
-      'قف مستقيماً مع إبقاء قدميك ثابتتين بعرض الكتفين',
-      'ضع ذراعيك أفقياً أمامك على مستوى الكتفين',
-      'أدر جذعك ببطء نحو اليمين بأقصى قدر مريح دون ألم',
-      'اثبت لثانيتين مع إبقاء الوركين والقدمين ثابتتين',
-      'عد للمركز ببطء ثم أدر جذعك نحو اليسار',
-      'اثبت لثانيتين ثم عد للمركز — هذا تكرار واحد',
-      'اعمل من 10 إلى 15 تكراراً مع تنفس منتظم وحركة سلسة',
-    ],
-    stepsEn: [
-      'Stand straight with feet shoulder-width apart and firmly planted',
-      'Hold your arms horizontally in front of you at shoulder level',
-      'Slowly rotate your trunk to the right as far as comfortable without pain',
-      'Hold for two seconds while keeping hips and feet still',
-      'Return to center slowly then rotate your trunk to the left',
-      'Hold for two seconds then return to center — this counts as one repetition',
-      'Do 10 to 15 repetitions with steady breathing and smooth movement',
-    ],
-    animType: 'rollUp',
-    type: 'coordination',
-  },
-  {
-    key: 'lateralBalanceSeated',
-    emoji: '⚖️',
-    title: 'التوازن الجانبي أثناء الجلوس',
-    titleEn: 'Seated Lateral Balance',
-    duration: '5 دقائق',
-    durationEn: '5 minutes',
-    durationSeconds: 300,
-    color: '#2A9D8F',
-    bg: '#E6F5F3',
-    accent: '#C8EBE7',
-    desc: 'تحسين التوازن الجانبي والتنسيق الحركي وتقوية عضلات الجانبين أثناء الجلوس',
-    descEn: 'Improves lateral balance, motor coordination, and strengthens side muscles while seated',
-    steps: [
-      'اجلس على حافة كرسي باستقامة مع إبقاء قدميك مسطحتين على الأرض',
-      'مد ذراعيك للجانبين بشكل أفقي على مستوى الكتفين',
-      'أمِل جذعك ببطء نحو اليمين مع مد يدك اليمنى للأسفل نحو الأرض',
-      'اثبت لثانيتين مع الشعور بالتمديد في جانبك الأيسر',
-      'عد للوضع المستقيم ببطء',
-      'كرر الإمالة نحو اليسار مع مد يدك اليسرى للأسفل',
-      'اعمل من 10 إلى 12 تكراراً لكل جانب مع تنفس منتظم',
-    ],
-    stepsEn: [
-      'Sit on the edge of a chair upright with feet flat on the floor',
-      'Extend your arms out to the sides horizontally at shoulder level',
-      'Slowly tilt your trunk to the right while reaching your right hand down toward the floor',
-      'Hold for two seconds feeling the stretch along your left side',
-      'Slowly return to the upright position',
-      'Repeat the tilt to the left while reaching your left hand downward',
-      'Do 10 to 12 repetitions on each side with steady breathing',
-    ],
-    animType: 'sway',
-    type: 'coordination',
-  },
-  {
-    key: 'toeTipHeelStand',
-    emoji: '🦶',
-    title: 'الوقوف على أطراف الأصابع والكعبين',
-    titleEn: 'Toe Tips and Heel Standing',
-    duration: '5 دقائق',
-    durationEn: '5 minutes',
-    durationSeconds: 300,
-    color: '#2A9D8F',
-    bg: '#E6F5F3',
-    accent: '#C8EBE7',
-    desc: 'تقوية عضلات الساق وتحسين التوازن والتناسق من خلال التناوب بين الوقوف على الأصابع والكعبين',
-    descEn: 'Strengthens leg muscles and improves balance and coordination by alternating between toe and heel standing',
-    steps: [
-      'قف مستقيماً بجانب كرسي أو حائط للدعم عند الحاجة',
-      'ارفع كعبيك ببطء عن الأرض والقف على أطراف أصابع قدميك',
-      'اثبت في القمة لثانيتين إلى ثلاث ثوانٍ',
-      'أنزل كعبيك ببطء إلى الأرض',
-      'ثم ارفع أصابع قدميك عن الأرض والقف على كعبيك فقط',
-      'اثبت لثانيتين إلى ثلاث ثوانٍ ثم أنزل أصابعك',
-      'اعمل من 10 إلى 15 تكراراً بالتناوب بين الوضعيتين',
-    ],
-    stepsEn: [
-      'Stand straight next to a chair or wall for support if needed',
-      'Slowly raise your heels off the floor and stand on your tiptoes',
-      'Hold at the top for two to three seconds',
-      'Slowly lower your heels back to the floor',
-      'Then raise your toes off the floor and stand on your heels only',
-      'Hold for two to three seconds then lower your toes',
-      'Do 10 to 15 repetitions alternating between the two positions',
-    ],
-    animType: 'bounce',
-    type: 'coordination',
-  },
-  {
-    key: 'trunkFlexibilityStanding',
-    emoji: '🌊',
-    title: 'مرونة حركة الجذع أثناء الوقوف',
-    titleEn: 'Standing Trunk Flexibility',
-    duration: '5 دقائق',
-    durationEn: '5 minutes',
-    durationSeconds: 300,
-    color: '#2A9D8F',
-    bg: '#E6F5F3',
-    accent: '#C8EBE7',
-    desc: 'تحسين المرونة الكلية للجذع وتخفيف التيبس مع تعزيز التناسق والتوازن أثناء الوقوف',
-    descEn: 'Improves overall trunk flexibility and reduces stiffness while enhancing coordination and balance while standing',
-    steps: [
-      'قف مستقيماً مع إبقاء قدميك ثابتتين بعرض الكتفين',
-      'ضع يديك على وركيك أو امدد ذراعيك للجانبين',
-      'انحنِ ببطء للأمام من منطقة الخصر حتى الزاوية المريحة',
-      'اثبت 3 ثوانٍ ثم ارجع للوضع المستقيم',
-      'انحنِ ببطء للجانب الأيمن واثبت 3 ثوانٍ ثم عد للمركز',
-      'انحنِ للجانب الأيسر واثبت 3 ثوانٍ ثم عد',
-      'أدر الجذع يميناً ويساراً 5 مرات لكل جانب وكرر كل الحركات من 5 إلى 8 مرات',
-    ],
-    stepsEn: [
-      'Stand straight with feet firmly planted shoulder-width apart',
-      'Place your hands on your hips or extend your arms to the sides',
-      'Slowly bend forward from the waist to a comfortable angle',
-      'Hold for 3 seconds then return to upright',
-      'Slowly bend to the right side and hold for 3 seconds then return to center',
-      'Bend to the left side and hold for 3 seconds then return',
-      'Rotate trunk right and left 5 times each side, and repeat all movements 5 to 8 times',
-    ],
-    animType: 'sway',
-    type: 'coordination',
-  },
 ];
 
 // ════════════════════════════════════════════════════════════
@@ -1231,6 +698,9 @@ export default function ExercisesScreen() {
   const [strengthList,     setStrengthList]     = useState<Exercise[]>([]);
   const [coordinationList, setCoordinationList] = useState<Exercise[]>([]);
 
+  // ── Doctor exercises from Firebase ────────────────────
+  const [doctorExercises, setDoctorExercises] = useState<Exercise[]>([]);
+
   const [selected,      setSelected]      = useState('wristCurls');
   const [activeSection, setActiveSection] = useState<SectionKey>('therapy');
   const [showAdd,       setShowAdd]       = useState(false);
@@ -1243,33 +713,55 @@ export default function ExercisesScreen() {
   const [isSpeaking,    setIsSpeaking]    = useState(false);
   const [savingEx,      setSavingEx]      = useState(false);
 
-  type DoctorExercise = {
-    id: string; title: string; emoji: string;
-    durationMin: number; description?: string;
-    assignedAt: number; completed?: boolean;
-  };
-  const [doctorExercises, setDoctorExercises] = useState<DoctorExercise[]>([]);
-
+  // ── Load doctor exercises from Firebase ───────────────
   useEffect(() => {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
     const unsub = onSnapshot(
       collection(db, 'exercises', uid, 'items'),
       (snap) => {
-        const list: DoctorExercise[] = snap.docs.map(d => ({
-          id: d.id, ...(d.data() as Omit<DoctorExercise, 'id'>),
-        }));
-        setDoctorExercises(list.sort((a, b) => b.assignedAt - a.assignedAt));
+        const list: Exercise[] = snap.docs.map(d => {
+          const data = d.data() as any;
+          const sectionKey = (data.type ?? 'therapy') as SectionKey;
+          const sectionColor = SECTION_COLOR_MAP[sectionKey] ?? '#7C5CBF';
+          return {
+            key:             `doctor_${d.id}`,
+            doctorItemId:    d.id,
+            emoji:           data.emoji || '🏋️',
+            title:           data.title || '',
+            titleEn:         data.title || '',
+            duration:        `${data.durationMin} دقيقة`,
+            durationEn:      `${data.durationMin} min`,
+            durationSeconds: (data.durationMin ?? 5) * 60,
+            color:           sectionColor,
+            bg:              '#F0EBFA',
+            accent:          '#E0D6F5',
+            desc:            data.description || '',
+            descEn:          data.description || '',
+            steps:           [],
+            stepsEn:         [],
+            animType:        'bounce' as const,
+            type:            sectionKey,
+            fromDoctor:      true,
+            completed:       data.completed ?? false,
+          };
+        });
+        setDoctorExercises(list.sort((a, b) =>
+          (b as any).assignedAt - (a as any).assignedAt
+        ));
       },
     );
     return unsub;
   }, []);
 
-  const toggleDoctorExerciseDone = async (item: DoctorExercise) => {
+  // ── Toggle doctor exercise done ────────────────────────
+  const toggleDoctorExerciseDone = async (item: Exercise) => {
     const uid = auth.currentUser?.uid;
-    if (!uid) return;
+    if (!uid || !item.doctorItemId) return;
     try {
-      await updateDoc(doc(db, 'exercises', uid, 'items', item.id), { completed: !item.completed });
+      await updateDoc(doc(db, 'exercises', uid, 'items', item.doctorItemId), {
+        completed: !item.completed,
+      });
     } catch (e) {
       console.warn('[Exercises] toggleDone error:', e);
     }
@@ -1289,7 +781,11 @@ export default function ExercisesScreen() {
   }
 
   function getAllExercises(): Exercise[] {
-    return [...therapyList, ...yogaList, ...aerobicList, ...enduranceList, ...strengthList, ...coordinationList];
+    return [
+      ...doctorExercises,
+      ...therapyList, ...yogaList, ...aerobicList,
+      ...enduranceList, ...strengthList, ...coordinationList,
+    ];
   }
 
   useFocusEffect(useCallback(() => {
@@ -1357,15 +853,21 @@ export default function ExercisesScreen() {
     setCoordinationList(DEFAULT_COORDINATION_EXERCISES);
   }
 
+  // ── Merge doctor exercises into section list ───────────
   const SECTION_EXERCISES = (() => {
-    switch (activeSection) {
-      case 'therapy':      return therapyList;
-      case 'yoga':         return yogaList;
-      case 'aerobic':      return aerobicList;
-      case 'endurance':    return enduranceList;
-      case 'strength':     return strengthList;
-      case 'coordination': return coordinationList;
-    }
+    const base = (() => {
+      switch (activeSection) {
+        case 'therapy':      return therapyList;
+        case 'yoga':         return yogaList;
+        case 'aerobic':      return aerobicList;
+        case 'endurance':    return enduranceList;
+        case 'strength':     return strengthList;
+        case 'coordination': return coordinationList;
+      }
+    })();
+    // Doctor exercises for this section come first
+    const docInSection = doctorExercises.filter(e => e.type === activeSection);
+    return [...docInSection, ...base];
   })();
 
   const ex = getAllExercises().find(e => e.key === selected)
@@ -1497,6 +999,22 @@ export default function ExercisesScreen() {
   const exDur = isRTL ? ex.duration : ex.durationEn;
   const activeSectionConfig = SECTION_CONFIGS.find(s => s.key === activeSection)!;
 
+  // ── Count for section tabs (include doctor exercises) ──
+  function getSectionCount(key: SectionKey): number {
+    const docCount = doctorExercises.filter(e => e.type === key).length;
+    const baseCount = (() => {
+      switch (key) {
+        case 'therapy':      return therapyList.length;
+        case 'yoga':         return yogaList.length;
+        case 'aerobic':      return aerobicList.length;
+        case 'endurance':    return enduranceList.length;
+        case 'strength':     return strengthList.length;
+        case 'coordination': return coordinationList.length;
+      }
+    })();
+    return docCount + baseCount;
+  }
+
   function renderCards(list: Exercise[]) {
     return list.map((item) => {
       const iSel   = selected === item.key;
@@ -1505,12 +1023,17 @@ export default function ExercisesScreen() {
       const iDur   = isRTL ? item.duration : item.durationEn;
       const iSteps = isRTL ? item.steps    : item.stepsEn;
       const badge  = SECTION_BADGE[item.type];
+
       return (
         <TouchableOpacity
           key={item.key}
           onPress={() => setSelected(item.key)}
-          // ✅ FIX: استخدام onLongPress native بدل manual timers
           onLongPress={() => {
+            // Doctor exercises: toggle done on long press
+            if (item.fromDoctor) {
+              toggleDoctorExerciseDone(item);
+              return;
+            }
             if (!item.custom) return;
             const title = isRTL ? item.title : item.titleEn;
             Alert.alert(
@@ -1530,127 +1053,175 @@ export default function ExercisesScreen() {
           activeOpacity={0.88}
           style={[
             styles.card,
-            { backgroundColor: item.bg, width: CARD_W },
+            {
+              backgroundColor: item.fromDoctor
+                ? (item.completed ? '#F0FFF4' : '#F8F5FF')
+                : item.bg,
+              width: CARD_W,
+            },
             iSel && { borderWidth: 2.5, borderColor: item.color },
+            // Doctor exercises get a subtle purple border always
+            item.fromDoctor && !iSel && {
+              borderWidth: 1.5,
+              borderColor: '#7C5CBF40',
+            },
           ]}
         >
           <View style={styles.cardTopRow}>
-            <View style={[styles.emojiCircle, { backgroundColor: item.accent }]}>
+            <View style={[
+              styles.emojiCircle,
+              { backgroundColor: item.fromDoctor ? '#E8DFFA' : item.accent },
+            ]}>
               <Text style={{ fontSize: 30 }}>{item.emoji}</Text>
             </View>
+
             {iSel && (
               <View style={[styles.selectedCheck, { backgroundColor: item.color }]}>
                 <Ionicons name="checkmark" size={14} color="#fff" />
               </View>
             )}
-            <View style={[styles.exerciseTypeBadge, { backgroundColor: badge.bg }]}>
-              <Text style={[styles.exerciseTypeBadgeText, { color: badge.color }]}>{badge.label}</Text>
-            </View>
+
+            {/* ── Doctor badge ── */}
+            {item.fromDoctor && (
+              <View style={styles.doctorBadge}>
+                <Ionicons name="medical" size={10} color="#fff" />
+                <Text style={styles.doctorBadgeText}>
+                  {isRTL ? 'دكتور' : 'Dr.'}
+                </Text>
+              </View>
+            )}
+
+            {/* ── Done badge for doctor exercises ── */}
+            {item.fromDoctor && item.completed && (
+              <View style={styles.doneBadge}>
+                <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
+                <Text style={styles.doneBadgeText}>
+                  {isRTL ? 'تم' : 'Done'}
+                </Text>
+              </View>
+            )}
+
+            {!item.fromDoctor && (
+              <View style={[styles.exerciseTypeBadge, { backgroundColor: badge.bg }]}>
+                <Text style={[styles.exerciseTypeBadgeText, { color: badge.color }]}>
+                  {badge.label}
+                </Text>
+              </View>
+            )}
           </View>
-          <Text style={[styles.cardTitle, { color: item.color, textAlign: isRTL ? 'right' : 'left' }]}>{iTitle}</Text>
+
+          <Text style={[
+            styles.cardTitle,
+            {
+              color: item.fromDoctor ? '#7C5CBF' : item.color,
+              textAlign: isRTL ? 'right' : 'left',
+            },
+          ]}>
+            {iTitle}
+          </Text>
+
           <View style={styles.durationRow}>
-            <Ionicons name="time-outline" size={13} color={item.color} />
-            <Text style={[styles.durationText, { color: item.color }]}> {iDur}</Text>
+            <Ionicons name="time-outline" size={13} color={item.fromDoctor ? '#7C5CBF' : item.color} />
+            <Text style={[styles.durationText, { color: item.fromDoctor ? '#7C5CBF' : item.color }]}>
+              {' '}{iDur}
+            </Text>
           </View>
-          <Text style={[styles.cardDesc, { textAlign: isRTL ? 'right' : 'left' }]}>{iDesc}</Text>
-          <View style={styles.stepsArea}>
-            <ScrollView style={styles.stepsScroll} showsVerticalScrollIndicator={false} nestedScrollEnabled={true}>
-              {iSteps.map((step, i) => (
-                <TouchableOpacity
-                  key={i}
-                  onPress={() => speakStep(step, isRTL)}
-                  style={[styles.stepRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.stepNum, { backgroundColor: item.color + 'AA' }]}>
-                    <Text style={styles.stepNumText}>{i + 1}</Text>
-                  </View>
-                  <Text style={[styles.stepText, { textAlign: isRTL ? 'right' : 'left' }]}>{step}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            {iSel && iSteps.length > 0 && (
+
+          {!!iDesc && (
+            <Text style={[styles.cardDesc, { textAlign: isRTL ? 'right' : 'left' }]}>
+              {iDesc}
+            </Text>
+          )}
+
+          {/* Doctor exercise: show tap-to-done hint instead of steps */}
+          {item.fromDoctor ? (
+            <View style={styles.doctorCardFooter}>
               <TouchableOpacity
-                style={[styles.speakBtn, { borderColor: item.color, backgroundColor: item.bg }]}
-                onPress={() => isSpeaking ? stopSpeaking() : speakAllSteps(item)}
+                style={[
+                  styles.doctorDoneBtn,
+                  { backgroundColor: item.completed ? '#4CAF5015' : '#7C5CBF15' },
+                ]}
+                onPress={() => toggleDoctorExerciseDone(item)}
                 activeOpacity={0.8}
               >
                 <Ionicons
-                  name={isSpeaking ? 'stop-circle-outline' : 'volume-high-outline'}
-                  size={16}
-                  color={item.color}
+                  name={item.completed ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={18}
+                  color={item.completed ? '#4CAF50' : '#7C5CBF'}
                 />
-                <Text style={[styles.speakBtnText, { color: item.color }]}>
-                  {isSpeaking
-                    ? (isRTL ? 'إيقاف' : 'Stop')
-                    : (isRTL ? 'اقرأ الخطوات' : 'Read steps aloud')}
+                <Text style={[
+                  styles.doctorDoneBtnText,
+                  { color: item.completed ? '#4CAF50' : '#7C5CBF' },
+                ]}>
+                  {item.completed
+                    ? (isRTL ? 'تم إنجاز التمرين ✓' : 'Exercise Done ✓')
+                    : (isRTL ? 'اضغط عند الإنهاء' : 'Tap when done')}
                 </Text>
               </TouchableOpacity>
-            )}
-          </View>
+            </View>
+          ) : (
+            <View style={styles.stepsArea}>
+              <ScrollView
+                style={styles.stepsScroll}
+                showsVerticalScrollIndicator={false}
+                nestedScrollEnabled={true}
+              >
+                {iSteps.map((step, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    onPress={() => speakStep(step, isRTL)}
+                    style={[styles.stepRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.stepNum, { backgroundColor: item.color + 'AA' }]}>
+                      <Text style={styles.stepNumText}>{i + 1}</Text>
+                    </View>
+                    <Text style={[styles.stepText, { textAlign: isRTL ? 'right' : 'left' }]}>
+                      {step}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              {iSel && iSteps.length > 0 && (
+                <TouchableOpacity
+                  style={[styles.speakBtn, { borderColor: item.color, backgroundColor: item.bg }]}
+                  onPress={() => isSpeaking ? stopSpeaking() : speakAllSteps(item)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name={isSpeaking ? 'stop-circle-outline' : 'volume-high-outline'}
+                    size={16}
+                    color={item.color}
+                  />
+                  <Text style={[styles.speakBtnText, { color: item.color }]}>
+                    {isSpeaking
+                      ? (isRTL ? 'إيقاف' : 'Stop')
+                      : (isRTL ? 'اقرأ الخطوات' : 'Read steps aloud')}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
         </TouchableOpacity>
       );
     });
   }
 
   return (
-    // ✅ FIX: edges بدون 'bottom' عشان timerWrap يتحكم في المسافة من الـ bottom bar
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <View style={styles.container}>
 
-<View style={styles.navbar}>
-  <View style={{ width: 40 }} />
-  <Text style={styles.navTitle}>
-    {isRTL ? 'تمارين اليوم' : "Today's Exercises"}
-  </Text>
-  <TouchableOpacity onPress={openAddModal} style={styles.navBtn}>
-    <Ionicons name="add" size={24} color="#7C5CBF" />
-  </TouchableOpacity>
-</View>
+        <View style={styles.navbar}>
+          <View style={{ width: 40 }} />
+          <Text style={styles.navTitle}>
+            {isRTL ? 'تمارين اليوم' : "Today's Exercises"}
+          </Text>
+          <TouchableOpacity onPress={openAddModal} style={styles.navBtn}>
+            <Ionicons name="add" size={24} color="#7C5CBF" />
+          </TouchableOpacity>
+        </View>
 
-        {doctorExercises.length > 0 && (
-          <View style={styles.docExSection}>
-            <View style={styles.docExHeader}>
-              <Ionicons name="medical" size={14} color="#7C5CBF" />
-              <Text style={styles.docExTitle}>
-                {isRTL ? 'تمارين الدكتور 🩺' : 'Doctor Prescribed 🩺'}
-              </Text>
-              <View style={styles.docExBadge}>
-                <Text style={styles.docExBadgeText}>{doctorExercises.filter(e => !e.completed).length}</Text>
-              </View>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.docExScroll}>
-              {doctorExercises.map(item => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={[styles.docExCard, item.completed && styles.docExCardDone]}
-                  onPress={() => toggleDoctorExerciseDone(item)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.docExEmoji}>{item.emoji}</Text>
-                  <Text style={styles.docExName} numberOfLines={2}>{item.title}</Text>
-                  <Text style={styles.docExDuration}>{item.durationMin} {isRTL ? 'دقيقة' : 'min'}</Text>
-                  {item.description ? (
-                    <Text style={styles.docExDesc} numberOfLines={2}>{item.description}</Text>
-                  ) : null}
-                  <View style={[styles.docExDoneRow, item.completed && { opacity: 1 }]}>
-                    <Ionicons
-                      name={item.completed ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={18}
-                      color={item.completed ? '#4CAF50' : '#B0BEC5'}
-                    />
-                    <Text style={[styles.docExDoneText, item.completed && { color: '#4CAF50' }]}>
-                      {item.completed
-                        ? (isRTL ? 'تم ✓' : 'Done ✓')
-                        : (isRTL ? 'اضغط للإنهاء' : 'Tap to mark done')}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
+        {/* ── Section Tabs ── */}
         <ScrollView
           horizontal showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.sectionToggleRow}
@@ -1658,16 +1229,8 @@ export default function ExercisesScreen() {
         >
           {SECTION_CONFIGS.map((section) => {
             const isActive = activeSection === section.key;
-            const count = (() => {
-              switch (section.key) {
-                case 'therapy':      return therapyList.length;
-                case 'yoga':         return yogaList.length;
-                case 'aerobic':      return aerobicList.length;
-                case 'endurance':    return enduranceList.length;
-                case 'strength':     return strengthList.length;
-                case 'coordination': return coordinationList.length;
-              }
-            })();
+            const count = getSectionCount(section.key);
+            const docCountInSection = doctorExercises.filter(e => e.type === section.key).length;
             return (
               <TouchableOpacity
                 key={section.key}
@@ -1679,9 +1242,18 @@ export default function ExercisesScreen() {
                 <Text style={[styles.sectionBtnText, { color: isActive ? '#fff' : section.color }]}>
                   {isRTL ? section.labelAr : section.labelEn}
                 </Text>
-                <View style={[styles.sectionCount, { backgroundColor: isActive ? 'rgba(255,255,255,0.3)' : section.color + '22' }]}>
-                  <Text style={[styles.sectionCountText, { color: isActive ? '#fff' : section.color }]}>{count}</Text>
+                <View style={[
+                  styles.sectionCount,
+                  { backgroundColor: isActive ? 'rgba(255,255,255,0.3)' : section.color + '22' },
+                ]}>
+                  <Text style={[styles.sectionCountText, { color: isActive ? '#fff' : section.color }]}>
+                    {count}
+                  </Text>
                 </View>
+                {/* Small doctor indicator on tab if has doctor exercises */}
+                {docCountInSection > 0 && (
+                  <View style={styles.tabDoctorDot} />
+                )}
               </TouchableOpacity>
             );
           })}
@@ -1703,7 +1275,13 @@ export default function ExercisesScreen() {
                 : `No ${activeSectionConfig.labelEn} exercises yet`}
             </Text>
             <TouchableOpacity
-              style={[styles.emptyAddBtn, { borderColor: activeSectionConfig.color, backgroundColor: activeSectionConfig.color + '11' }]}
+              style={[
+                styles.emptyAddBtn,
+                {
+                  borderColor: activeSectionConfig.color,
+                  backgroundColor: activeSectionConfig.color + '11',
+                },
+              ]}
               onPress={() => { setNewType(activeSection); openAddModal(); }}
             >
               <Ionicons name="add" size={16} color={activeSectionConfig.color} />
@@ -1725,10 +1303,15 @@ export default function ExercisesScreen() {
         <View style={styles.dotsRow}>
           {SECTION_EXERCISES.map((e) => (
             <TouchableOpacity key={e.key} onPress={() => setSelected(e.key)}>
-              <View style={[styles.dot, selected === e.key && { width: 20, backgroundColor: activeSectionConfig.color }]} />
+              <View style={[
+                styles.dot,
+                selected === e.key && { width: 20, backgroundColor: activeSectionConfig.color },
+                e.fromDoctor && { backgroundColor: '#7C5CBF60' },
+              ]} />
             </TouchableOpacity>
           ))}
         </View>
+
         <View style={styles.timerWrap}>
           <TouchableOpacity
             style={[styles.timerBtn, { backgroundColor: ex.bg, borderColor: ex.color }]}
@@ -1741,25 +1324,50 @@ export default function ExercisesScreen() {
           </TouchableOpacity>
         </View>
       </View>
-      <Modal visible={showAdd} transparent animationType="slide" onRequestClose={closeAddModal} statusBarTranslucent={false}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
-          <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }} activeOpacity={1} onPress={closeAddModal} />
+
+      {/* ── Add Modal ── */}
+      <Modal
+        visible={showAdd} transparent animationType="slide"
+        onRequestClose={closeAddModal} statusBarTranslucent={false}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
+          <TouchableOpacity
+            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }}
+            activeOpacity={1} onPress={closeAddModal}
+          />
           <View style={modal.addBox}>
             <View style={modal.addHeader}>
-              <Text style={modal.addTitle}>{isRTL ? 'إضافة تمرين جديد' : 'Add New Exercise'}</Text>
+              <Text style={modal.addTitle}>
+                {isRTL ? 'إضافة تمرين جديد' : 'Add New Exercise'}
+              </Text>
               <TouchableOpacity onPress={closeAddModal} style={modal.closeBtn} activeOpacity={0.7}>
                 <Ionicons name="close" size={20} color="#888" />
               </TouchableOpacity>
             </View>
-            <ScrollView contentContainerStyle={{ paddingBottom: 24 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            <ScrollView
+              contentContainerStyle={{ paddingBottom: 24 }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
               <Text style={modal.label}>{isRTL ? 'نوع التمرين' : 'Exercise Type'}</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={modal.typeRow}>
+              <ScrollView
+                horizontal showsHorizontalScrollIndicator={false}
+                contentContainerStyle={modal.typeRow}
+              >
                 {SECTION_CONFIGS.map((section) => {
                   const isActive = newType === section.key;
                   return (
                     <TouchableOpacity
                       key={section.key}
-                      style={[modal.typeBtn, { borderColor: section.color }, isActive && { backgroundColor: section.color }]}
+                      style={[
+                        modal.typeBtn,
+                        { borderColor: section.color },
+                        isActive && { backgroundColor: section.color },
+                      ]}
                       onPress={() => setNewType(section.key)} activeOpacity={0.8}
                     >
                       <Text style={{ fontSize: 16 }}>{section.emoji}</Text>
@@ -1770,20 +1378,50 @@ export default function ExercisesScreen() {
                   );
                 })}
               </ScrollView>
+
               <Text style={modal.label}>{isRTL ? 'الإيموجي' : 'Emoji'}</Text>
-              <TextInput style={modal.emojiInput} value={newEmoji} onChangeText={setNewEmoji} placeholder="🏋️" maxLength={4} textAlign="center" />
+              <TextInput
+                style={modal.emojiInput}
+                value={newEmoji} onChangeText={setNewEmoji}
+                placeholder="🏋️" maxLength={4} textAlign="center"
+              />
+
               <Text style={modal.label}>{isRTL ? 'اسم التمرين *' : 'Exercise name *'}</Text>
-              <TextInput style={[modal.input, { textAlign: isRTL ? 'right' : 'left' }]} value={newName} onChangeText={setNewName} placeholder={isRTL ? 'مثال: مشي على السلم' : 'e.g. Stair walking'} placeholderTextColor="#bbb" returnKeyType="next" />
+              <TextInput
+                style={[modal.input, { textAlign: isRTL ? 'right' : 'left' }]}
+                value={newName} onChangeText={setNewName}
+                placeholder={isRTL ? 'مثال: مشي على السلم' : 'e.g. Stair walking'}
+                placeholderTextColor="#bbb" returnKeyType="next"
+              />
+
               <Text style={modal.label}>{isRTL ? 'المدة بالدقائق *' : 'Duration (minutes) *'}</Text>
-              <TextInput style={[modal.input, { textAlign: isRTL ? 'right' : 'left' }]} value={newMinutes} onChangeText={setNewMinutes} placeholder={isRTL ? 'مثال: 5' : 'e.g. 5'} placeholderTextColor="#bbb" keyboardType="numeric" returnKeyType="next" />
+              <TextInput
+                style={[modal.input, { textAlign: isRTL ? 'right' : 'left' }]}
+                value={newMinutes} onChangeText={setNewMinutes}
+                placeholder={isRTL ? 'مثال: 5' : 'e.g. 5'}
+                placeholderTextColor="#bbb" keyboardType="numeric" returnKeyType="next"
+              />
+
               <Text style={modal.label}>{isRTL ? 'وصف (اختياري)' : 'Description (optional)'}</Text>
-              <TextInput style={[modal.input, modal.inputMulti, { textAlign: isRTL ? 'right' : 'left' }]} value={newDesc} onChangeText={setNewDesc} placeholder={isRTL ? 'وصف قصير للتمرين' : 'Short description'} placeholderTextColor="#bbb" multiline numberOfLines={2} />
+              <TextInput
+                style={[modal.input, modal.inputMulti, { textAlign: isRTL ? 'right' : 'left' }]}
+                value={newDesc} onChangeText={setNewDesc}
+                placeholder={isRTL ? 'وصف قصير للتمرين' : 'Short description'}
+                placeholderTextColor="#bbb" multiline numberOfLines={2}
+              />
+
               <TouchableOpacity
-                style={[modal.saveBtn, { backgroundColor: SECTION_CONFIGS.find(s => s.key === newType)?.color ?? '#7C5CBF' }, savingEx && { opacity: 0.6 }]}
+                style={[
+                  modal.saveBtn,
+                  { backgroundColor: SECTION_CONFIGS.find(s => s.key === newType)?.color ?? '#7C5CBF' },
+                  savingEx && { opacity: 0.6 },
+                ]}
                 onPress={handleAddExercise} disabled={savingEx} activeOpacity={0.85}
               >
                 <Text style={modal.saveBtnText}>
-                  {savingEx ? (isRTL ? 'جاري الحفظ...' : 'Saving...') : (isRTL ? '✅ حفظ التمرين' : '✅ Save Exercise')}
+                  {savingEx
+                    ? (isRTL ? 'جاري الحفظ...' : 'Saving...')
+                    : (isRTL ? '✅ حفظ التمرين' : '✅ Save Exercise')}
                 </Text>
               </TouchableOpacity>
             </ScrollView>
@@ -1793,62 +1431,98 @@ export default function ExercisesScreen() {
     </SafeAreaView>
   );
 }
+
 // ─── Styles ───────────────────────────────────────────────
 const styles = StyleSheet.create({
   safe:      { flex: 1, backgroundColor: Colors.background },
   container: { flex: 1, paddingTop: Spacing.base },
 
-  // Doctor Prescribed section
-  docExSection: { marginHorizontal: Spacing.base, marginBottom: 10, marginTop: 2 },
-  docExHeader:  { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
-  docExTitle:   { fontSize: FontSize.sm, fontWeight: '700', color: '#7C5CBF', flex: 1 },
-  docExBadge:   { backgroundColor: '#7C5CBF', borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
-  docExBadgeText: { fontSize: 11, color: '#fff', fontWeight: '700' },
-  docExScroll:  { gap: 10, paddingRight: 4 },
-  docExCard:    {
-    width: 130, backgroundColor: '#fff', borderRadius: 16, padding: 12,
-    borderWidth: 1.5, borderColor: '#7C5CBF30',
-    shadowColor: '#7C5CBF', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.10, shadowRadius: 6, elevation: 2, gap: 4,
+  navbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.xl,
+    paddingTop: 4,
+    paddingBottom: 10,
+    marginBottom: Spacing.sm,
   },
-  docExCardDone: { backgroundColor: '#F0FFF4', borderColor: '#4CAF5040' },
-  docExEmoji:   { fontSize: 26 },
-  docExName:    { fontSize: 12, fontWeight: '700', color: Colors.textPrimary, lineHeight: 16 },
-  docExDuration:{ fontSize: 11, color: '#7C5CBF', fontWeight: '600' },
-  docExDesc:    { fontSize: 10, color: Colors.textMuted, lineHeight: 14 },
-  docExDoneRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4, opacity: 0.6 },
-  docExDoneText:{ fontSize: 10, color: Colors.textMuted, fontWeight: '600' },
-
-  // ✅ FIX: paddingTop مضبوط — العنوان بالنسبة للـ content مش الـ status bar
-navbar: { 
-  flexDirection: 'row', 
-  alignItems: 'center', 
-  justifyContent: 'space-between',
-  paddingHorizontal: Spacing.xl, 
-  paddingTop: 4, 
-  paddingBottom: 10, 
-  marginBottom: Spacing.sm 
-},
-  navBtn:    { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', shadowColor: '#7C5CBF', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.12, shadowRadius: 4, elevation: 2 },
-  navCenter: { flex: 1, alignItems: 'center' },
-navTitle: { fontSize: 18, fontWeight: '800', color: Colors.textPrimary },
-  navSub:    { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 1 },
+  navBtn:   {
+    width: 40, height: 40, borderRadius: 20,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#fff',
+    shadowColor: '#7C5CBF', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12, shadowRadius: 4, elevation: 2,
+  },
+  navTitle: { fontSize: 18, fontWeight: '800', color: Colors.textPrimary },
 
   sectionToggleScroll: { flexGrow: 0, marginBottom: 8 },
   sectionToggleRow:    { paddingHorizontal: Spacing.xl, gap: 8, flexDirection: 'row' },
-  sectionBtn:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 9, paddingHorizontal: 14, borderRadius: 14, backgroundColor: '#F5F5F5' },
-  sectionBtnText:      { fontSize: 12, fontWeight: '700' },
-  sectionCount:        { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  sectionCountText:    { fontSize: 10, fontWeight: '800' },
-  sectionDesc:         { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: Spacing.xl, marginBottom: 8 },
-  sectionDescText:     { fontSize: 11, fontStyle: 'italic' },
-  cardsRow:            { paddingHorizontal: Spacing.xl, gap: 14, paddingBottom: Spacing.sm },
-  card:                { borderRadius: Radius.xxl, padding: Spacing.sm, height: CARD_H, shadowColor: Colors.shadowDark, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 8, elevation: 3 },
-  cardTopRow:          { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
-  emojiCircle:         { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 4, elevation: 2 },
-  selectedCheck:       { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  exerciseTypeBadge:   { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  sectionBtn:          {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 5, paddingVertical: 9, paddingHorizontal: 14,
+    borderRadius: 14, backgroundColor: '#F5F5F5',
+    position: 'relative',
+  },
+  sectionBtnText:   { fontSize: 12, fontWeight: '700' },
+  sectionCount:     { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  sectionCountText: { fontSize: 10, fontWeight: '800' },
+
+  // Small dot on tab indicating doctor exercises exist
+  tabDoctorDot: {
+    position: 'absolute', top: 4, right: 4,
+    width: 6, height: 6, borderRadius: 3,
+    backgroundColor: '#7C5CBF',
+  },
+
+  sectionDesc:     { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: Spacing.xl, marginBottom: 8 },
+  sectionDescText: { fontSize: 11, fontStyle: 'italic' },
+  cardsRow:        { paddingHorizontal: Spacing.xl, gap: 14, paddingBottom: Spacing.sm },
+
+  card: {
+    borderRadius: Radius.xxl, padding: Spacing.sm,
+    height: CARD_H,
+    shadowColor: Colors.shadowDark,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1, shadowRadius: 8, elevation: 3,
+  },
+  cardTopRow:  {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', marginBottom: Spacing.sm,
+  },
+  emojiCircle: {
+    width: 56, height: 56, borderRadius: 28,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12, shadowRadius: 4, elevation: 2,
+  },
+  selectedCheck: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  exerciseTypeBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
   exerciseTypeBadgeText: { fontSize: 14 },
+
+  // ── Doctor badge (top-right corner of card) ──
+  doctorBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: '#7C5CBF', borderRadius: 8,
+    paddingHorizontal: 7, paddingVertical: 3,
+  },
+  doctorBadgeText: { fontSize: 10, color: '#fff', fontWeight: '700' },
+
+  // ── Done badge ──
+  doneBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: '#4CAF5020', borderRadius: 8,
+    paddingHorizontal: 7, paddingVertical: 3,
+  },
+  doneBadgeText: { fontSize: 10, color: '#4CAF50', fontWeight: '700' },
+
+  // ── Doctor card footer ──
+  doctorCardFooter: { flex: 1, justifyContent: 'flex-end', marginTop: 8 },
+  doctorDoneBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 14,
+  },
+  doctorDoneBtnText: { fontSize: 13, fontWeight: '700' },
+
   cardTitle:    { fontSize: FontSize.base, fontWeight: '800', marginBottom: 3 },
   durationRow:  { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
   durationText: { fontSize: FontSize.sm, fontWeight: '600' },
@@ -1864,7 +1538,6 @@ navTitle: { fontSize: 18, fontWeight: '800', color: Colors.textPrimary },
   dotsRow:      { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingVertical: Spacing.sm },
   dot:          { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.border },
 
-  // ✅ FIX: paddingBottom: 18 ثابت — الزرار فوق الـ bottom bar بـ 18px في كل الشاشات
   timerWrap:    { paddingHorizontal: Spacing.xl, paddingTop: Spacing.base, paddingBottom: 18, gap: 10, alignItems: 'center' },
   timerBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderRadius: Radius.xl, borderWidth: 2, paddingVertical: 14, paddingHorizontal: 28, width: '100%' },
   timerBtnText: { fontSize: FontSize.base, fontWeight: '700' },

@@ -7,7 +7,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
     "notification": {
-      "icon": "./assets/images/logo.png",
+      "icon": "./assets/images/character.png",
       "color": "#7C5CBF"
     },
     "scheme": "hekaya-haraka",

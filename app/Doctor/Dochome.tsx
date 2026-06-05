@@ -7,16 +7,14 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
 import {
-  collection, query, where, onSnapshot, doc, updateDoc, addDoc, setDoc,
+  collection, query, where, onSnapshot, doc, updateDoc, setDoc,
 } from 'firebase/firestore';
 import { auth, db, FSRelationship } from '../../utils/firebaseConfig';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/Languagecontext';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 import { usePathname } from 'expo-router';
-import { getDocNotifUnreadCount } from './DocNotifService';
 
 const DOC_COLOR       = '#7C5CBF';
 const DOC_COLOR_LIGHT = '#F0EBFA';
@@ -195,7 +193,6 @@ export default function DocHome() {
   const [tab,          setTab]         = useState<'all'|'pending'|'accepted'>('all');
   const [pendingModal, setPendingModal] = useState<Patient | null>(null);
   const [loading,      setLoading]     = useState(true);
-  const [notifCount,   setNotifCount]  = useState(0);
 
   // ─── Real-time Firestore subscription ─────────────────
   useEffect(() => {
@@ -229,11 +226,6 @@ export default function DocHome() {
     return unsub;
   }, [user?.uid]);
 
-  // ─── Badge count ──────────────────────────────────────
-  useFocusEffect(useCallback(() => {
-    getDocNotifUnreadCount().then(setNotifCount).catch(() => {});
-  }, []));
-
   // ─── Accept patient ───────────────────────────────────
   const handleAcceptConfirm = async () => {
     if (!pendingModal) return;
@@ -263,8 +255,6 @@ export default function DocHome() {
       pendingModal.id,
     );
 
-    const count = await getDocNotifUnreadCount();
-    setNotifCount(count);
     setPendingModal(null);
   };
 
@@ -297,14 +287,6 @@ export default function DocHome() {
             <Text style={styles.greeting}>{isRTL ? `أهلاً، د. ${docName} 👋` : `Hello, Dr. ${docName} 👋`}</Text>
             <Text style={styles.headerSub}>{isRTL ? 'إدارة المرضى والطلبات' : 'Manage patients & requests'}</Text>
           </View>
-          <TouchableOpacity style={styles.notifBtn} onPress={() => router.push('/Doctor/Docnotif' as any)}>
-            <Ionicons name="notifications-outline" size={22} color={DOC_COLOR} />
-            {notifCount > 0 && (
-              <View style={styles.notifDot}>
-                <Text style={styles.notifDotText}>{notifCount > 9 ? '9+' : notifCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
         </View>
 
         <View style={styles.statsStrip}>
@@ -378,9 +360,6 @@ const styles = StyleSheet.create({
   header:    { flexDirection:'row', alignItems:'center', justifyContent:'space-between', marginBottom:Spacing.xl },
   greeting:  { fontSize:22, fontWeight:'800', color:Colors.textPrimary },
   headerSub: { fontSize:FontSize.sm, color:Colors.textMuted, marginTop:2 },
-  notifBtn:  { width:44, height:44, borderRadius:22, backgroundColor:'#fff', alignItems:'center', justifyContent:'center', shadowColor:DOC_COLOR, shadowOffset:{width:0,height:2}, shadowOpacity:0.15, shadowRadius:6, elevation:3 },
-  notifDot:  { position:'absolute', top:6, right:6, width:16, height:16, borderRadius:8, backgroundColor:'#E05C5C', alignItems:'center', justifyContent:'center', borderWidth:1.5, borderColor:'#fff' },
-  notifDotText: { fontSize:9, fontWeight:'800', color:'#fff' },
   statsStrip: { flexDirection:'row', gap:10, marginBottom:Spacing.xl },
   statPill:   { flex:1, borderRadius:16, paddingVertical:14, alignItems:'center', justifyContent:'center', gap:2 },
   statPillNum:   { fontSize:22, fontWeight:'900' },

@@ -280,8 +280,6 @@ export default function DoctorsScreen() {
   };
 
   // ─── Doctor Card Component (shared) ───────────────────
-  // لو عنده شات → كل الكارد TouchableOpacity يفتح الشات مباشرة
-  // لو مفيش شات → الكارد عادي والزرار هو اللي بيعمل الأكشن
   const renderDoctorCard = (doc: DoctorCard, showContactBtn = true) => {
     const hasChat = myDoctorIds.has(doc.firebaseUid);
 
@@ -389,10 +387,22 @@ export default function DoctorsScreen() {
         <SafeAreaView style={styles.safe}>
           <StatusBar backgroundColor={Colors.background} barStyle="dark-content" />
 
+          {/* ── Header with back button ── */}
           <View style={styles.header}>
+            <TouchableOpacity
+              onPress={() => setShowAllDoctorsPage(false)}
+              style={styles.backBtn}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name={isRTL ? 'chevron-forward' : 'chevron-back'}
+                size={22}
+                color={Colors.primary}
+              />
+            </TouchableOpacity>
             <View style={styles.headerCenter}>
               <Text style={styles.headerTitle}>
-                {isRTL ? 'كل الدكاترة' : 'All Doctors'}
+                {isRTL ? 'دكاترتي' : 'My Doctors'}
               </Text>
               <Text style={styles.headerSub}>
                 {isRTL ? `${allDoctors.length} دكتور` : `${allDoctors.length} doctors`}
@@ -541,6 +551,13 @@ const styles = StyleSheet.create({
   headerCenter: { flex: 1, alignItems: 'center' },
   headerTitle: { fontSize: 22, fontWeight: 'bold', color: Colors.textPrimary },
   headerSub: { fontSize: 12, color: Colors.textMuted, marginTop: 2 },
+
+  // ── Back button style ──
+  backBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: Colors.primaryUltraLight,
+    alignItems: 'center', justifyContent: 'center',
+  },
 
   searchWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 10,

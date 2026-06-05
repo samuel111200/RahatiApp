@@ -19,26 +19,17 @@ import { useLang } from '../../context/Languagecontext';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 
 const EXERCISE_VIDEOS: Record<string, any> = {
-  // ── Therapy ──────────────────────────────────────────────
   wristCurls:        require("../../assets/videos/first.mp4"),
-
-  // ── Yoga ─────────────────────────────────────────────────
   childsPose:        require("../../assets/videos/2.mp4"),
   warriorTwo:        require("../../assets/videos/3.mp4"),
   jabPunches:        require("../../assets/videos/4.mp4"),
   comboPunches:      require("../../assets/videos/5.mp4"),
-
-  // ── Aerobic ──────────────────────────────────────────────
   singleLegStand:    require("../../assets/videos/6.mp4"),
-
-  // ── Endurance ────────────────────────────────────────────
   armBottles:        require("../../assets/videos/7.mp4"),
   seatedEndurance:   require("../../assets/videos/8.mp4"),
   neckFlexibility:   require("../../assets/videos/9.mp4"),
   standUpStrength:   require("../../assets/videos/10.mp4"),
   upperBodyStretch:  require("../../assets/videos/11.mp4"),
-
-  // ── Strength Training ─────────────────────────────────────
   marchingInPlace:      require("../../assets/videos/12.mp4"),
   chairSquat:           require("../../assets/videos/13.mp4"),
   hipStrength:          require("../../assets/videos/14.mp4"),
@@ -49,9 +40,6 @@ const EXERCISE_VIDEOS: Record<string, any> = {
   backBridgeLying:      require("../../assets/videos/19.mp4"),
   upperFlexArmStrength: require("../../assets/videos/20.mp4"),
   trunkBackFlexibility: require("../../assets/videos/21.mp4"),
-
-  // ── Coordination ─────────────────────────────────────────
-  // TODO: ضع اسم الفيديو الصح بدل "REPLACE_ME_XX.mp4"
   towelArmStrength:       require("../../assets/videos/22.mp4"),
   seatedBicycle:          require("../../assets/videos/23.mp4"),
   heelTapStanding:        require("../../assets/videos/24.mp4"),
@@ -63,7 +51,6 @@ const EXERCISE_VIDEOS: Record<string, any> = {
   toeTipHeelStand:        require("../../assets/videos/30.mp4"),
   trunkFlexibilityStanding: require("../../assets/videos/31.mp4"),
 };
-
 
 const { width } = Dimensions.get('window');
 
@@ -113,10 +100,12 @@ export default function ExerciseSessionScreen() {
   const [showDone,    setShowDone]    = useState(false);
   const [activeStep,  setActiveStep]  = useState(-1);
   const [currentText, setCurrentText] = useState('');
+  const [isMuted,     setIsMuted]     = useState(false);
 
   const intervalRef    = useRef<ReturnType<typeof setInterval> | null>(null);
   const stepTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPausedRef    = useRef(false);
+  const isMutedRef     = useRef(false);
   const stepIndexRef   = useRef(0);
   const congratsIdx    = useRef(Math.floor(Math.random() * CONGRATS_AR.length)).current;
 
@@ -128,7 +117,7 @@ export default function ExerciseSessionScreen() {
 
   // ── Speech ───────────────────────────────────────────────
   const readStep = useCallback((index: number) => {
-    if (isPausedRef.current) return;
+    if (isPausedRef.current || isMutedRef.current) return;
     if (!stepsToRead || stepsToRead.length === 0) return;
 
     if (index >= stepsToRead.length) {
@@ -146,7 +135,7 @@ export default function ExerciseSessionScreen() {
       pitch: 1.05,
       rate: isRTL ? 0.80 : 0.85,
       onDone: () => {
-        if (!isPausedRef.current && index + 1 < stepsToRead.length) {
+        if (!isPausedRef.current && !isMutedRef.current && index + 1 < stepsToRead.length) {
           stepTimerRef.current = setTimeout(() => readStep(index + 1), 800);
         } else {
           setActiveStep(-1);
@@ -166,6 +155,21 @@ export default function ExerciseSessionScreen() {
     setActiveStep(-1);
     setCurrentText('');
   }, []);
+
+  // ── Mute toggle ──────────────────────────────────────────
+  function toggleMute() {
+    const newMuted = !isMuted;
+    isMutedRef.current = newMuted;
+    setIsMuted(newMuted);
+    if (newMuted) {
+      stopSpeaking();
+    } else {
+      // resume speech from current step if not paused
+      if (!isPausedRef.current && stepIndexRef.current < stepsToRead.length) {
+        readStep(stepIndexRef.current);
+      }
+    }
+  }
 
   // ── Timer ────────────────────────────────────────────────
   const startTimer = useCallback(() => {
@@ -194,6 +198,8 @@ export default function ExerciseSessionScreen() {
     setActiveStep(-1);
     setCurrentText('');
     isPausedRef.current = false;
+    isMutedRef.current = false;
+    setIsMuted(false);
     stepIndexRef.current = 0;
 
     startTimer();
@@ -213,7 +219,7 @@ export default function ExerciseSessionScreen() {
       isPausedRef.current = false;
       setIsPaused(false);
       startTimer();
-      if (stepIndexRef.current < stepsToRead.length) {
+      if (!isMutedRef.current && stepIndexRef.current < stepsToRead.length) {
         readStep(stepIndexRef.current);
       }
     } else {
@@ -254,7 +260,18 @@ export default function ExerciseSessionScreen() {
               : (isRTL ? 'جلسة التمرين جارية' : 'Exercise session running')}
           </Text>
         </View>
-        <View style={{ width: 40 }} />
+        {/* ── Mute Button ── */}
+        <TouchableOpacity
+          onPress={toggleMute}
+          style={[styles.navBtn, isMuted && { backgroundColor: '#F0EBFA' }]}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name={isMuted ? 'volume-mute' : 'volume-high'}
+            size={20}
+            color={isMuted ? '#E05C5C' : '#7C5CBF'}
+          />
+        </TouchableOpacity>
       </View>
 
       <View style={[styles.videoWrap, { borderColor: color + '33' }]}>
@@ -267,7 +284,7 @@ export default function ExerciseSessionScreen() {
           isMuted={false}
         />
 
-        {currentText !== '' && !isPaused && (
+        {currentText !== '' && !isPaused && !isMuted && (
           <View style={styles.speechOverlay}>
             {stepsToRead.length > 0 && (
               <View style={styles.dotsRow}>
@@ -294,6 +311,16 @@ export default function ExerciseSessionScreen() {
                 {currentText}
               </Text>
             </View>
+          </View>
+        )}
+
+        {/* Muted indicator overlay */}
+        {isMuted && !isPaused && (
+          <View style={styles.mutedOverlay}>
+            <Ionicons name="volume-mute" size={32} color="rgba(255,255,255,0.9)" />
+            <Text style={styles.mutedText}>
+              {isRTL ? 'الصوت مكتوم 🔇' : 'Muted 🔇'}
+            </Text>
           </View>
         )}
 
@@ -406,56 +433,63 @@ const styles = StyleSheet.create({
   speechOverlay: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     paddingHorizontal: 14, paddingBottom: 14, paddingTop: 40,
-    backgroundColor: 'rgba(0,0,0,0.45)', gap: 8,
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
-  dotsRow: { flexDirection: 'row', gap: 5, alignItems: 'center', justifyContent: 'center' },
-  dot:     { height: 6, borderRadius: 3 },
-  speechBubble: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  dotsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  dot:     { height: 6, borderRadius: 3, marginHorizontal: 2 },
+  speechBubble: { flexDirection: 'row', alignItems: 'flex-start' },
   speechText: {
     flex: 1, fontSize: 14, fontWeight: '700', color: '#fff', lineHeight: 20,
     textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3,
+    marginLeft: 8,
   },
   pausedOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    alignItems: 'center', justifyContent: 'center', gap: 10,
+    alignItems: 'center', justifyContent: 'center',
   },
-  pausedText: { fontSize: 18, fontWeight: '800', color: '#fff' },
+  pausedText: { fontSize: 18, fontWeight: '800', color: '#fff', marginTop: 10 },
+  mutedOverlay: {
+    position: 'absolute', top: 12, right: 12,
+    backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 14,
+    paddingHorizontal: 12, paddingVertical: 8,
+    alignItems: 'center', flexDirection: 'row',
+  },
+  mutedText: { fontSize: 13, fontWeight: '700', color: '#fff', marginLeft: 6 },
   timerBlock: {
     marginHorizontal: Spacing.xl, marginTop: 14,
     borderRadius: Radius.xxl, paddingHorizontal: 20, paddingVertical: 16,
-    gap: 12,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
   },
-  timerRow:    { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  timerRow:    { flexDirection: 'row', alignItems: 'center' },
   emojiBubble: {
     width: 56, height: 56, borderRadius: 28, borderWidth: 2,
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
   emojiText:    { fontSize: 28 },
-  timerTextCol: { flex: 1, gap: 2 },
+  timerTextCol: { flex: 1, marginHorizontal: 16 },
   countdown:    { fontSize: 46, fontWeight: '800', letterSpacing: 2, lineHeight: 52 },
-  timerLabel:   { fontSize: 12, fontWeight: '600' },
+  timerLabel:   { fontSize: 12, fontWeight: '600', marginTop: 2 },
   pauseBtn: {
     width: 56, height: 56, borderRadius: 16, borderWidth: 1.5,
-    alignItems: 'center', justifyContent: 'center', gap: 2, flexShrink: 0,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
-  pauseBtnText: { fontSize: 9, fontWeight: '800', textAlign: 'center' },
-  progressBarWrap: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  pauseBtnText: { fontSize: 9, fontWeight: '800', textAlign: 'center', marginTop: 2 },
+  progressBarWrap: { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
   progressBar:     { flex: 1, height: 7, borderRadius: 4, overflow: 'hidden' },
   progressFill:    { height: '100%', borderRadius: 4 },
-  progressPct:     { fontSize: 12, fontWeight: '800', width: 36, textAlign: 'right' },
+  progressPct:     { fontSize: 12, fontWeight: '800', width: 36, textAlign: 'right', marginLeft: 10 },
   bottomWrap: {
     paddingHorizontal: Spacing.xl, paddingTop: Spacing.base,
     paddingBottom: Spacing.xl, alignItems: 'center',
   },
   stopBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 10, borderRadius: Radius.xl, borderWidth: 2,
+    borderRadius: Radius.xl, borderWidth: 2,
     paddingVertical: 14, paddingHorizontal: 28, width: '100%',
   },
-  stopBtnText: { fontSize: FontSize.base, fontWeight: '700' },
+  stopBtnText: { fontSize: FontSize.base, fontWeight: '700', marginLeft: 10 },
 });
 
 const modal = StyleSheet.create({
