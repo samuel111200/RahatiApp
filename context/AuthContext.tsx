@@ -9,6 +9,7 @@ import {
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db, FSUser } from '../utils/firebaseConfig';
 import { registerPushToken, startTokenRefreshListener } from '../utils/pushNotifications';
+import { startPresenceListener } from '../utils/presence';
 
 export interface User {
   uid?: string;
@@ -80,6 +81,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user?.uid) return;
     return startTokenRefreshListener(user.uid);
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    return startPresenceListener(user.uid);
   }, [user?.uid]);
 
   const signIn = async (

@@ -20,6 +20,7 @@ import { Paths } from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import { uploadFileToCloudinary } from '../../utils/uploadImage';
 import { sendPushToUser } from '../../utils/pushNotifications';
+import { subscribeToPresence } from '../../utils/presence';
 
 type MessageStatus = 'sent' | 'delivered' | 'read';
 type Message = {
@@ -257,11 +258,17 @@ export default function DoctorChatScreen() {
   const [showQuick,  setShowQuick]  = useState(false);
   const [showAttach, setShowAttach] = useState(false);
   const [uploading,  setUploading]  = useState(false);
+  const [doctorOnline, setDoctorOnline] = useState(false);
   const listRef    = useRef<FlatList>(null);
   const quickAnim  = useRef(new Animated.Value(0)).current;
   const attachAnim = useRef(new Animated.Value(0)).current;
 
   const quickReplies: string[] = t.docQuickReplies;
+
+  useEffect(() => {
+    if (!isFirebase || !doctorId) return;
+    return subscribeToPresence(doctorId, (online) => setDoctorOnline(online));
+  }, [isFirebase, doctorId]);
 
   useEffect(() => {
     if (!isFirebase || !chatId) return;
@@ -404,7 +411,16 @@ export default function DoctorChatScreen() {
           </View>
           <View>
             <Text style={styles.headerName} numberOfLines={1}>{doctorName}</Text>
-            <Text style={[styles.headerSpec, { color: doctorColor }]} numberOfLines={1}>{specialty}</Text>
+            {isFirebase ? (
+              <View style={styles.onlineRow}>
+                <View style={[styles.onlineDot, !doctorOnline && styles.offlineDot]} />
+                <Text style={[styles.onlineText, !doctorOnline && styles.offlineText]}>
+                  {doctorOnline ? (isRTL ? 'متصل الآن' : 'Online') : (isRTL ? 'غير متصل' : 'Offline')}
+                </Text>
+              </View>
+            ) : (
+              <Text style={[styles.headerSpec, { color: doctorColor }]} numberOfLines={1}>{specialty}</Text>
+            )}
           </View>
         </View>
         <View style={{ width: 38 }} />
@@ -516,6 +532,11 @@ const styles = StyleSheet.create({
   headerAvatar: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
   headerName:   { fontSize: FontSize.base, fontWeight: '700', color: Colors.textPrimary },
   headerSpec:   { fontSize: 11, fontWeight: '600', marginTop: 1 },
+  onlineRow:    { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
+  onlineDot:    { width: 7, height: 7, borderRadius: 4, backgroundColor: '#4CAF82', marginRight: 5 },
+  offlineDot:   { backgroundColor: '#B0BEC5' },
+  onlineText:   { fontSize: 11, color: '#4CAF82', fontWeight: '600' },
+  offlineText:  { color: '#B0BEC5' },
   noticeBanner: { flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: Spacing.base, marginTop: 10, marginBottom: 4, backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 7 },
   noticeText:   { fontSize: 11, fontWeight: '500', flex: 1 },
   listContent:  { paddingHorizontal: Spacing.base, paddingBottom: 12, paddingTop: 8 },

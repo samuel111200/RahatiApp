@@ -19,6 +19,7 @@ import { useLang } from '../../context/Languagecontext';
 import { useChats } from '../../context/Chatscontext';
 import { notifyMessageSent } from './DocNotifService';
 import { sendPushToUser } from '../../utils/pushNotifications';
+import { subscribeToPresence } from '../../utils/presence';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
@@ -870,7 +871,7 @@ export default function Docpatient() {
   const { isRTL, t }   = useLang();
   const { markAsRead } = useChats();
   const insets         = useSafeAreaInsets();
-  const isOnline       = isOnlineParam === '1';
+  const [isOnline, setIsOnline] = useState(isOnlineParam === '1');
 
   const doctorId = auth.currentUser?.uid ?? '';
   const chatId   = doctorId && patientId ? `${doctorId}_${patientId}` : '';
@@ -886,6 +887,11 @@ export default function Docpatient() {
   const quickAnim = useRef(new Animated.Value(0)).current;
 
   useFocusEffect(useCallback(() => { if (patientId) markAsRead(patientId); }, [patientId]));
+
+  useEffect(() => {
+    if (!patientId) return;
+    return subscribeToPresence(patientId, (online) => setIsOnline(online));
+  }, [patientId]);
 
   useEffect(() => {
     if (!chatId) return;

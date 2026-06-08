@@ -1,11 +1,12 @@
 // context/Chatscontext.tsx
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import {
   collection, doc, addDoc, deleteDoc, updateDoc, query, where, onSnapshot,
 } from 'firebase/firestore';
 import { db } from '../utils/firebaseConfig';
 import { useAuth } from './AuthContext';
 import type { FSChat } from '../utils/firebaseConfig';
+import { subscribeToPresence } from '../utils/presence';
 
 function onFirestoreError(op: string, e: unknown) {
   console.warn(`[Chats] Firestore error in ${op}:`, e);
@@ -51,6 +52,7 @@ export function ChatsProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [chats,     setChats]     = useState<ChatPreview[]>([]);
   const [exercises, setExercises] = useState<Record<string, PatientExercise[]>>({});
+  const presenceSubsRef = useRef<Record<string, () => void>>({});
 
   const totalUnread = chats.reduce((sum, c) => sum + c.unreadCount, 0);
 
@@ -81,11 +83,27 @@ export function ChatsProvider({ children }: { children: React.ReactNode }) {
           };
         });
         setChats(list);
+
+        // subscribe to presence for each patient (skip if already subscribed)
+        list.forEach(({ patientId }) => {
+          if (presenceSubsRef.current[patientId]) return;
+          presenceSubsRef.current[patientId] = subscribeToPresence(
+            patientId,
+            (online) => setChats(prev =>
+              prev.map(c => c.patientId === patientId ? { ...c, isOnline: online } : c)
+            ),
+          );
+        });
       } catch (e) {
         console.warn('[Chats] onSnapshot error:', e);
       }
     });
-    return unsub;
+    return () => {
+      unsub();
+      // clean up all presence subscriptions
+      Object.values(presenceSubsRef.current).forEach(fn => fn());
+      presenceSubsRef.current = {};
+    };
   }, [user?.uid]);
 
   const markAsRead = useCallback((patientId: string) => {
