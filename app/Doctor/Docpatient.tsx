@@ -876,12 +876,13 @@ export default function Docpatient() {
   const doctorId = auth.currentUser?.uid ?? '';
   const chatId   = doctorId && patientId ? `${doctorId}_${patientId}` : '';
 
-  const [messages,       setMessages]       = useState<Message[]>([]);
-  const [exerciseAccess, setExerciseAccess] = useState(false);
-  const [showExercises,  setShowExercises]  = useState(false);
-  const [inputText,      setInputText]      = useState('');
-  const [showQuick,      setShowQuick]      = useState(false);
-  const [showAttach,     setShowAttach]     = useState(false);
+  const [messages,        setMessages]        = useState<Message[]>([]);
+  const [exerciseAccess,  setExerciseAccess]  = useState(false);
+  const [showExercises,   setShowExercises]   = useState(false);
+  const [inputText,       setInputText]       = useState('');
+  const [showQuick,       setShowQuick]       = useState(false);
+  const [showAttach,      setShowAttach]      = useState(false);
+  const [patientPhotoUrl, setPatientPhotoUrl] = useState<string | null>(null);
 
   const listRef   = useRef<any>(null);
   const quickAnim = useRef(new Animated.Value(0)).current;
@@ -891,6 +892,13 @@ export default function Docpatient() {
   useEffect(() => {
     if (!patientId) return;
     return subscribeToPresence(patientId, (online) => setIsOnline(online));
+  }, [patientId]);
+
+  useEffect(() => {
+    if (!patientId) return;
+    getDoc(doc(db, 'users', patientId)).then(snap => {
+      if (snap.exists()) setPatientPhotoUrl(snap.data().photoUrl ?? null);
+    }).catch(() => {});
   }, [patientId]);
 
   useEffect(() => {
@@ -993,7 +1001,9 @@ export default function Docpatient() {
         </TouchableOpacity>
         <View style={styles.headerInfo}>
           <View style={[styles.headerAvatar, isOnline && styles.headerAvatarOnline]}>
-            <Text style={styles.headerInitials}>{initials}</Text>
+            {patientPhotoUrl
+              ? <Image source={{ uri: patientPhotoUrl }} style={styles.headerAvatarImg} />
+              : <Text style={styles.headerInitials}>{initials}</Text>}
           </View>
           <View>
             <Text style={styles.headerName} numberOfLines={1}>{patientName || (isRTL ? 'مريض' : 'Patient')}</Text>
@@ -1093,7 +1103,8 @@ const styles = StyleSheet.create({
   header:             { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.base, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F0EBFA', shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
   backBtn:            { width: 40, height: 40, borderRadius: 20, backgroundColor: DOC_COLOR_LIGHT, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
   headerInfo:         { flex: 1, flexDirection: 'row', alignItems: 'center' },
-  headerAvatar:       { width: 44, height: 44, borderRadius: 22, backgroundColor: DOC_COLOR_LIGHT, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: DOC_COLOR + '40', marginRight: 10 },
+  headerAvatar:       { width: 44, height: 44, borderRadius: 22, backgroundColor: DOC_COLOR_LIGHT, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: DOC_COLOR + '40', marginRight: 10, overflow: 'hidden' },
+  headerAvatarImg:    { width: 44, height: 44, borderRadius: 22 },
   headerAvatarOnline: { borderColor: '#4CAF82' },
   headerInitials:     { fontSize: 16, fontWeight: '800', color: DOC_COLOR },
   headerName:         { fontSize: FontSize.base, fontWeight: '700', color: Colors.textPrimary, maxWidth: 160 },

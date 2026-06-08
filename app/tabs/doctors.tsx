@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  StatusBar, TextInput, Modal, SectionList,
+  StatusBar, TextInput, Modal, SectionList, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +25,7 @@ type DoctorCard = {
   available: boolean; emoji: string;
   color: string; bg: string;
   tags: string[]; tagsEn: string[];
+  photoUrl?: string;
 };
 
 const PALETTE = [
@@ -67,6 +68,7 @@ export default function DoctorsScreen() {
           reviews: 0, experience: 0, available: true,
           emoji: p.emoji, color: p.color, bg: p.bg,
           tags: [], tagsEn: [],
+          photoUrl: data.photoUrl ?? undefined,
         };
       });
       setAllDoctors(real);
@@ -167,7 +169,9 @@ export default function DoctorsScreen() {
       <View style={[styles.card, { borderLeftColor: doc.color, borderLeftWidth: 4 }]}>
         <View style={[styles.cardTop, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <View style={[styles.avatarCircle, { backgroundColor: doc.bg }]}>
-            <Text style={styles.avatarEmoji}>{doc.emoji}</Text>
+            {doc.photoUrl
+              ? <Image source={{ uri: doc.photoUrl }} style={styles.avatarImg} />
+              : <Text style={styles.avatarEmoji}>{doc.emoji}</Text>}
           </View>
           <View style={[styles.cardInfo, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
             <View style={[styles.nameRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -366,7 +370,9 @@ export default function DoctorsScreen() {
             <View style={styles.modalHandle} />
             <View style={[styles.modalDocRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <View style={[styles.modalAvatar, { backgroundColor: selectedDoc.bg }]}>
-                <Text style={{ fontSize: 32 }}>{selectedDoc.emoji}</Text>
+                {selectedDoc.photoUrl
+                  ? <Image source={{ uri: selectedDoc.photoUrl }} style={styles.modalAvatarImg} />
+                  : <Text style={{ fontSize: 32 }}>{selectedDoc.emoji}</Text>}
               </View>
               <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
                 <Text style={styles.modalDocName}>{isRTL ? selectedDoc.name : selectedDoc.nameEn}</Text>
@@ -416,8 +422,9 @@ const styles = StyleSheet.create({
   list: { paddingHorizontal: Spacing.base, gap: 14 },
   card: { backgroundColor: Colors.white, borderRadius: Radius.xl, padding: Spacing.base, gap: 12, shadowColor: Colors.shadowDark, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 6, elevation: 2 },
   cardTop:     { alignItems: 'center', gap: 12 },
-  avatarCircle:{ width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  avatarCircle:{ width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' },
   avatarEmoji: { fontSize: 28 },
+  avatarImg:   { width: 60, height: 60, borderRadius: 30 },
   cardInfo:    { flex: 1, gap: 4 },
   nameRow:     { alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   docName:     { fontSize: FontSize.base, fontWeight: '800', color: Colors.textPrimary },
@@ -443,7 +450,8 @@ const styles = StyleSheet.create({
   modalSheet:   { backgroundColor: Colors.white, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: Spacing.xl, gap: 14, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.12, shadowRadius: 14, elevation: 10 },
   modalHandle:  { width: 40, height: 4, backgroundColor: Colors.border, borderRadius: 2, alignSelf: 'center', marginBottom: 6 },
   modalDocRow:  { alignItems: 'center', gap: 14, marginBottom: 4 },
-  modalAvatar:  { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
+  modalAvatar:    { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  modalAvatarImg: { width: 64, height: 64, borderRadius: 32 },
   modalDocName: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.textPrimary },
   modalDocSpec: { fontSize: FontSize.sm, fontWeight: '600', marginTop: 2 },
   modalTitle:   { fontSize: FontSize.base, fontWeight: '700', color: Colors.textSecondary },

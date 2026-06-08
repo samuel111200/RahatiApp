@@ -3,12 +3,12 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   StatusBar, TextInput, KeyboardAvoidingView,
-  Platform, Animated, Alert, Linking,
+  Platform, Animated, Alert, Linking, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { collection, onSnapshot, addDoc, updateDoc, setDoc, doc, query, orderBy, increment } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, setDoc, doc, query, orderBy, increment, getDoc } from 'firebase/firestore';
 import { Colors, Spacing, FontSize } from '../../constants/Theme';
 import { useLang } from '../../context/Languagecontext';
 import { db } from '../../utils/firebaseConfig';
@@ -258,7 +258,8 @@ export default function DoctorChatScreen() {
   const [showQuick,  setShowQuick]  = useState(false);
   const [showAttach, setShowAttach] = useState(false);
   const [uploading,  setUploading]  = useState(false);
-  const [doctorOnline, setDoctorOnline] = useState(false);
+  const [doctorOnline,    setDoctorOnline]    = useState(false);
+  const [doctorPhotoUrl,  setDoctorPhotoUrl]  = useState<string | null>(null);
   const listRef    = useRef<FlatList>(null);
   const quickAnim  = useRef(new Animated.Value(0)).current;
   const attachAnim = useRef(new Animated.Value(0)).current;
@@ -268,6 +269,13 @@ export default function DoctorChatScreen() {
   useEffect(() => {
     if (!isFirebase || !doctorId) return;
     return subscribeToPresence(doctorId, (online) => setDoctorOnline(online));
+  }, [isFirebase, doctorId]);
+
+  useEffect(() => {
+    if (!isFirebase || !doctorId) return;
+    getDoc(doc(db, 'users', doctorId)).then(snap => {
+      if (snap.exists()) setDoctorPhotoUrl(snap.data().photoUrl ?? null);
+    }).catch(() => {});
   }, [isFirebase, doctorId]);
 
   useEffect(() => {
@@ -407,7 +415,9 @@ export default function DoctorChatScreen() {
         </TouchableOpacity>
         <View style={styles.headerInfo}>
           <View style={[styles.headerAvatar, { backgroundColor: doctorBg }]}>
-            <Text style={{ fontSize: 20 }}>{doctorEmoji}</Text>
+            {doctorPhotoUrl
+              ? <Image source={{ uri: doctorPhotoUrl }} style={styles.headerAvatarImg} />
+              : <Text style={{ fontSize: 20 }}>{doctorEmoji}</Text>}
           </View>
           <View>
             <Text style={styles.headerName} numberOfLines={1}>{doctorName}</Text>
@@ -529,7 +539,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: Spacing.base, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: Colors.border, shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 3 },
   backBtn:      { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.primaryUltraLight, alignItems: 'center', justifyContent: 'center' },
   headerInfo:   { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  headerAvatar: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
+  headerAvatar:    { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  headerAvatarImg: { width: 42, height: 42, borderRadius: 21 },
   headerName:   { fontSize: FontSize.base, fontWeight: '700', color: Colors.textPrimary },
   headerSpec:   { fontSize: 11, fontWeight: '600', marginTop: 1 },
   onlineRow:    { flexDirection: 'row', alignItems: 'center', marginTop: 2 },

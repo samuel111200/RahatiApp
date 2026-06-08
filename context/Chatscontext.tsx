@@ -1,7 +1,7 @@
 // context/Chatscontext.tsx
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import {
-  collection, doc, addDoc, deleteDoc, updateDoc, query, where, onSnapshot,
+  collection, doc, addDoc, deleteDoc, updateDoc, query, where, onSnapshot, getDoc,
 } from 'firebase/firestore';
 import { db } from '../utils/firebaseConfig';
 import { useAuth } from './AuthContext';
@@ -23,6 +23,7 @@ export type ChatPreview = {
   unreadCount: number;
   isOnline: boolean;
   status: 'read' | 'delivered' | 'sent';
+  patientPhotoUrl?: string;
 };
 
 export type PatientExercise = {
@@ -52,7 +53,8 @@ export function ChatsProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [chats,     setChats]     = useState<ChatPreview[]>([]);
   const [exercises, setExercises] = useState<Record<string, PatientExercise[]>>({});
-  const presenceSubsRef = useRef<Record<string, () => void>>({});
+  const presenceSubsRef  = useRef<Record<string, () => void>>({});
+  const photoUrlCacheRef = useRef<Record<string, string>>({});
 
   const totalUnread = chats.reduce((sum, c) => sum + c.unreadCount, 0);
 
@@ -82,12 +84,19 @@ export function ChatsProvider({ children }: { children: React.ReactNode }) {
             status:               'read' as const,
           };
         });
-        // preserve isOnline values from existing presence subscriptions
+        // preserve isOnline + patientPhotoUrl when the list refreshes
         setChats(prev =>
-          list.map(c => ({ ...c, isOnline: prev.find(p => p.patientId === c.patientId)?.isOnline ?? false }))
+          list.map(c => {
+            const existing = prev.find(p => p.patientId === c.patientId);
+            return {
+              ...c,
+              isOnline:       existing?.isOnline ?? false,
+              patientPhotoUrl: existing?.patientPhotoUrl ?? photoUrlCacheRef.current[c.patientId],
+            };
+          })
         );
 
-        // subscribe to presence for each patient (skip if already subscribed)
+        // subscribe to presence + fetch photo for each patient (skip if already subscribed)
         list.forEach(({ patientId }) => {
           if (presenceSubsRef.current[patientId]) return;
           presenceSubsRef.current[patientId] = subscribeToPresence(
@@ -96,6 +105,16 @@ export function ChatsProvider({ children }: { children: React.ReactNode }) {
               prev.map(c => c.patientId === patientId ? { ...c, isOnline: online } : c)
             ),
           );
+          // fetch photo once per patient
+          getDoc(doc(db, 'users', patientId)).then(snap => {
+            const photoUrl = snap.exists() ? (snap.data().photoUrl as string | undefined) : undefined;
+            photoUrlCacheRef.current[patientId] = photoUrl ?? '';
+            if (photoUrl) {
+              setChats(prev =>
+                prev.map(c => c.patientId === patientId ? { ...c, patientPhotoUrl: photoUrl } : c)
+              );
+            }
+          }).catch(() => {});
         });
       } catch (e) {
         console.warn('[Chats] onSnapshot error:', e);

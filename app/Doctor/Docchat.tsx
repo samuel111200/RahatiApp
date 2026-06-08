@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  StatusBar, TextInput, Animated, Platform,
+  StatusBar, TextInput, Animated, Platform, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -102,7 +102,9 @@ function ChatItem({ item, index, onPress, t, isRTL }: { item: ChatPreview; index
 
         <View style={styles.avatarWrap}>
           <View style={[styles.avatar, hasUnread && styles.avatarActive]}>
-            <Text style={styles.avatarText}>{getInitials(item.patientName)}</Text>
+            {item.patientPhotoUrl
+              ? <Image source={{ uri: item.patientPhotoUrl }} style={styles.avatarImg} />
+              : <Text style={styles.avatarText}>{getInitials(item.patientName)}</Text>}
           </View>
           {item.isOnline && <View style={styles.onlineBadge} />}
         </View>
@@ -285,9 +287,10 @@ const styles = StyleSheet.create({
   chatRowUnread: { backgroundColor: '#F8F5FF' },
   unreadBar:     { position: 'absolute', left: 0, top: 8, bottom: 8, width: 3, borderRadius: 2, backgroundColor: DOC_COLOR },
   avatarWrap: { position: 'relative' },
-  avatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: DOC_COLOR_LIGHT, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: DOC_COLOR + '30' },
+  avatar:       { width: 52, height: 52, borderRadius: 26, backgroundColor: DOC_COLOR_LIGHT, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: DOC_COLOR + '30', overflow: 'hidden' },
   avatarActive: { borderColor: DOC_COLOR + '70' },
   avatarText:   { fontSize: 17, fontWeight: '800', color: DOC_COLOR },
+  avatarImg:    { width: 52, height: 52, borderRadius: 26 },
   onlineBadge:  { position: 'absolute', bottom: 2, end: 2, width: 12, height: 12, borderRadius: 6, backgroundColor: '#4CAF82', borderWidth: 2, borderColor: '#fff' },
   chatContent:   { flex: 1 },
   chatTopRow:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
