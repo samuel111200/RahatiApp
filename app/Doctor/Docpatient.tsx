@@ -54,81 +54,40 @@ const EX_SECTION_CONFIGS = [
   { key: 'aerobic'      as ExSectionKey, labelAr: 'هوائي',  labelEn: 'Aerobic',      color: '#E07B5C', bg: '#FDF0EB', accent: '#FAE2D6', emoji: '🏃' },
   { key: 'endurance'    as ExSectionKey, labelAr: 'تحمّل',  labelEn: 'Endurance',    color: '#D45BAA', bg: '#FCEEF8', accent: '#F8D6F0', emoji: '💪' },
   { key: 'strength'     as ExSectionKey, labelAr: 'قوة',    labelEn: 'Strength',     color: '#7B5EA7', bg: '#F0EBF8', accent: '#E0D5F2', emoji: '🏋️' },
-  { key: 'coordination' as ExSectionKey, labelAr: 'تناسق', labelEn: 'Coordination', color: '#2A9D8F', bg: '#E6F5F3', accent: '#C8EBE7', emoji: '🎯' },
+  { key: 'coordination' as ExSectionKey, labelAr: 'تناسق',  labelEn: 'Coordination', color: '#2A9D8F', bg: '#E6F5F3', accent: '#C8EBE7', emoji: '🎯' },
 ];
 
 type AttachmentType = 'image' | 'file';
-
 type PickedAttachment = {
-  uri: string;
-  name: string;
-  mimeType: string;
-  size?: number;
-  type: AttachmentType;
+  uri: string; name: string; mimeType: string; size?: number; type: AttachmentType;
 };
 
 type Message = {
-  id: string;
-  text: string;
-  sender: 'doctor' | 'patient';
-  time: string;
+  id: string; text: string; sender: 'doctor' | 'patient'; time: string;
   status?: 'sent' | 'delivered' | 'read';
   type?: 'text' | 'request_access' | 'image' | 'file';
-  fileUri?: string;
-  fileUrl?: string;
-  fileName?: string;
-  fileSize?: number;
-  mimeType?: string;
+  fileUri?: string; fileUrl?: string; fileName?: string; fileSize?: number; mimeType?: string;
 };
 
-// ── تمرين من exercises collection (ضافه الدكتور) ──
 type FirebaseExercise = {
-  id: string;
-  title: string;
-  emoji: string;
-  durationMin: number;
-  description?: string;
-  assignedAt: number;
-  completed?: boolean;
-  type?: ExSectionKey;
-  fileUri?: string;
-  fileName?: string;
-  mimeType?: string;
-  source: 'doctor'; // ضافه الدكتور
+  id: string; title: string; emoji: string; durationMin: number;
+  description?: string; assignedAt: number; completed?: boolean; type?: ExSectionKey;
+  fileUri?: string; fileName?: string; mimeType?: string; source: 'doctor';
   pendingEdit?: {
-    title?: string;
-    emoji?: string;
-    durationMin?: number;
-    description?: string;
-    type?: ExSectionKey;
-    requestedAt: number;
-    requestedBy: 'doctor';
+    title?: string; emoji?: string; durationMin?: number; description?: string;
+    type?: ExSectionKey; requestedAt: number; requestedBy: 'doctor';
     status?: 'pending' | 'rejected';
   } | null;
 };
 
-// ── تمرين من patientExercises collection (تمارين المريض الأساسية) ──
 type PatientExercise = {
-  key: string;
-  emoji: string;
-  title: string;
-  titleEn: string;
-  duration: string;
-  durationEn: string;
-  durationSeconds: number;
-  color: string;
-  bg: string;
-  desc: string;
-  descEn: string;
-  type: ExSectionKey;
-  custom?: boolean;
-  completed?: boolean;
-  source: 'patient'; // تمارين المريض الأساسية
+  key: string; emoji: string; title: string; titleEn: string;
+  duration: string; durationEn: string; durationSeconds: number;
+  color: string; bg: string; desc: string; descEn: string;
+  type: ExSectionKey; custom?: boolean; completed?: boolean; source: 'patient';
 };
 
 // ─── Helpers ─────────────────────────────────────────────
-const t = (isRTL: boolean, ar: string, en: string) => isRTL ? ar : en;
-
 const formatSize = (bytes?: number) => {
   if (!bytes) return '';
   if (bytes < 1024) return `${bytes} B`;
@@ -141,7 +100,10 @@ async function saveAttachmentToDevice(uri: string, fileName: string, mimeType?: 
     const isImage = mimeType?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
     if (isImage) {
       const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted') { Alert.alert(t(isRTL, 'خطأ', 'Error'), t(isRTL, 'مطلوب إذن حفظ الصور', 'Gallery permission required')); return; }
+      if (status !== 'granted') {
+        Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'مطلوب إذن حفظ الصور' : 'Gallery permission required');
+        return;
+      }
       let localUri = uri;
       if (uri.startsWith('http')) {
         const dest = (FileSystem.cacheDirectory ?? '') + fileName;
@@ -149,18 +111,26 @@ async function saveAttachmentToDevice(uri: string, fileName: string, mimeType?: 
         localUri   = dl.uri;
       }
       await MediaLibrary.saveToLibraryAsync(localUri);
-      Alert.alert(t(isRTL, '✅ تم الحفظ', '✅ Saved'), t(isRTL, 'تم حفظ الصورة في معرض الصور', 'Image saved to gallery'));
+      Alert.alert(
+        isRTL ? '✅ تم الحفظ' : '✅ Saved',
+        isRTL ? 'تم حفظ الصورة في معرض الصور' : 'Image saved to gallery',
+      );
     } else {
       const dest = (FileSystem.documentDirectory ?? FileSystem.cacheDirectory ?? '') + fileName;
       if (uri.startsWith('http')) { await FileSystem.downloadAsync(uri, dest); }
       else if (uri !== dest)      { await FileSystem.copyAsync({ from: uri, to: dest }); }
-      Alert.alert(t(isRTL, '✅ تم الحفظ', '✅ Saved'), t(isRTL, `تم حفظ الملف:\n${dest}`, `File saved to:\n${dest}`));
+      Alert.alert(
+        isRTL ? '✅ تم الحفظ' : '✅ Saved',
+        isRTL ? `تم حفظ الملف:\n${dest}` : `File saved to:\n${dest}`,
+      );
     }
   } catch (e) { console.warn('[saveAttachment]', e); }
 }
 
 // ─── Attachment Sheet ─────────────────────────────────────
-function AttachmentSheet({ visible, onClose, onPick, isRTL }: { visible: boolean; onClose: () => void; onPick: (a: PickedAttachment) => void; isRTL: boolean }) {
+function AttachmentSheet({ visible, onClose, onPick, isRTL, t }: {
+  visible: boolean; onClose: () => void; onPick: (a: PickedAttachment) => void; isRTL: boolean; t: any;
+}) {
   const slideAnim = useRef(new Animated.Value(300)).current;
   useEffect(() => {
     Animated.spring(slideAnim, { toValue: visible ? 0 : 300, tension: 100, friction: 10, useNativeDriver: true }).start();
@@ -169,7 +139,7 @@ function AttachmentSheet({ visible, onClose, onPick, isRTL }: { visible: boolean
   const pickCamera = async () => {
     onClose();
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') { Alert.alert(t(isRTL, 'مطلوب إذن الكاميرا', 'Camera permission required')); return; }
+    if (status !== 'granted') { Alert.alert(isRTL ? 'خطأ' : 'Error', t.docCameraPerm); return; }
     const res = await ImagePicker.launchCameraAsync({ quality: 0.85 });
     if (!res.canceled && res.assets[0]) {
       const a = res.assets[0];
@@ -179,7 +149,7 @@ function AttachmentSheet({ visible, onClose, onPick, isRTL }: { visible: boolean
   const pickGallery = async () => {
     onClose();
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') { Alert.alert(t(isRTL, 'مطلوب إذن المعرض', 'Gallery permission required')); return; }
+    if (status !== 'granted') { Alert.alert(isRTL ? 'خطأ' : 'Error', t.docGalleryPerm); return; }
     const res = await ImagePicker.launchImageLibraryAsync({ quality: 0.85 });
     if (!res.canceled && res.assets[0]) {
       const a = res.assets[0];
@@ -202,19 +172,25 @@ function AttachmentSheet({ visible, onClose, onPick, isRTL }: { visible: boolean
       <TouchableOpacity style={sheetStyles.overlay} activeOpacity={1} onPress={onClose} />
       <Animated.View style={[sheetStyles.sheet, { transform: [{ translateY: slideAnim }] }]}>
         <View style={sheetStyles.handle} />
-        <Text style={sheetStyles.title}>{t(isRTL, 'إرسال مرفق', 'Send Attachment')}</Text>
+        <Text style={sheetStyles.title}>{t.docSendAttachment}</Text>
         <View style={sheetStyles.options}>
           <TouchableOpacity style={sheetStyles.option} onPress={pickCamera} activeOpacity={0.8}>
-            <View style={[sheetStyles.optionIcon, { backgroundColor: '#E8F5FF' }]}><Ionicons name="camera" size={28} color="#2196F3" /></View>
-            <Text style={sheetStyles.optionLabel}>{t(isRTL, 'كاميرا', 'Camera')}</Text>
+            <View style={[sheetStyles.optionIcon, { backgroundColor: '#E8F5FF' }]}>
+              <Ionicons name="camera" size={28} color="#2196F3" />
+            </View>
+            <Text style={sheetStyles.optionLabel}>{t.docCamera}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={sheetStyles.option} onPress={pickGallery} activeOpacity={0.8}>
-            <View style={[sheetStyles.optionIcon, { backgroundColor: DOC_COLOR_LIGHT }]}><Ionicons name="image" size={28} color={DOC_COLOR} /></View>
-            <Text style={sheetStyles.optionLabel}>{t(isRTL, 'صور', 'Gallery')}</Text>
+            <View style={[sheetStyles.optionIcon, { backgroundColor: DOC_COLOR_LIGHT }]}>
+              <Ionicons name="image" size={28} color={DOC_COLOR} />
+            </View>
+            <Text style={sheetStyles.optionLabel}>{t.docGallery}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={sheetStyles.option} onPress={pickFile} activeOpacity={0.8}>
-            <View style={[sheetStyles.optionIcon, { backgroundColor: '#FFF3E2' }]}><Ionicons name="document-attach" size={28} color="#F4A32B" /></View>
-            <Text style={sheetStyles.optionLabel}>{t(isRTL, 'ملف', 'File')}</Text>
+            <View style={[sheetStyles.optionIcon, { backgroundColor: '#FFF3E2' }]}>
+              <Ionicons name="document-attach" size={28} color="#F4A32B" />
+            </View>
+            <Text style={sheetStyles.optionLabel}>{t.docFile}</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -234,7 +210,7 @@ const sheetStyles = StyleSheet.create({
 });
 
 // ─── Message Bubble ──────────────────────────────────────
-function MessageBubble({ msg, isRTL }: { msg: Message; isRTL: boolean }) {
+function MessageBubble({ msg, isRTL, t }: { msg: Message; isRTL: boolean; t: any }) {
   const isDoc     = msg.sender === 'doctor';
   const fadeAnim  = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(isDoc ? 20 : -20)).current;
@@ -260,11 +236,11 @@ function MessageBubble({ msg, isRTL }: { msg: Message; isRTL: boolean }) {
       <Animated.View style={[msgStyles.row, msgStyles.rowRight, { opacity: fadeAnim }]}>
         <View style={msgStyles.requestCard}>
           <Ionicons name="barbell-outline" size={22} color={DOC_COLOR} />
-          <Text style={msgStyles.requestTitle}>طلب صلاحية التمارين</Text>
-          <Text style={msgStyles.requestSub}>طلب الدكتور إذنك لتعيين وإدارة التمارين الخاصة بك</Text>
+          <Text style={msgStyles.requestTitle}>{t.docAccessRequestTitle}</Text>
+          <Text style={msgStyles.requestSub}>{t.docAccessRequestBody}</Text>
           <View style={msgStyles.requestBadge}>
             <Ionicons name="time-outline" size={13} color="#F4A32B" />
-            <Text style={msgStyles.requestBadgeText}>بانتظار رد المريض</Text>
+            <Text style={msgStyles.requestBadgeText}>{t.docAccessPending}</Text>
           </View>
         </View>
       </Animated.View>
@@ -277,7 +253,9 @@ function MessageBubble({ msg, isRTL }: { msg: Message; isRTL: boolean }) {
       <Animated.View style={[msgStyles.row, isDoc ? msgStyles.rowRight : msgStyles.rowLeft, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
         {!isDoc && <View style={msgStyles.patientAvatar}><Ionicons name="person" size={14} color={DOC_COLOR} /></View>}
         <View style={[msgStyles.bubble, isDoc ? msgStyles.bubbleDoc : msgStyles.bubblePatient, { padding: 4 }]}>
-          {imgUri ? <Image source={{ uri: imgUri }} style={msgStyles.imageThumb} resizeMode="cover" /> : <View style={[msgStyles.imageThumb, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#eee' }]}><Ionicons name="image-outline" size={32} color="#bbb" /></View>}
+          {imgUri
+            ? <Image source={{ uri: imgUri }} style={msgStyles.imageThumb} resizeMode="cover" />
+            : <View style={[msgStyles.imageThumb, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#eee' }]}><Ionicons name="image-outline" size={32} color="#bbb" /></View>}
           <TouchableOpacity style={msgStyles.downloadOverlay} onPress={handleSave} activeOpacity={0.8}>
             {saving ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="download" size={18} color="#fff" />}
           </TouchableOpacity>
@@ -300,7 +278,7 @@ function MessageBubble({ msg, isRTL }: { msg: Message; isRTL: boolean }) {
               {saving ? <ActivityIndicator size="small" color={isDoc ? '#fff' : DOC_COLOR} /> : <Ionicons name="document-attach" size={22} color={isDoc ? '#fff' : DOC_COLOR} />}
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[msgStyles.fileName, isDoc && { color: '#fff' }]} numberOfLines={2}>{msg.fileName || 'ملف'}</Text>
+              <Text style={[msgStyles.fileName, isDoc && { color: '#fff' }]} numberOfLines={2}>{msg.fileName || (isRTL ? 'ملف' : 'File')}</Text>
               {!!msg.fileSize && <Text style={[msgStyles.fileSize, isDoc && { color: 'rgba(255,255,255,0.7)' }]}>{formatSize(msg.fileSize)}</Text>}
             </View>
             <Ionicons name="download-outline" size={18} color={isDoc ? 'rgba(255,255,255,0.8)' : DOC_COLOR} />
@@ -370,26 +348,21 @@ const divStyles = StyleSheet.create({
   text: { fontSize: 11, color: Colors.textMuted, fontWeight: '600', backgroundColor: '#F8F5FF', paddingHorizontal: 8, borderRadius: 8, marginHorizontal: 10 },
 });
 
-const QUICK_REPLIES = ['كيف حالك اليوم؟', 'هل تناولت الدواء؟', 'ما هي الأعراض؟', 'لا داعي للقلق', 'يرجى المراجعة غداً'];
-
 // ═══════════════════════════════════════════════════════════
 // ─── Exercise Management Modal ───────────────────────────
 // ═══════════════════════════════════════════════════════════
 function ExerciseManagementModal({
-  visible, onClose, patientId, isRTL, patientName,
+  visible, onClose, patientId, isRTL, patientName, t,
 }: {
-  visible: boolean; onClose: () => void; patientId: string; isRTL: boolean; patientName?: string;
+  visible: boolean; onClose: () => void; patientId: string;
+  isRTL: boolean; patientName?: string; t: any;
 }) {
-  // ── تمارين الدكتور (exercises/{patientId}/items) ─────
   const [doctorExercises,  setDoctorExercises]  = useState<FirebaseExercise[]>([]);
-  // ── تمارين المريض الأساسية (patientExercises/{patientId}) ─
   const [patientExercises, setPatientExercises] = useState<PatientExercise[]>([]);
   const [loadingPatient,   setLoadingPatient]   = useState(true);
-
   const [activeSection, setActiveSection] = useState<ExSectionKey>('therapy');
   const [showAddForm,   setShowAddForm]   = useState(false);
   const [editingEx,     setEditingEx]     = useState<FirebaseExercise | null>(null);
-
   const [newTitle,   setNewTitle]   = useState('');
   const [newEmoji,   setNewEmoji]   = useState('🏋️');
   const [newMins,    setNewMins]    = useState('');
@@ -399,7 +372,6 @@ function ExerciseManagementModal({
   const [attachFile, setAttachFile] = useState<PickedAttachment | null>(null);
   const [showAttach, setShowAttach] = useState(false);
   const [savingId,   setSavingId]   = useState<string | null>(null);
-
   const [editTitle,  setEditTitle]  = useState('');
   const [editEmoji,  setEditEmoji]  = useState('');
   const [editMins,   setEditMins]   = useState('');
@@ -407,20 +379,17 @@ function ExerciseManagementModal({
   const [editType,   setEditType]   = useState<ExSectionKey>('therapy');
   const [editSaving, setEditSaving] = useState(false);
 
-  // ── Load doctor-assigned exercises ────────────────────
   useEffect(() => {
     if (!visible || !patientId) return;
     const unsub = onSnapshot(collection(db, 'exercises', patientId, 'items'), (snap) => {
       const list: FirebaseExercise[] = snap.docs.map((d) => ({
-        id: d.id, ...(d.data() as Omit<FirebaseExercise, 'id'>),
-        source: 'doctor' as const,
+        id: d.id, ...(d.data() as Omit<FirebaseExercise, 'id'>), source: 'doctor' as const,
       }));
       setDoctorExercises(list.sort((a, b) => b.assignedAt - a.assignedAt));
     });
     return unsub;
   }, [visible, patientId]);
 
-  // ── Load patient's own exercises from patientExercises ─
   useEffect(() => {
     if (!visible || !patientId) return;
     setLoadingPatient(true);
@@ -428,19 +397,13 @@ function ExerciseManagementModal({
       setLoadingPatient(false);
       if (snap.exists()) {
         const data = snap.data();
-        const list: PatientExercise[] = (data.exercises ?? []).map((e: any) => ({
-          ...e,
-          source: 'patient' as const,
-        }));
+        const list: PatientExercise[] = (data.exercises ?? []).map((e: any) => ({ ...e, source: 'patient' as const }));
         setPatientExercises(list);
-      } else {
-        setPatientExercises([]);
-      }
+      } else { setPatientExercises([]); }
     }, () => setLoadingPatient(false));
     return unsub;
   }, [visible, patientId]);
 
-  // ── Listen for rejected edits ─────────────────────────
   useEffect(() => {
     if (!visible || !patientId) return;
     const unsub = onSnapshot(collection(db, 'exercises', patientId, 'items'), (snap) => {
@@ -449,8 +412,8 @@ function ExerciseManagementModal({
           const data = change.doc.data() as FirebaseExercise;
           if ((data.pendingEdit as any)?.status === 'rejected') {
             Alert.alert(
-              t(isRTL, '❌ رفض التعديل', '❌ Edit Rejected'),
-              t(isRTL, `المريض رفض تعديل تمرين "${data.title}"`, `Patient rejected the edit for "${data.title}"`),
+              t.docEditRejected,
+              `${t.docEditRejectedBody} "${data.title}"`,
             );
             updateDoc(doc(db, 'exercises', patientId, 'items', change.doc.id), { pendingEdit: null }).catch(() => {});
           }
@@ -466,13 +429,9 @@ function ExerciseManagementModal({
   };
 
   const activeCfg = EX_SECTION_CONFIGS.find((s) => s.key === activeSection)!;
-
-  // ── التمارين في الـ section الحالية ──────────────────
-  // نجمع: تمارين الدكتور + تمارين المريض الأساسية في نفس القسم
   const doctorInSection  = doctorExercises.filter(e => (e.type ?? 'therapy') === activeSection);
   const patientInSection = patientExercises.filter(e => e.type === activeSection);
 
-  // ── عدد كل قسم (دكتور + مريض) ────────────────────────
   const getSectionCount = (key: ExSectionKey) => {
     const dCount = doctorExercises.filter(e => (e.type ?? 'therapy') === key).length;
     const pCount = patientExercises.filter(e => e.type === key).length;
@@ -484,9 +443,9 @@ function ExerciseManagementModal({
                        + patientExercises.filter(e => e.completed).length;
 
   const handleAdd = async () => {
-    if (!newTitle.trim()) { Alert.alert(t(isRTL, 'تنبيه', 'Notice'), t(isRTL, 'أدخل اسم التمرين', 'Enter exercise name')); return; }
+    if (!newTitle.trim()) { Alert.alert(t.docExerciseNotice, t.docEnterExerciseName); return; }
     const mins = parseInt(newMins);
-    if (!newMins.trim() || isNaN(mins) || mins <= 0) { Alert.alert(t(isRTL, 'تنبيه', 'Notice'), t(isRTL, 'أدخل مدة صحيحة', 'Enter a valid duration')); return; }
+    if (!newMins.trim() || isNaN(mins) || mins <= 0) { Alert.alert(t.docExerciseNotice, t.docEnterValidDuration); return; }
     if (saving) return;
     setSaving(true);
     try {
@@ -497,26 +456,21 @@ function ExerciseManagementModal({
         source: 'doctor',
         ...(attachFile && { fileUri: attachFile.uri, fileName: attachFile.name, mimeType: attachFile.mimeType }),
       });
-      resetForm();
-      setShowAddForm(false);
+      resetForm(); setShowAddForm(false);
     } catch (e) { console.warn('[ExerciseModal] add error:', e); setSaving(false); }
   };
 
   const openEdit = (ex: FirebaseExercise) => {
-    setEditingEx(ex);
-    setEditTitle(ex.title);
-    setEditEmoji(ex.emoji);
-    setEditMins(String(ex.durationMin));
-    setEditDesc(ex.description ?? '');
-    setEditType((ex.type ?? 'therapy') as ExSectionKey);
-    setEditSaving(false);
+    setEditingEx(ex); setEditTitle(ex.title); setEditEmoji(ex.emoji);
+    setEditMins(String(ex.durationMin)); setEditDesc(ex.description ?? '');
+    setEditType((ex.type ?? 'therapy') as ExSectionKey); setEditSaving(false);
   };
 
   const handleSubmitEdit = async () => {
     if (!editingEx) return;
     const mins = parseInt(editMins);
-    if (!editTitle.trim()) { Alert.alert(t(isRTL, 'تنبيه', 'Notice'), t(isRTL, 'أدخل اسم التمرين', 'Enter exercise name')); return; }
-    if (isNaN(mins) || mins <= 0) { Alert.alert(t(isRTL, 'تنبيه', 'Notice'), t(isRTL, 'أدخل مدة صحيحة', 'Enter a valid duration')); return; }
+    if (!editTitle.trim()) { Alert.alert(t.docExerciseNotice, t.docEnterExerciseName); return; }
+    if (isNaN(mins) || mins <= 0) { Alert.alert(t.docExerciseNotice, t.docEnterValidDuration); return; }
     if (editSaving) return;
     setEditSaving(true);
     try {
@@ -528,21 +482,20 @@ function ExerciseManagementModal({
         },
       });
       setEditingEx(null);
-      Alert.alert(
-        t(isRTL, '✅ تم إرسال طلب التعديل', '✅ Edit Request Sent'),
-        t(isRTL, 'تم إرسال طلب التعديل للمريض', 'Edit request sent to patient for approval'),
-      );
+      Alert.alert(t.docEditRequestSent, t.docEditRequestSentBody);
     } catch (e) { console.warn('[ExerciseModal] edit error:', e); }
     finally { setEditSaving(false); }
   };
 
   const handleDelete = (ex: FirebaseExercise) => {
     Alert.alert(
-      t(isRTL, 'حذف التمرين', 'Delete Exercise'),
-      t(isRTL, `هل تريد حذف "${ex.title}"؟`, `Delete "${ex.title}"?`),
+      t.docDeleteExerciseTitle,
+      `${t.docDeleteExerciseConfirm} "${ex.title}"?`,
       [
-        { text: t(isRTL, 'إلغاء', 'Cancel'), style: 'cancel' },
-        { text: t(isRTL, 'حذف', 'Delete'), style: 'destructive', onPress: async () => { try { await deleteDoc(doc(db, 'exercises', patientId, 'items', ex.id)); } catch (e) { console.warn(e); } } },
+        { text: t.docCancelBtn, style: 'cancel' },
+        { text: isRTL ? 'حذف' : 'Delete', style: 'destructive', onPress: async () => {
+          try { await deleteDoc(doc(db, 'exercises', patientId, 'items', ex.id)); } catch (e) { console.warn(e); }
+        }},
       ],
     );
   };
@@ -554,6 +507,14 @@ function ExerciseManagementModal({
     setSavingId(null);
   };
 
+  const exTitle = patientName
+    ? (isRTL ? `تمارين ${patientName}` : `${patientName}'s Exercises`)
+    : (isRTL ? 'تمارين المريض' : "Patient's Exercises");
+
+  const subTitle = loadingPatient
+    ? t.docExercisesLoading
+    : `${totalExercises} ${t.docExercisesCount}${doneCount > 0 ? ` · ${doneCount} ${t.docExercisesDone}` : ''}`;
+
   return (
     <Modal visible={visible} transparent={false} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={{ flex: 1, backgroundColor: '#F8F5FF' }} edges={['top', 'bottom']}>
@@ -564,14 +525,8 @@ function ExerciseManagementModal({
             <Ionicons name="arrow-back" size={22} color={DOC_COLOR} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={exStyles.headerTitle}>
-              {t(isRTL, `تمارين ${patientName || 'المريض'}`, `${patientName || 'Patient'}'s Exercises`)}
-            </Text>
-            <Text style={exStyles.headerSub}>
-              {loadingPatient
-                ? t(isRTL, 'جاري التحميل...', 'Loading...')
-                : `${totalExercises} ${t(isRTL, 'تمرين', 'exercises')}${doneCount > 0 ? ` · ${doneCount} ${t(isRTL, 'تم', 'done')}` : ''}`}
-            </Text>
+            <Text style={exStyles.headerTitle}>{exTitle}</Text>
+            <Text style={exStyles.headerSub}>{subTitle}</Text>
           </View>
           <TouchableOpacity style={exStyles.addHeaderBtn} onPress={() => { setNewType(activeSection); setShowAddForm(true); }} activeOpacity={0.8}>
             <Ionicons name="add" size={22} color="#fff" />
@@ -605,21 +560,18 @@ function ExerciseManagementModal({
 
         <ScrollView contentContainerStyle={exStyles.listContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-          {/* ══════════════════════════════════════════════════
-              قسم تمارين المريض الأساسية
-          ══════════════════════════════════════════════════ */}
+          {/* Patient base exercises */}
           {patientInSection.length > 0 && (
             <View style={exStyles.sectionGroup}>
               <View style={exStyles.sectionGroupHeader}>
                 <Ionicons name="person-outline" size={14} color={activeCfg.color} />
                 <Text style={[exStyles.sectionGroupTitle, { color: activeCfg.color }]}>
-                  {t(isRTL, '📋 تمارين المريض الأساسية', '📋 Patient\'s Base Exercises')}
+                  {t.docPatientBaseExercises}
                 </Text>
                 <View style={[exStyles.sectionGroupBadge, { backgroundColor: activeCfg.color + '20' }]}>
                   <Text style={[exStyles.sectionGroupBadgeText, { color: activeCfg.color }]}>{patientInSection.length}</Text>
                 </View>
               </View>
-
               {patientInSection.map((pe) => {
                 const cfg = EX_SECTION_CONFIGS.find(s => s.key === pe.type) ?? activeCfg;
                 return (
@@ -636,15 +588,13 @@ function ExerciseManagementModal({
                         </Text>
                         {pe.custom && (
                           <View style={[exStyles.customBadge, { backgroundColor: cfg.color + '20' }]}>
-                            <Text style={[exStyles.customBadgeText, { color: cfg.color }]}>
-                              {t(isRTL, 'مخصص', 'Custom')}
-                            </Text>
+                            <Text style={[exStyles.customBadgeText, { color: cfg.color }]}>{t.docExerciseCustom}</Text>
                           </View>
                         )}
                         {pe.completed && (
                           <View style={exStyles.patientDoneBadge}>
                             <Ionicons name="checkmark-circle" size={11} color="#4CAF50" />
-                            <Text style={exStyles.patientDoneBadgeText}>{t(isRTL, 'تم', 'Done')}</Text>
+                            <Text style={exStyles.patientDoneBadgeText}>{t.docExercisesDone}</Text>
                           </View>
                         )}
                       </View>
@@ -654,7 +604,6 @@ function ExerciseManagementModal({
                         </Text>
                       )}
                     </View>
-                    {/* علامة للقراءة فقط */}
                     <View style={exStyles.readOnlyBadge}>
                       <Ionicons name="eye-outline" size={12} color="#B0BEC5" />
                     </View>
@@ -664,25 +613,21 @@ function ExerciseManagementModal({
             </View>
           )}
 
-          {/* ══════════════════════════════════════════════════
-              قسم التمارين المُضافة من الدكتور
-          ══════════════════════════════════════════════════ */}
+          {/* Doctor exercises */}
           {doctorInSection.length > 0 && (
             <View style={[exStyles.sectionGroup, { marginTop: patientInSection.length > 0 ? 10 : 0 }]}>
               <View style={exStyles.sectionGroupHeader}>
                 <Ionicons name="medical-outline" size={14} color={DOC_COLOR} />
                 <Text style={[exStyles.sectionGroupTitle, { color: DOC_COLOR }]}>
-                  {t(isRTL, '🩺 تمارين أضافها الدكتور', '🩺 Doctor-Assigned Exercises')}
+                  {t.docDoctorExercises}
                 </Text>
                 <View style={[exStyles.sectionGroupBadge, { backgroundColor: DOC_COLOR + '20' }]}>
                   <Text style={[exStyles.sectionGroupBadgeText, { color: DOC_COLOR }]}>{doctorInSection.length}</Text>
                 </View>
               </View>
-
               {doctorInSection.map((ex) => {
                 const cfg        = EX_SECTION_CONFIGS.find((s) => s.key === (ex.type ?? 'therapy'))!;
                 const hasPending = !!ex.pendingEdit && (ex.pendingEdit as any).status === 'pending';
-
                 return (
                   <View key={ex.id} style={[exStyles.card, { backgroundColor: cfg.bg }]}>
                     <View style={[exStyles.cardBar, { backgroundColor: cfg.color }]} />
@@ -691,34 +636,40 @@ function ExerciseManagementModal({
                       <View style={exStyles.cardTitleRow}>
                         <Text style={[exStyles.cardTitle, { color: cfg.color }]}>{ex.title}</Text>
                         {ex.completed && (
-                          <View style={exStyles.doneBadge}><Text style={exStyles.doneBadgeText}>{t(isRTL, 'تم ✓', 'Done ✓')}</Text></View>
+                          <View style={exStyles.doneBadge}>
+                            <Text style={exStyles.doneBadgeText}>{t.docExerciseDoneBadgeFull}</Text>
+                          </View>
                         )}
                         {hasPending && (
                           <View style={exStyles.pendingBadge}>
                             <Ionicons name="time-outline" size={11} color="#F4A32B" />
-                            <Text style={exStyles.pendingBadgeText}>{t(isRTL, 'بانتظار القبول', 'Pending')}</Text>
+                            <Text style={exStyles.pendingBadgeText}>{t.docExercisePendingBadge}</Text>
                           </View>
                         )}
                       </View>
                       <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3 }}>
                         <Ionicons name="time-outline" size={11} color={cfg.color} />
-                        <Text style={[exStyles.cardMeta, { color: cfg.color, marginLeft: 4 }]}>{ex.durationMin} {t(isRTL, 'دقيقة', 'min')}</Text>
+                        <Text style={[exStyles.cardMeta, { color: cfg.color, marginLeft: 4 }]}>
+                          {ex.durationMin} {t.docExerciseMin}
+                        </Text>
                         <View style={[exStyles.sectionPill, { backgroundColor: cfg.color + '20', marginLeft: 6 }]}>
-                          <Text style={[exStyles.sectionPillText, { color: cfg.color }]}>{cfg.emoji} {isRTL ? cfg.labelAr : cfg.labelEn}</Text>
+                          <Text style={[exStyles.sectionPillText, { color: cfg.color }]}>
+                            {cfg.emoji} {isRTL ? cfg.labelAr : cfg.labelEn}
+                          </Text>
                         </View>
                       </View>
                       {!!ex.description && <Text style={exStyles.cardDesc} numberOfLines={2}>{ex.description}</Text>}
                       {hasPending && ex.pendingEdit && (
                         <View style={exStyles.pendingPreview}>
-                          <Text style={exStyles.pendingPreviewLabel}>{t(isRTL, '✏️ التعديل المقترح:', '✏️ Proposed edit:')}</Text>
-                          {ex.pendingEdit.title      && <Text style={exStyles.pendingPreviewText}>{t(isRTL, 'الاسم:', 'Name:')} {ex.pendingEdit.title}</Text>}
-                          {ex.pendingEdit.durationMin && <Text style={exStyles.pendingPreviewText}>{t(isRTL, 'المدة:', 'Duration:')} {ex.pendingEdit.durationMin} {t(isRTL, 'دقيقة', 'min')}</Text>}
+                          <Text style={exStyles.pendingPreviewLabel}>{t.docExerciseProposed}</Text>
+                          {ex.pendingEdit.title      && <Text style={exStyles.pendingPreviewText}>{t.docExerciseNameLabel} {ex.pendingEdit.title}</Text>}
+                          {ex.pendingEdit.durationMin && <Text style={exStyles.pendingPreviewText}>{t.docExerciseDurationLabel2} {ex.pendingEdit.durationMin} {t.docExerciseMin}</Text>}
                         </View>
                       )}
                       {!!ex.fileUri && (
                         <TouchableOpacity style={exStyles.fileChip} onPress={() => handleSaveExFile(ex)} activeOpacity={0.8}>
                           {savingId === ex.id ? <ActivityIndicator size="small" color={DOC_COLOR} /> : <Ionicons name="document-attach-outline" size={13} color={DOC_COLOR} />}
-                          <Text style={exStyles.fileChipText} numberOfLines={1}>{ex.fileName || t(isRTL, 'مرفق', 'Attachment')}</Text>
+                          <Text style={exStyles.fileChipText} numberOfLines={1}>{ex.fileName || t.docExerciseAttachment}</Text>
                           <Ionicons name="download-outline" size={13} color={DOC_COLOR} />
                         </TouchableOpacity>
                       )}
@@ -744,14 +695,16 @@ function ExerciseManagementModal({
             <View style={exStyles.emptyState}>
               <Text style={{ fontSize: 48 }}>{activeCfg.emoji}</Text>
               <Text style={exStyles.emptyText}>
-                {t(isRTL, `لا توجد تمارين في قسم ${activeCfg.labelAr}`, `No ${activeCfg.labelEn} exercises yet`)}
+                {isRTL
+                  ? `${t.docNoExercisesSection} ${activeCfg.labelAr}`
+                  : `${t.docNoExercisesSection} ${activeCfg.labelEn}`}
               </Text>
               <TouchableOpacity
                 style={[exStyles.emptyAddBtn, { borderColor: activeCfg.color }]}
                 onPress={() => { setNewType(activeSection); setShowAddForm(true); }}
               >
                 <Ionicons name="add" size={16} color={activeCfg.color} />
-                <Text style={[exStyles.emptyAddText, { color: activeCfg.color }]}>{t(isRTL, 'أضف تمرين', 'Add Exercise')}</Text>
+                <Text style={[exStyles.emptyAddText, { color: activeCfg.color }]}>{t.docAddExerciseBtn}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -759,7 +712,7 @@ function ExerciseManagementModal({
           {/* Add Form */}
           {showAddForm && (
             <View style={exStyles.addForm}>
-              <Text style={exStyles.addFormTitle}>{t(isRTL, '➕ تمرين جديد', '➕ New Exercise')}</Text>
+              <Text style={exStyles.addFormTitle}>{t.docNewExerciseTitle}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={exStyles.typeRow}>
                 {EX_SECTION_CONFIGS.map((sec) => {
                   const isAct = newType === sec.key;
@@ -773,31 +726,33 @@ function ExerciseManagementModal({
               </ScrollView>
               <View style={{ flexDirection: 'row' }}>
                 <TextInput style={[exStyles.input, { width: 54, textAlign: 'center', marginRight: 8 }]} value={newEmoji} onChangeText={setNewEmoji} placeholder="🏋️" maxLength={4} />
-                <TextInput style={[exStyles.input, { flex: 1 }]} value={newTitle} onChangeText={setNewTitle} placeholder={t(isRTL, 'اسم التمرين *', 'Exercise name *')} placeholderTextColor="#bbb" />
+                <TextInput style={[exStyles.input, { flex: 1 }]} value={newTitle} onChangeText={setNewTitle} placeholder={t.docEnterExerciseName} placeholderTextColor="#bbb" />
               </View>
-              <TextInput style={exStyles.input} value={newMins} onChangeText={setNewMins} placeholder={t(isRTL, 'المدة بالدقائق *', 'Duration (minutes) *')} placeholderTextColor="#bbb" keyboardType="numeric" />
-              <TextInput style={[exStyles.input, { height: 64, textAlignVertical: 'top' }]} value={newDesc} onChangeText={setNewDesc} placeholder={t(isRTL, 'وصف (اختياري)', 'Description (optional)')} placeholderTextColor="#bbb" multiline />
+              <TextInput style={exStyles.input} value={newMins} onChangeText={setNewMins} placeholder={t.docEnterValidDuration} placeholderTextColor="#bbb" keyboardType="numeric" />
+              <TextInput style={[exStyles.input, { height: 64, textAlignVertical: 'top' }]} value={newDesc} onChangeText={setNewDesc} placeholder={isRTL ? 'وصف (اختياري)' : 'Description (optional)'} placeholderTextColor="#bbb" multiline />
               <TouchableOpacity style={exStyles.attachRow} onPress={() => setShowAttach(true)} activeOpacity={0.8}>
                 <Ionicons name="attach-outline" size={18} color={DOC_COLOR} />
                 <Text style={exStyles.attachRowText} numberOfLines={1}>
-                  {attachFile ? attachFile.name : t(isRTL, 'إرفاق ملف أو صورة (اختياري)', 'Attach file or image (optional)')}
+                  {attachFile ? attachFile.name : t.docAttachFile}
                 </Text>
                 {attachFile && <TouchableOpacity onPress={() => setAttachFile(null)}><Ionicons name="close-circle" size={18} color="#E05C5C" /></TouchableOpacity>}
               </TouchableOpacity>
               <View style={{ flexDirection: 'row' }}>
                 <TouchableOpacity style={[exStyles.formBtn, { flex: 1, backgroundColor: '#F5F5F5', borderColor: '#E0D6F5', marginRight: 8 }]} onPress={() => { resetForm(); setShowAddForm(false); }} activeOpacity={0.8}>
-                  <Text style={{ fontSize: 14, color: '#888', fontWeight: '600' }}>{t(isRTL, 'إلغاء', 'Cancel')}</Text>
+                  <Text style={{ fontSize: 14, color: '#888', fontWeight: '600' }}>{t.docCancelBtn}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[exStyles.formBtn, { flex: 1, backgroundColor: EX_SECTION_CONFIGS.find(s => s.key === newType)?.color ?? DOC_COLOR, opacity: saving ? 0.6 : 1 }]} onPress={handleAdd} disabled={saving} activeOpacity={0.85}>
                   {saving ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="checkmark" size={16} color="#fff" />}
-                  <Text style={{ fontSize: 14, color: '#fff', fontWeight: '600', marginLeft: 4 }}>{saving ? t(isRTL, 'جاري...', 'Saving...') : t(isRTL, 'حفظ', 'Save')}</Text>
+                  <Text style={{ fontSize: 14, color: '#fff', fontWeight: '600', marginLeft: 4 }}>
+                    {saving ? t.docSavingDots : t.docSaveBtn}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
           )}
         </ScrollView>
 
-        <AttachmentSheet visible={showAttach} onClose={() => setShowAttach(false)} onPick={(a) => { setAttachFile(a); setShowAttach(false); }} isRTL={isRTL} />
+        <AttachmentSheet visible={showAttach} onClose={() => setShowAttach(false)} onPick={(a) => { setAttachFile(a); setShowAttach(false); }} isRTL={isRTL} t={t} />
 
         {/* Edit Modal */}
         <Modal visible={!!editingEx} transparent animationType="slide" onRequestClose={() => setEditingEx(null)}>
@@ -805,10 +760,12 @@ function ExerciseManagementModal({
             <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }} activeOpacity={1} onPress={() => setEditingEx(null)} />
             <View style={exStyles.editBox}>
               <View style={exStyles.editBoxHeader}>
-                <Text style={exStyles.editBoxTitle}>{t(isRTL, '✏️ تعديل التمرين', '✏️ Edit Exercise')}</Text>
-                <TouchableOpacity onPress={() => setEditingEx(null)} style={exStyles.editBoxClose}><Ionicons name="close" size={20} color="#888" /></TouchableOpacity>
+                <Text style={exStyles.editBoxTitle}>{t.docEditExerciseTitle}</Text>
+                <TouchableOpacity onPress={() => setEditingEx(null)} style={exStyles.editBoxClose}>
+                  <Ionicons name="close" size={20} color="#888" />
+                </TouchableOpacity>
               </View>
-              <Text style={exStyles.editBoxNote}>{t(isRTL, '⚠️ سيتم إرسال طلب تعديل للمريض، وسيُطبَّق التعديل بعد قبوله', '⚠️ An edit request will be sent to the patient and applied after their approval')}</Text>
+              <Text style={exStyles.editBoxNote}>{t.docEditWarning}</Text>
               <ScrollView contentContainerStyle={{ paddingBottom: 24 }} keyboardShouldPersistTaps="handled">
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={exStyles.typeRow}>
                   {EX_SECTION_CONFIGS.map((sec) => {
@@ -823,17 +780,19 @@ function ExerciseManagementModal({
                 </ScrollView>
                 <View style={{ flexDirection: 'row', marginTop: 10 }}>
                   <TextInput style={[exStyles.input, { width: 54, textAlign: 'center', marginRight: 8 }]} value={editEmoji} onChangeText={setEditEmoji} placeholder="🏋️" maxLength={4} />
-                  <TextInput style={[exStyles.input, { flex: 1 }]} value={editTitle} onChangeText={setEditTitle} placeholder={t(isRTL, 'اسم التمرين *', 'Exercise name *')} placeholderTextColor="#bbb" />
+                  <TextInput style={[exStyles.input, { flex: 1 }]} value={editTitle} onChangeText={setEditTitle} placeholder={t.docEnterExerciseName} placeholderTextColor="#bbb" />
                 </View>
-                <TextInput style={[exStyles.input, { marginTop: 10 }]} value={editMins} onChangeText={setEditMins} placeholder={t(isRTL, 'المدة بالدقائق *', 'Duration (minutes) *')} placeholderTextColor="#bbb" keyboardType="numeric" />
-                <TextInput style={[exStyles.input, { height: 64, textAlignVertical: 'top', marginTop: 10 }]} value={editDesc} onChangeText={setEditDesc} placeholder={t(isRTL, 'وصف (اختياري)', 'Description (optional)')} placeholderTextColor="#bbb" multiline />
+                <TextInput style={[exStyles.input, { marginTop: 10 }]} value={editMins} onChangeText={setEditMins} placeholder={t.docEnterValidDuration} placeholderTextColor="#bbb" keyboardType="numeric" />
+                <TextInput style={[exStyles.input, { height: 64, textAlignVertical: 'top', marginTop: 10 }]} value={editDesc} onChangeText={setEditDesc} placeholder={isRTL ? 'وصف (اختياري)' : 'Description (optional)'} placeholderTextColor="#bbb" multiline />
                 <View style={{ flexDirection: 'row', marginTop: 10 }}>
                   <TouchableOpacity style={[exStyles.formBtn, { flex: 1, backgroundColor: '#F5F5F5', borderColor: '#E0D6F5', marginRight: 8 }]} onPress={() => setEditingEx(null)} activeOpacity={0.8}>
-                    <Text style={{ fontSize: 14, color: '#888', fontWeight: '600' }}>{t(isRTL, 'إلغاء', 'Cancel')}</Text>
+                    <Text style={{ fontSize: 14, color: '#888', fontWeight: '600' }}>{t.docCancelBtn}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={[exStyles.formBtn, { flex: 1, backgroundColor: DOC_COLOR, opacity: editSaving ? 0.6 : 1 }]} onPress={handleSubmitEdit} disabled={editSaving} activeOpacity={0.85}>
                     {editSaving ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="send-outline" size={16} color="#fff" />}
-                    <Text style={{ fontSize: 14, color: '#fff', fontWeight: '600', marginLeft: 4 }}>{editSaving ? t(isRTL, 'جاري...', 'Sending...') : t(isRTL, 'إرسال للمريض', 'Send to Patient')}</Text>
+                    <Text style={{ fontSize: 14, color: '#fff', fontWeight: '600', marginLeft: 4 }}>
+                      {editSaving ? t.docSendingDots : t.docSendToPatient}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </ScrollView>
@@ -847,7 +806,7 @@ function ExerciseManagementModal({
 }
 
 // ═══════════════════════════════════════════════════════════
-export function useDoctorEditRequests(isRTL: boolean) {
+export function useDoctorEditRequests(isRTL: boolean, t: any) {
   const uid = auth.currentUser?.uid;
   useEffect(() => {
     if (!uid) return;
@@ -858,14 +817,13 @@ export function useDoctorEditRequests(isRTL: boolean) {
         if ((data.pendingEdit as any)?.status !== 'pending') return;
         const pe = data.pendingEdit!;
         Alert.alert(
-          t(isRTL, '🩺 طلب تعديل من الدكتور', '🩺 Doctor Edit Request'),
-          t(isRTL,
-            `يريد دكتورك تعديل تمرين "${data.title}"${pe.title !== data.title ? `\n➡️ الاسم الجديد: ${pe.title}` : ''}${pe.durationMin !== data.durationMin ? `\n⏱ المدة الجديدة: ${pe.durationMin} دقيقة` : ''}`,
-            `Your doctor wants to edit "${data.title}"${pe.title !== data.title ? `\n➡️ New name: ${pe.title}` : ''}${pe.durationMin !== data.durationMin ? `\n⏱ New duration: ${pe.durationMin} min` : ''}`,
-          ),
+          isRTL ? '🩺 طلب تعديل من الدكتور' : '🩺 Doctor Edit Request',
+          isRTL
+            ? `يريد دكتورك تعديل تمرين "${data.title}"${pe.title !== data.title ? `\n➡️ الاسم الجديد: ${pe.title}` : ''}${pe.durationMin !== data.durationMin ? `\n⏱ المدة الجديدة: ${pe.durationMin} دقيقة` : ''}`
+            : `Your doctor wants to edit "${data.title}"${pe.title !== data.title ? `\n➡️ New name: ${pe.title}` : ''}${pe.durationMin !== data.durationMin ? `\n⏱ New duration: ${pe.durationMin} min` : ''}`,
           [
             {
-              text: t(isRTL, '✅ قبول', '✅ Accept'),
+              text: isRTL ? '✅ قبول' : '✅ Accept',
               onPress: async () => {
                 try {
                   await updateDoc(doc(db, 'exercises', uid, 'items', change.doc.id), {
@@ -877,7 +835,7 @@ export function useDoctorEditRequests(isRTL: boolean) {
               },
             },
             {
-              text: t(isRTL, '❌ رفض', '❌ Reject'), style: 'destructive',
+              text: isRTL ? '❌ رفض' : '❌ Reject', style: 'destructive',
               onPress: async () => {
                 try { await updateDoc(doc(db, 'exercises', uid, 'items', change.doc.id), { pendingEdit: { ...pe, status: 'rejected' } }); }
                 catch (e) { console.warn(e); }
@@ -897,7 +855,7 @@ export default function Docpatient() {
   const { patientId, patientName, isOnline: isOnlineParam } =
     useLocalSearchParams<{ patientId: string; patientName: string; isOnline: string }>();
 
-  const { isRTL }      = useLang();
+  const { isRTL, t }   = useLang();
   const { markAsRead } = useChats();
   const insets         = useSafeAreaInsets();
   const isOnline       = isOnlineParam === '1';
@@ -925,7 +883,7 @@ export default function Docpatient() {
         const data = d.data() as FSMessage;
         return {
           id: d.id, text: data.text, sender: data.sender,
-          time: new Date(data.timestamp).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' }),
+          time: new Date(data.timestamp).toLocaleTimeString(isRTL ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' }),
           status: data.status, type: data.type, fileUri: data.fileUri, fileUrl: data.fileUrl,
           fileName: data.fileName, fileSize: data.fileSize, mimeType: data.mimeType,
         };
@@ -944,7 +902,9 @@ export default function Docpatient() {
     return unsub;
   }, [chatId]);
 
-  const initials = patientName ? patientName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase() : '??';
+  const initials = patientName
+    ? patientName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
+    : '??';
 
   const toggleQuick = () => {
     setShowQuick((prev: boolean) => {
@@ -960,9 +920,11 @@ export default function Docpatient() {
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || !chatId) return;
     const ts = Date.now();
-    await addDoc(collection(db, 'chats', chatId, 'messages'), { text: text.trim(), sender: 'doctor', timestamp: ts, status: 'sent', type: 'text' }).catch(() => {});
+    await addDoc(collection(db, 'chats', chatId, 'messages'), {
+      text: text.trim(), sender: 'doctor', timestamp: ts, status: 'sent', type: 'text',
+    }).catch(() => {});
     await updateChatMeta(text.trim(), ts);
-    notifyMessageSent(patientName || 'مريض', patientId || '', text.trim()).catch(() => {});
+    notifyMessageSent(patientName || (isRTL ? 'مريض' : 'Patient'), patientId || '', text.trim()).catch(() => {});
     setInputText('');
     setShowQuick(false);
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
@@ -972,13 +934,13 @@ export default function Docpatient() {
     if (!chatId) return;
     const ts      = Date.now();
     const msgType = a.type === 'image' ? 'image' : 'file';
-    const preview = a.type === 'image' ? t(isRTL, '🖼 صورة', '🖼 Image') : `📎 ${a.name}`;
+    const preview = a.type === 'image' ? t.docImageMsg : `📎 ${a.name}`;
     await addDoc(collection(db, 'chats', chatId, 'messages'), {
       text: preview, sender: 'doctor', timestamp: ts, status: 'sent', type: msgType,
       fileUri: a.uri, fileName: a.name, fileSize: a.size ?? null, mimeType: a.mimeType,
     }).catch(() => {});
     await updateChatMeta(preview, ts);
-    notifyMessageSent(patientName || 'مريض', patientId || '', preview).catch(() => {});
+    notifyMessageSent(patientName || (isRTL ? 'مريض' : 'Patient'), patientId || '', preview).catch(() => {});
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   }, [chatId, patientId, patientName, isRTL, updateChatMeta]);
 
@@ -991,6 +953,8 @@ export default function Docpatient() {
   const rtlRow   = (r: boolean): { flexDirection: 'row' | 'row-reverse' } => ({ flexDirection: r ? 'row-reverse' : 'row' });
   const rtlAlign = (r: boolean): { textAlign: 'right' | 'left' } => ({ textAlign: r ? 'right' : 'left' });
   const keyboardOffset = 68 + insets.top;
+
+  const QUICK_REPLIES: string[] = t.docQuickReplies;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -1005,20 +969,30 @@ export default function Docpatient() {
             <Text style={styles.headerInitials}>{initials}</Text>
           </View>
           <View>
-            <Text style={styles.headerName} numberOfLines={1}>{patientName || 'مريض'}</Text>
+            <Text style={styles.headerName} numberOfLines={1}>{patientName || (isRTL ? 'مريض' : 'Patient')}</Text>
             <View style={styles.onlineRow}>
               <View style={[styles.onlineDot, !isOnline && styles.offlineDot]} />
-              <Text style={[styles.onlineText, !isOnline && styles.offlineText]}>{isOnline ? 'نشط الآن' : 'غير متصل'}</Text>
+              <Text style={[styles.onlineText, !isOnline && styles.offlineText]}>
+                {isOnline ? t.docActiveNow : t.docOffline}
+              </Text>
             </View>
           </View>
         </View>
-        <TouchableOpacity style={[styles.exerciseBtn, exerciseAccess && styles.exerciseBtnActive]} activeOpacity={0.8} onPress={() => setShowExercises(true)}>
+        <TouchableOpacity
+          style={[styles.exerciseBtn, exerciseAccess && styles.exerciseBtnActive]}
+          activeOpacity={0.8}
+          onPress={() => setShowExercises(true)}
+        >
           <Ionicons name="barbell-outline" size={20} color={exerciseAccess ? '#fff' : DOC_COLOR} />
           {exerciseAccess && <View style={styles.exerciseBtnDot} />}
         </TouchableOpacity>
       </View>
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? keyboardOffset : 0}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? keyboardOffset : 0}
+      >
         <FlatList
           ref={listRef}
           data={messages}
@@ -1026,14 +1000,17 @@ export default function Docpatient() {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
-          ListHeaderComponent={<DateDivider label="اليوم" />}
-          renderItem={({ item }) => <MessageBubble msg={item} isRTL={isRTL} />}
+          ListHeaderComponent={<DateDivider label={t.docToday} />}
+          renderItem={({ item }) => <MessageBubble msg={item} isRTL={isRTL} t={t} />}
         />
 
         {showQuick && (
           <Animated.ScrollView
             horizontal showsHorizontalScrollIndicator={false}
-            style={[styles.quickWrap, { opacity: quickAnim, transform: [{ translateY: quickAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}
+            style={[styles.quickWrap, {
+              opacity: quickAnim,
+              transform: [{ translateY: quickAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
+            }]}
             contentContainerStyle={styles.quickContent}
           >
             {QUICK_REPLIES.map((qr, i) => (
@@ -1054,12 +1031,17 @@ export default function Docpatient() {
           <View style={[styles.inputWrap, rtlRow(isRTL)]}>
             <TextInput
               value={inputText} onChangeText={setInputText}
-              placeholder="اكتب رسالة..." placeholderTextColor={Colors.textMuted}
+              placeholder={t.docWriteMessage}
+              placeholderTextColor={Colors.textMuted}
               style={[styles.textInput, rtlAlign(isRTL)]}
               multiline maxLength={500} returnKeyType="default"
             />
           </View>
-          <TouchableOpacity onPress={() => sendMessage(inputText)} style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]} activeOpacity={0.8} disabled={!inputText.trim()}>
+          <TouchableOpacity
+            onPress={() => sendMessage(inputText)}
+            style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}
+            activeOpacity={0.8} disabled={!inputText.trim()}
+          >
             <Ionicons name="send" size={18} color="#fff" style={{ marginLeft: isRTL ? 0 : 2 }} />
           </TouchableOpacity>
         </View>
@@ -1067,13 +1049,13 @@ export default function Docpatient() {
 
       <ExerciseManagementModal
         visible={showExercises} onClose={() => setShowExercises(false)}
-        patientId={patientId || ''} isRTL={isRTL} patientName={patientName}
+        patientId={patientId || ''} isRTL={isRTL} patientName={patientName} t={t}
       />
 
       <AttachmentSheet
         visible={showAttach} onClose={() => setShowAttach(false)}
         onPick={(a) => { setShowAttach(false); handleSendAttachment(a); }}
-        isRTL={isRTL}
+        isRTL={isRTL} t={t}
       />
     </SafeAreaView>
   );
@@ -1116,28 +1098,22 @@ const exStyles = StyleSheet.create({
   addHeaderBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: DOC_COLOR, alignItems: 'center', justifyContent: 'center' },
   headerTitle:  { fontSize: 16, fontWeight: '700', color: '#2d2d2d' },
   headerSub:    { fontSize: 12, color: DOC_COLOR, marginTop: 2 },
-
   tabsScroll:   { flexGrow: 0, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F0EBFA' },
   tabsRow:      { paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row' },
   tabBtn:       { flexDirection: 'row', alignItems: 'center', paddingVertical: 7, paddingHorizontal: 12, borderRadius: 12, backgroundColor: '#F5F5F5', marginRight: 8 },
   tabLabel:     { fontSize: 12, fontWeight: '700', marginLeft: 5 },
   tabBadge:     { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginLeft: 5 },
   tabBadgeText: { fontSize: 10, fontWeight: '800' },
-
   listContent: { padding: 16, paddingBottom: 40 },
   emptyState:  { alignItems: 'center', paddingVertical: 60 },
   emptyText:   { fontSize: 14, color: '#B0BEC5', textAlign: 'center', marginTop: 12 },
   emptyAddBtn: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 16, marginTop: 12 },
   emptyAddText:{ fontSize: 13, fontWeight: '700', marginLeft: 6 },
-
-  // ── Section Group (patient / doctor) ──
   sectionGroup:        { marginBottom: 6 },
   sectionGroupHeader:  { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10, paddingHorizontal: 4 },
   sectionGroupTitle:   { fontSize: 13, fontWeight: '700', flex: 1 },
   sectionGroupBadge:   { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
   sectionGroupBadgeText: { fontSize: 11, fontWeight: '800' },
-
-  // ── Patient base exercise card (read-only) ──
   patientCard: {
     flexDirection: 'row', alignItems: 'center', borderRadius: 14,
     padding: 12, marginBottom: 8, borderLeftWidth: 3,
@@ -1152,8 +1128,6 @@ const exStyles = StyleSheet.create({
   customBadgeText:  { fontSize: 10, fontWeight: '700' },
   patientDoneBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#4CAF5020', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, gap: 3 },
   patientDoneBadgeText: { fontSize: 10, fontWeight: '700', color: '#4CAF50' },
-
-  // ── Doctor exercise card ──
   card:         { flexDirection: 'row', alignItems: 'center', borderRadius: 16, padding: 14, borderWidth: 0.5, borderColor: '#E8DFFA', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 1, overflow: 'hidden', marginBottom: 10 },
   cardBar:      { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, borderRadius: 4 },
   cardEmoji:    { fontSize: 28, width: 40, textAlign: 'center', marginRight: 12 },
@@ -1175,7 +1149,6 @@ const exStyles = StyleSheet.create({
   deleteBtn:   { width: 32, height: 32, borderRadius: 16, backgroundColor: '#FDEAEA', alignItems: 'center', justifyContent: 'center' },
   fileChip:    { flexDirection: 'row', alignItems: 'center', marginTop: 6, backgroundColor: DOC_COLOR_LIGHT, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'flex-start' },
   fileChipText:{ fontSize: 11, color: DOC_COLOR, fontWeight: '600', maxWidth: 120, marginHorizontal: 4 },
-
   addForm:      { backgroundColor: '#F8F5FF', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#E8DFFA', marginTop: 4 },
   addFormTitle: { fontSize: 14, fontWeight: '700', color: DOC_COLOR, marginBottom: 10 },
   typeRow:      { paddingBottom: 4 },
@@ -1185,7 +1158,6 @@ const exStyles = StyleSheet.create({
   attachRow:    { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: '#E0D6F5', borderStyle: 'dashed', borderRadius: 10, padding: 10, backgroundColor: '#fff', marginTop: 10 },
   attachRowText:{ flex: 1, fontSize: 13, color: '#888', marginLeft: 8 },
   formBtn:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 11, borderRadius: 10, borderWidth: 1.5, borderColor: 'transparent', marginTop: 10 },
-
   editBox:       { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '75%', shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.12, shadowRadius: 14, elevation: 10 },
   editBoxHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   editBoxTitle:  { fontSize: 16, fontWeight: '800', color: '#2d2d2d' },

@@ -13,23 +13,23 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '../utils/firebaseConfig';
 import * as Notifications from 'expo-notifications';
+import { useLang } from '../context/Languagecontext';
 
 // ─── Types ───────────────────────────────────────────────
 export type MedicationEntry = {
-  id: string;
-  name: string;
-  dose: string;
-  time: string;
-  days: string[];
-  notes?: string;
-  createdAt: number;
-  notifIds?: string[];
+  id: string; name: string; dose: string; time: string;
+  days: string[]; notes?: string; createdAt: number; notifIds?: string[];
 };
 
 const DAYS_AR: Record<string, string> = {
   sat: 'السبت', sun: 'الأحد', mon: 'الاثنين',
   tue: 'الثلاثاء', wed: 'الأربعاء', thu: 'الخميس', fri: 'الجمعة',
   daily: 'يومياً',
+};
+const DAYS_EN: Record<string, string> = {
+  sat: 'Sat', sun: 'Sun', mon: 'Mon',
+  tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri',
+  daily: 'Daily',
 };
 const DAY_KEYS = ['daily', 'sat', 'sun', 'mon', 'tue', 'wed', 'thu', 'fri'];
 
@@ -41,34 +41,28 @@ async function cancelMedNotifs(ids: string[] = []) {
 }
 
 async function scheduleMedNotifs(
-  med: Omit<MedicationEntry, 'id' | 'notifIds' | 'createdAt'>
+  med: Omit<MedicationEntry, 'id' | 'notifIds' | 'createdAt'>,
+  isRTL: boolean,
 ): Promise<string[]> {
   const parts = med.time.split(':');
-  const hour = parseInt(parts[0], 10);
+  const hour   = parseInt(parts[0], 10);
   const minute = parseInt(parts[1], 10);
   if (isNaN(hour) || isNaN(minute)) return [];
-
-  // قبل 5 دقايق
   let remindMin = minute - 5;
   let remindHour = hour;
   if (remindMin < 0) { remindMin += 60; remindHour = (remindHour - 1 + 24) % 24; }
-
-  const dayMap: Record<string, number> = {
-    sun: 1, mon: 2, tue: 3, wed: 4, thu: 5, fri: 6, sat: 7,
-  };
-  const isDaily = med.days.includes('daily');
+  const dayMap: Record<string, number> = { sun: 1, mon: 2, tue: 3, wed: 4, thu: 5, fri: 6, sat: 7 };
+  const isDaily    = med.days.includes('daily');
   const targetDays = isDaily ? Object.keys(dayMap) : med.days;
   const ids: string[] = [];
-
   for (const dayKey of targetDays) {
     const weekday = dayMap[dayKey];
     if (!weekday) continue;
-
     try {
       const id1 = await Notifications.scheduleNotificationAsync({
         content: {
-          title: '⏰ تذكير دواء قريب',
-          body: `${med.name}${med.dose ? ' — ' + med.dose : ''} بعد 5 دقائق (${med.time})`,
+          title: isRTL ? '⏰ تذكير دواء قريب' : '⏰ Medication Reminder',
+          body: `${med.name}${med.dose ? ' — ' + med.dose : ''} ${isRTL ? `بعد 5 دقائق (${med.time})` : `in 5 minutes (${med.time})`}`,
           sound: 'default',
           ...(Platform.OS === 'android' ? { channelId: 'medications' } : {}),
         },
@@ -79,12 +73,13 @@ async function scheduleMedNotifs(
       });
       ids.push(id1);
     } catch {}
-
     try {
       const id2 = await Notifications.scheduleNotificationAsync({
         content: {
-          title: '💊 وقت الدواء الآن',
-          body: `حان وقت ${med.name}${med.dose ? ' ' + med.dose : ''}`,
+          title: isRTL ? '💊 وقت الدواء الآن' : '💊 Medication Time',
+          body: isRTL
+            ? `حان وقت ${med.name}${med.dose ? ' ' + med.dose : ''}`
+            : `Time for ${med.name}${med.dose ? ' ' + med.dose : ''}`,
           sound: 'default',
           ...(Platform.OS === 'android' ? { channelId: 'medications' } : {}),
         },
@@ -103,7 +98,7 @@ async function setupMedChannel() {
   if (Platform.OS !== 'android') return;
   try {
     await Notifications.setNotificationChannelAsync('medications', {
-      name: 'تذكير الأدوية',
+      name: 'Medication Reminders',
       importance: Notifications.AndroidImportance.HIGH,
       sound: 'default',
       vibrationPattern: [0, 300, 150, 300],
@@ -113,19 +108,19 @@ async function setupMedChannel() {
 }
 
 // ─── Add Medication Modal ────────────────────────────────
-function AddMedModal({
-  visible, onClose, onAdd,
-}: {
-  visible: boolean;
-  onClose: () => void;
+function AddMedModal({ visible, onClose, onAdd, t, isRTL }: {
+  visible: boolean; onClose: () => void;
   onAdd: (data: Omit<MedicationEntry, 'id' | 'notifIds' | 'createdAt'>) => Promise<void>;
+  t: any; isRTL: boolean;
 }) {
-  const [name, setName]               = useState('');
-  const [dose, setDose]               = useState('');
-  const [time, setTime]               = useState('');
+  const [name, setName]                 = useState('');
+  const [dose, setDose]                 = useState('');
+  const [time, setTime]                 = useState('');
   const [selectedDays, setSelectedDays] = useState<string[]>(['daily']);
-  const [notes, setNotes]             = useState('');
-  const [saving, setSaving]           = useState(false);
+  const [notes, setNotes]               = useState('');
+  const [saving, setSaving]             = useState(false);
+
+  const DAYS_DISPLAY = isRTL ? DAYS_AR : DAYS_EN;
 
   useEffect(() => {
     if (!visible) {
@@ -147,125 +142,79 @@ function AddMedModal({
   };
 
   const handleSave = async () => {
-    if (!name.trim()) {
-      Alert.alert('تنبيه', 'يرجى إدخال اسم الدواء'); return;
-    }
+    if (!name.trim()) { Alert.alert(isRTL ? 'تنبيه' : 'Notice', t.medicationNameRequired); return; }
     if (!time.trim() || !/^\d{1,2}:\d{2}$/.test(time.trim())) {
-      Alert.alert('تنبيه', 'الوقت لازم يكون بالصيغة دي: 09:00'); return;
+      Alert.alert(isRTL ? 'تنبيه' : 'Notice', t.medicationTimeFormat); return;
     }
     if (saving) return;
     setSaving(true);
     try {
-      await onAdd({
-        name: name.trim(),
-        dose: dose.trim(),
-        time: time.trim(),
-        days: selectedDays,
-        notes: notes.trim(),
-      });
+      await onAdd({ name: name.trim(), dose: dose.trim(), time: time.trim(), days: selectedDays, notes: notes.trim() });
       onClose();
     } catch (e) {
-      Alert.alert('خطأ', 'فشل الحفظ، تأكد من الاتصال بالإنترنت');
+      Alert.alert(isRTL ? 'خطأ' : 'Error', t.medicationConnError);
       console.error('[MedNote] add error:', e);
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={20}
-      >
-        <TouchableOpacity
-          style={addSt.overlay} activeOpacity={1} onPress={onClose}
-        />
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={20}>
+        <TouchableOpacity style={addSt.overlay} activeOpacity={1} onPress={onClose} />
         <View style={addSt.sheet}>
           <View style={addSt.handle} />
           <View style={addSt.headerRow}>
-            <Text style={addSt.title}>إضافة دواء جديد 💊</Text>
+            <Text style={addSt.title}>{t.addMedication}</Text>
             <TouchableOpacity onPress={onClose} style={addSt.closeBtn}>
               <Ionicons name="close" size={20} color="#888" />
             </TouchableOpacity>
           </View>
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingBottom: 32 }}
-          >
-            <Text style={addSt.label}>اسم الدواء *</Text>
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 32 }}>
+            <Text style={[addSt.label, { textAlign: isRTL ? 'right' : 'left' }]}>{t.medicationName}</Text>
             <TextInput
-              style={addSt.input}
-              value={name}
-              onChangeText={setName}
-              placeholder="مثال: باراسيتامول"
-              placeholderTextColor="#B0BEC5"
-              textAlign="right"
+              style={addSt.input} value={name} onChangeText={setName}
+              placeholder={isRTL ? 'مثال: باراسيتامول' : 'e.g. Paracetamol'}
+              placeholderTextColor="#B0BEC5" textAlign={isRTL ? 'right' : 'left'}
             />
-
-            <Text style={addSt.label}>الجرعة</Text>
+            <Text style={[addSt.label, { textAlign: isRTL ? 'right' : 'left' }]}>{t.medicationDose}</Text>
             <TextInput
-              style={addSt.input}
-              value={dose}
-              onChangeText={setDose}
-              placeholder="مثال: حبة واحدة — 500mg"
-              placeholderTextColor="#B0BEC5"
-              textAlign="right"
+              style={addSt.input} value={dose} onChangeText={setDose}
+              placeholder={isRTL ? 'مثال: حبة واحدة — 500mg' : 'e.g. One tablet — 500mg'}
+              placeholderTextColor="#B0BEC5" textAlign={isRTL ? 'right' : 'left'}
             />
-
-            <Text style={addSt.label}>الوقت * (مثال: 09:00)</Text>
+            <Text style={[addSt.label, { textAlign: isRTL ? 'right' : 'left' }]}>{t.medicationTime}</Text>
             <TextInput
-              style={addSt.input}
-              value={time}
-              onChangeText={setTime}
-              placeholder="09:00"
-              placeholderTextColor="#B0BEC5"
-              keyboardType="numbers-and-punctuation"
-              textAlign="center"
+              style={addSt.input} value={time} onChangeText={setTime}
+              placeholder="09:00" placeholderTextColor="#B0BEC5"
+              keyboardType="numbers-and-punctuation" textAlign="center"
             />
-
-            <Text style={addSt.label}>الأيام</Text>
+            <Text style={[addSt.label, { textAlign: isRTL ? 'right' : 'left' }]}>{t.medicationDays}</Text>
             <View style={addSt.daysWrap}>
               {DAY_KEYS.map(k => {
                 const isSelected = selectedDays.includes(k);
                 return (
-                  <TouchableOpacity
-                    key={k}
-                    onPress={() => toggleDay(k)}
-                    style={[addSt.dayBtn, isSelected && addSt.dayBtnActive]}
-                    activeOpacity={0.8}
-                  >
+                  <TouchableOpacity key={k} onPress={() => toggleDay(k)}
+                    style={[addSt.dayBtn, isSelected && addSt.dayBtnActive]} activeOpacity={0.8}>
                     <Text style={[addSt.dayBtnText, isSelected && addSt.dayBtnTextActive]}>
-                      {DAYS_AR[k]}
+                      {DAYS_DISPLAY[k]}
                     </Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
-
-            <Text style={addSt.label}>ملاحظات (اختياري)</Text>
+            <Text style={[addSt.label, { textAlign: isRTL ? 'right' : 'left' }]}>{t.medicationNotes}</Text>
             <TextInput
               style={[addSt.input, { height: 64, textAlignVertical: 'top' }]}
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="أي ملاحظات إضافية..."
-              placeholderTextColor="#B0BEC5"
-              multiline
-              textAlign="right"
+              value={notes} onChangeText={setNotes}
+              placeholder={isRTL ? 'أي ملاحظات إضافية...' : 'Any additional notes...'}
+              placeholderTextColor="#B0BEC5" multiline textAlign={isRTL ? 'right' : 'left'}
             />
-
             <TouchableOpacity
               style={[addSt.saveBtn, saving && { opacity: 0.6 }]}
-              onPress={handleSave}
-              disabled={saving}
-              activeOpacity={0.85}
+              onPress={handleSave} disabled={saving} activeOpacity={0.85}
             >
               <Ionicons name="checkmark" size={18} color="#fff" />
-              <Text style={addSt.saveBtnText}>
-                {saving ? 'جاري الحفظ...' : 'حفظ الدواء'}
-              </Text>
+              <Text style={addSt.saveBtnText}>{saving ? t.savingMedication : t.saveMedication}</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
@@ -281,7 +230,7 @@ const addSt = StyleSheet.create({
   headerRow:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
   title:         { fontSize: 17, fontWeight: '800', color: '#2d2d2d' },
   closeBtn:      { width: 32, height: 32, borderRadius: 16, backgroundColor: '#F0F0F0', alignItems: 'center', justifyContent: 'center' },
-  label:         { fontSize: 13, color: '#888', fontWeight: '600', marginBottom: 6, marginTop: 10, textAlign: 'right' },
+  label:         { fontSize: 13, color: '#888', fontWeight: '600', marginBottom: 6, marginTop: 10 },
   input:         { borderWidth: 1.5, borderColor: '#E0D6F5', borderRadius: 12, fontSize: 14, padding: 10, backgroundColor: '#FAFAFA', color: '#333' },
   daysWrap:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
   dayBtn:        { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1.5, borderColor: '#E0D6F5', backgroundColor: '#F8F5FF' },
@@ -294,12 +243,11 @@ const addSt = StyleSheet.create({
 
 // ─── Main Component ──────────────────────────────────────
 export default function MedicationNote() {
-  const insets = useSafeAreaInsets();
+  const insets     = useSafeAreaInsets();
+  const { t, isRTL } = useLang();
+  const DAYS_DISPLAY = isRTL ? DAYS_AR : DAYS_EN;
 
-  // ✅ FIX: نتابع الـ auth state بدل ما نأخذ uid مرة واحدة
-  const [currentUid, setCurrentUid] = useState<string | null>(
-    auth.currentUser?.uid ?? null
-  );
+  const [currentUid, setCurrentUid] = useState<string | null>(auth.currentUser?.uid ?? null);
   const [open,    setOpen]    = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [meds,    setMeds]    = useState<MedicationEntry[]>([]);
@@ -309,45 +257,26 @@ export default function MedicationNote() {
   const scaleAnim  = useRef(new Animated.Value(0.85)).current;
   const btnOpacity = useRef(new Animated.Value(0.35)).current;
 
-  // ✅ FIX: تابع الـ auth state
   useEffect(() => {
     setupMedChannel();
-    const unsub = onAuthStateChanged(auth, user => {
-      setCurrentUid(user?.uid ?? null);
-    });
+    const unsub = onAuthStateChanged(auth, user => { setCurrentUid(user?.uid ?? null); });
     return unsub;
   }, []);
 
-  // ✅ FIX: الـ Firestore subscription بيشتغل بس لما uid يكون موجود
   useEffect(() => {
-    if (!currentUid) {
-      setMeds([]);
-      return;
-    }
+    if (!currentUid) { setMeds([]); return; }
     setLoading(true);
-    const q = query(
-      collection(db, 'medications', currentUid, 'items'),
-      orderBy('createdAt', 'desc'),
-    );
-    const unsub = onSnapshot(
-      q,
+    const q = query(collection(db, 'medications', currentUid, 'items'), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q,
       snap => {
         setLoading(false);
-        const list: MedicationEntry[] = snap.docs.map(d => ({
-          id: d.id,
-          ...(d.data() as Omit<MedicationEntry, 'id'>),
-        }));
-        setMeds(list);
+        setMeds(snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<MedicationEntry, 'id'>) })));
       },
-      err => {
-        setLoading(false);
-        console.error('[MedNote] snapshot error:', err);
-      }
+      err => { setLoading(false); console.error('[MedNote] snapshot error:', err); }
     );
     return unsub;
   }, [currentUid]);
 
-  // ─── Open/Close note ───────────────────────────────────
   const openNote = () => {
     setOpen(true);
     Animated.parallel([
@@ -366,40 +295,23 @@ export default function MedicationNote() {
   const handleBtnIn  = () => Animated.timing(btnOpacity, { toValue: 1,    duration: 120, useNativeDriver: true }).start();
   const handleBtnOut = () => Animated.timing(btnOpacity, { toValue: 0.35, duration: 250, useNativeDriver: true }).start();
 
-  // ─── Add ───────────────────────────────────────────────
-  const handleAdd = useCallback(async (
-    data: Omit<MedicationEntry, 'id' | 'notifIds' | 'createdAt'>
-  ) => {
-    // ✅ FIX: نقرأ الـ uid في وقت التنفيذ مش من الـ state
+  const handleAdd = useCallback(async (data: Omit<MedicationEntry, 'id' | 'notifIds' | 'createdAt'>) => {
     const uid = auth.currentUser?.uid;
-    if (!uid) {
-      Alert.alert('خطأ', 'يرجى تسجيل الدخول أولاً');
-      throw new Error('not authenticated');
-    }
-
+    if (!uid) { Alert.alert(isRTL ? 'خطأ' : 'Error', t.medicationNotAuthenticated); throw new Error('not authenticated'); }
     const { status } = await Notifications.requestPermissionsAsync();
     let notifIds: string[] = [];
-    if (status === 'granted') {
-      notifIds = await scheduleMedNotifs(data);
-    }
+    if (status === 'granted') { notifIds = await scheduleMedNotifs(data, isRTL); }
+    await addDoc(collection(db, 'medications', uid, 'items'), { ...data, createdAt: Date.now(), notifIds });
+  }, [isRTL, t]);
 
-    await addDoc(collection(db, 'medications', uid, 'items'), {
-      ...data,
-      createdAt: Date.now(),
-      notifIds,
-    });
-  }, []);
-
-  // ─── Delete ────────────────────────────────────────────
   const handleDelete = (med: MedicationEntry) => {
     Alert.alert(
-      'حذف الدواء',
-      `هل تريد حذف "${med.name}"؟\nسيتم إلغاء كل تذكيراته أيضاً.`,
+      t.deleteMedTitle,
+      `${t.deleteMedConfirm} "${med.name}"?\n${t.deleteMedNote}`,
       [
-        { text: 'لأ، إلغاء', style: 'cancel' },
+        { text: t.notNow, style: 'cancel' },
         {
-          text: 'نعم، احذفه',
-          style: 'destructive',
+          text: t.yesDelete, style: 'destructive',
           onPress: async () => {
             const uid = auth.currentUser?.uid;
             if (!uid) return;
@@ -407,7 +319,7 @@ export default function MedicationNote() {
               await cancelMedNotifs(med.notifIds ?? []);
               await deleteDoc(doc(db, 'medications', uid, 'items', med.id));
             } catch (e) {
-              Alert.alert('خطأ', 'فشل الحذف');
+              Alert.alert(isRTL ? 'خطأ' : 'Error', t.medicationDeleteFailed);
               console.error('[MedNote] delete error:', e);
             }
           },
@@ -420,73 +332,39 @@ export default function MedicationNote() {
 
   return (
     <>
-      <Animated.View
-        style={[floatSt.btnWrap, { bottom: bottomPos, opacity: btnOpacity }]}
-        pointerEvents="box-none"
-      >
+      <Animated.View style={[floatSt.btnWrap, { bottom: bottomPos, opacity: btnOpacity }]} pointerEvents="box-none">
         <TouchableOpacity
-          onPress={openNote}
-          onPressIn={handleBtnIn}
-          onPressOut={handleBtnOut}
-          style={floatSt.btn}
-          activeOpacity={1}
+          onPress={openNote} onPressIn={handleBtnIn} onPressOut={handleBtnOut}
+          style={floatSt.btn} activeOpacity={1}
         >
           <Ionicons name="medical-outline" size={20} color="#7C5CBF" />
         </TouchableOpacity>
       </Animated.View>
 
       {open && (
-        <Modal
-          visible={open}
-          transparent
-          animationType="none"
-          onRequestClose={closeNote}
-          statusBarTranslucent
-        >
-          <TouchableOpacity
-            style={noteSt.overlay}
-            activeOpacity={1}
-            onPress={closeNote}
-          />
-
-          <Animated.View
-            style={[
-              noteSt.noteCard,
-              {
-                bottom: bottomPos + 56,
-                opacity: fadeAnim,
-                transform: [{ scale: scaleAnim }],
-              },
-            ]}
-          >
+        <Modal visible={open} transparent animationType="none" onRequestClose={closeNote} statusBarTranslucent>
+          <TouchableOpacity style={noteSt.overlay} activeOpacity={1} onPress={closeNote} />
+          <Animated.View style={[noteSt.noteCard, { bottom: bottomPos + 56, opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
             <View style={noteSt.header}>
               <TouchableOpacity onPress={closeNote} style={noteSt.closeBtn}>
                 <Ionicons name="chevron-down" size={20} color="#7C5CBF" />
               </TouchableOpacity>
-              <Text style={noteSt.title}>💊 أدويتي</Text>
-              <TouchableOpacity
-                onPress={() => setShowAdd(true)}
-                style={noteSt.addBtn}
-              >
+              <Text style={noteSt.title}>💊 {t.myMedications}</Text>
+              <TouchableOpacity onPress={() => setShowAdd(true)} style={noteSt.addBtn}>
                 <Ionicons name="add" size={20} color="#fff" />
               </TouchableOpacity>
             </View>
 
-            {/* List */}
-            <ScrollView
-              style={{ maxHeight: 340 }}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={noteSt.listContent}
-            >
+            <ScrollView style={{ maxHeight: 340 }} showsVerticalScrollIndicator={false} contentContainerStyle={noteSt.listContent}>
               {loading ? (
                 <View style={noteSt.empty}>
-                  <Text style={noteSt.emptyText}>جاري التحميل...</Text>
+                  <Text style={noteSt.emptyText}>{isRTL ? 'جاري التحميل...' : 'Loading...'}</Text>
                 </View>
               ) : meds.length === 0 ? (
                 <View style={noteSt.empty}>
                   <Text style={{ fontSize: 38 }}>💊</Text>
-                  <Text style={noteSt.emptyText}>لا يوجد أدوية بعد</Text>
-                  <Text style={noteSt.emptyHint}>اضغط + لإضافة دواء جديد</Text>
+                  <Text style={noteSt.emptyText}>{t.noMedications}</Text>
+                  <Text style={noteSt.emptyHint}>{t.addMedHint}</Text>
                 </View>
               ) : (
                 meds.map(med => (
@@ -494,39 +372,27 @@ export default function MedicationNote() {
                     <View style={noteSt.medTop}>
                       <View style={{ flex: 1 }}>
                         <Text style={noteSt.medName}>{med.name}</Text>
-                        {!!med.dose && (
-                          <Text style={noteSt.medDose}>{med.dose}</Text>
-                        )}
+                        {!!med.dose && <Text style={noteSt.medDose}>{med.dose}</Text>}
                       </View>
                       <View style={noteSt.timeChip}>
                         <Ionicons name="time-outline" size={12} color="#7C5CBF" />
                         <Text style={noteSt.timeText}>{med.time}</Text>
                       </View>
-                      <TouchableOpacity
-                        onPress={() => handleDelete(med)}
-                        style={noteSt.deleteBtn}
-                      >
+                      <TouchableOpacity onPress={() => handleDelete(med)} style={noteSt.deleteBtn}>
                         <Ionicons name="trash-outline" size={15} color="#E05C5C" />
                       </TouchableOpacity>
                     </View>
-
                     <View style={noteSt.daysRow}>
                       {med.days.map(d => (
                         <View key={d} style={noteSt.dayChip}>
-                          <Text style={noteSt.dayChipText}>{DAYS_AR[d] ?? d}</Text>
+                          <Text style={noteSt.dayChipText}>{DAYS_DISPLAY[d] ?? d}</Text>
                         </View>
                       ))}
                     </View>
-
-                    {!!med.notes && (
-                      <Text style={noteSt.medNotes} numberOfLines={2}>{med.notes}</Text>
-                    )}
-
+                    {!!med.notes && <Text style={noteSt.medNotes} numberOfLines={2}>{med.notes}</Text>}
                     <View style={noteSt.notifBadge}>
                       <Ionicons name="notifications-outline" size={11} color="#4CAF82" />
-                      <Text style={noteSt.notifBadgeText}>
-                        إشعار 5 دقائق قبل + في الوقت
-                      </Text>
+                      <Text style={noteSt.notifBadgeText}>{t.medicationNotif}</Text>
                     </View>
                   </View>
                 ))
@@ -536,85 +402,50 @@ export default function MedicationNote() {
         </Modal>
       )}
 
-      {/* ── Add Modal ── */}
-      <AddMedModal
-        visible={showAdd}
-        onClose={() => setShowAdd(false)}
-        onAdd={handleAdd}
-      />
+      <AddMedModal visible={showAdd} onClose={() => setShowAdd(false)} onAdd={handleAdd} t={t} isRTL={isRTL} />
     </>
   );
 }
 
 // ─── Styles ─────────────────────────────────────────────
 const floatSt = StyleSheet.create({
-  btnWrap: {
-    position: 'absolute',
-    right: 14,
-    zIndex: 999,
-  },
+  btnWrap: { position: 'absolute', right: 14, zIndex: 999 },
   btn: {
     width: 42, height: 42, borderRadius: 21,
-    backgroundColor: '#EDE6F8',
-    borderWidth: 1.5, borderColor: '#7C5CBF50',
+    backgroundColor: '#EDE6F8', borderWidth: 1.5, borderColor: '#7C5CBF50',
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#7C5CBF', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2, shadowRadius: 6, elevation: 4,
+    shadowColor: '#7C5CBF', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 4,
   },
 });
 
 const noteSt = StyleSheet.create({
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.25)',
-  },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.25)' },
   noteCard: {
-    position: 'absolute',
-    right: 12, left: 12,
-    backgroundColor: '#fff',
-    borderRadius: 22,
-    shadowColor: '#7C5CBF',
-    shadowOffset: { width: 0, height: 8 },
+    position: 'absolute', right: 12, left: 12,
+    backgroundColor: '#fff', borderRadius: 22,
+    shadowColor: '#7C5CBF', shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.18, shadowRadius: 20, elevation: 14,
-    borderWidth: 1, borderColor: '#E8DFFA',
-    overflow: 'hidden',
+    borderWidth: 1, borderColor: '#E8DFFA', overflow: 'hidden',
   },
   header: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 13,
     borderBottomWidth: 1, borderBottomColor: '#F0EBFA',
   },
-  closeBtn: {
-    width: 30, height: 30, borderRadius: 15,
-    backgroundColor: '#F0EBFA', alignItems: 'center', justifyContent: 'center',
-  },
-  title:  { fontSize: 15, fontWeight: '800', color: '#2d2d2d' },
-  addBtn: {
-    width: 30, height: 30, borderRadius: 15,
-    backgroundColor: '#7C5CBF', alignItems: 'center', justifyContent: 'center',
-  },
+  closeBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#F0EBFA', alignItems: 'center', justifyContent: 'center' },
+  title:    { fontSize: 15, fontWeight: '800', color: '#2d2d2d' },
+  addBtn:   { width: 30, height: 30, borderRadius: 15, backgroundColor: '#7C5CBF', alignItems: 'center', justifyContent: 'center' },
   listContent: { padding: 14, gap: 10 },
   empty:       { alignItems: 'center', paddingVertical: 32, gap: 8 },
   emptyText:   { fontSize: 14, fontWeight: '700', color: '#7C5CBF' },
   emptyHint:   { fontSize: 12, color: '#B0BEC5' },
-  medCard: {
-    backgroundColor: '#F8F5FF', borderRadius: 14,
-    padding: 12, borderWidth: 1, borderColor: '#E8DFFA', gap: 6,
-  },
-  medTop:    { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  medName:   { fontSize: 14, fontWeight: '800', color: '#2d2d2d' },
-  medDose:   { fontSize: 12, color: '#7C5CBF', fontWeight: '600', marginTop: 2 },
-  timeChip:  {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: '#EDE6F8', borderRadius: 8,
-    paddingHorizontal: 8, paddingVertical: 4,
-  },
-  timeText:  { fontSize: 13, fontWeight: '800', color: '#7C5CBF' },
-  deleteBtn: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: '#FDEAEA', alignItems: 'center', justifyContent: 'center',
-  },
+  medCard:  { backgroundColor: '#F8F5FF', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: '#E8DFFA', gap: 6 },
+  medTop:   { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  medName:  { fontSize: 14, fontWeight: '800', color: '#2d2d2d' },
+  medDose:  { fontSize: 12, color: '#7C5CBF', fontWeight: '600', marginTop: 2 },
+  timeChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#EDE6F8', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  timeText: { fontSize: 13, fontWeight: '800', color: '#7C5CBF' },
+  deleteBtn:    { width: 28, height: 28, borderRadius: 14, backgroundColor: '#FDEAEA', alignItems: 'center', justifyContent: 'center' },
   daysRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
   dayChip:      { backgroundColor: '#fff', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: '#E0D6F5' },
   dayChipText:  { fontSize: 10, fontWeight: '700', color: '#7C5CBF' },

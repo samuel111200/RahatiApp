@@ -5,9 +5,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { auth, db, FSChat } from '../../utils/firebaseConfig';
 import { Colors, Spacing, FontSize } from '../../constants/Theme';
 import { useLang } from '../../context/Languagecontext';
@@ -18,17 +17,19 @@ const DOC_COLOR_LIGHT = '#F0EBFA';
 
 // ─── DocTabBar ────────────────────────────────────────────
 type TabItem = { label: string; icon: keyof typeof Ionicons.glyphMap; iconActive: keyof typeof Ionicons.glyphMap; route: string; };
-const TABS: TabItem[] = [
-  { label: 'الرئيسية', icon: 'home-outline',       iconActive: 'home',        route: '/Doctor/Dochome' },
-  { label: 'الشاتات',  icon: 'chatbubbles-outline', iconActive: 'chatbubbles', route: '/Doctor/Docchat' },
-  { label: 'المزيد',   icon: 'grid-outline',         iconActive: 'grid',        route: '/Doctor/Docmore' },
-];
-const ICON_SIZE = 48;
 
 function DocTabBar() {
   const pathname  = usePathname();
   const insets    = useSafeAreaInsets();
+  const { t }     = useLang();
   const bottomPad = Math.max(insets.bottom, 8);
+
+  const TABS: TabItem[] = [
+    { label: t.home,     icon: 'home-outline',       iconActive: 'home',        route: '/Doctor/Dochome' },
+    { label: t.docChats, icon: 'chatbubbles-outline', iconActive: 'chatbubbles', route: '/Doctor/Docchat' },
+    { label: t.more,     icon: 'grid-outline',        iconActive: 'grid',        route: '/Doctor/Docmore' },
+  ];
+
   return (
     <View style={[tabStyles.wrapper, { paddingBottom: bottomPad }]}>
       <View style={tabStyles.container}>
@@ -58,7 +59,7 @@ const tabStyles = StyleSheet.create({
     borderWidth: 0.5, borderColor: '#E8DFFA', marginBottom: 8,
   },
   tab:      { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4 },
-  iconWrap: { width: ICON_SIZE, height: ICON_SIZE, borderRadius: ICON_SIZE / 2, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: 'transparent' },
+  iconWrap: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: 'transparent' },
   iconWrapActive: { backgroundColor: DOC_COLOR, shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.40, shadowRadius: 10, elevation: 6 },
   label:       { fontSize: 11, fontWeight: '600', color: '#B0BEC5' },
   labelActive: { color: DOC_COLOR, fontWeight: '700' },
@@ -87,7 +88,7 @@ function getInitials(name: string) {
   return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 }
 
-function ChatItem({ item, index, onPress }: { item: ChatPreview; index: number; onPress: () => void }) {
+function ChatItem({ item, index, onPress, t, isRTL }: { item: ChatPreview; index: number; onPress: () => void; t: any; isRTL: boolean }) {
   const fadeAnim  = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
@@ -99,7 +100,7 @@ function ChatItem({ item, index, onPress }: { item: ChatPreview; index: number; 
   }, []);
 
   const hasUnread = item.unreadCount > 0;
-  const lastMsgDisplay = item.lastMessage || 'ابدأ المحادثة الآن...';
+  const lastMsgDisplay = item.lastMessage || t.docStartChat;
 
   return (
     <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
@@ -162,21 +163,21 @@ function ChatItem({ item, index, onPress }: { item: ChatPreview; index: number; 
   );
 }
 
-function EmptyChats() {
+function EmptyChats({ t }: { t: any }) {
   return (
     <View style={styles.emptyWrap}>
       <View style={styles.emptyIconCircle}>
         <Ionicons name="chatbubbles-outline" size={48} color={DOC_COLOR} />
       </View>
-      <Text style={styles.emptyTitle}>لا توجد محادثات بعد</Text>
-      <Text style={styles.emptySubtitle}>المحادثات ستظهر هنا فقط للمرضى الذين قبلت طلباتهم</Text>
+      <Text style={styles.emptyTitle}>{t.docNoChats}</Text>
+      <Text style={styles.emptySubtitle}>{t.docNoChatsSubtitle}</Text>
     </View>
   );
 }
 
 export default function ChatsListScreen() {
-  const { isRTL } = useLang();
-  const insets    = useSafeAreaInsets();
+  const { isRTL, t } = useLang();
+  const insets       = useSafeAreaInsets();
   const [search, setSearch] = useState('');
   const [chats,  setChats]  = useState<ChatPreview[]>([]);
 
@@ -193,11 +194,11 @@ export default function ChatsListScreen() {
       const list: ChatPreview[] = snap.docs.map(d => {
         const data = d.data() as FSChat;
         const timeStr = data.lastMessageTime
-          ? new Date(data.lastMessageTime).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
+          ? new Date(data.lastMessageTime).toLocaleTimeString(isRTL ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })
           : '';
         return {
           patientId:         data.patientId,
-          patientName:       data.patientName ?? 'مريض',
+          patientName:       data.patientName ?? (isRTL ? 'مريض' : 'Patient'),
           lastMessage:       data.lastMessage ?? '',
           lastMessageTime:   timeStr,
           lastMessageSender: data.lastMessageSender ?? 'doctor',
@@ -238,8 +239,12 @@ export default function ChatsListScreen() {
           <Ionicons name="arrow-back" size={22} color={DOC_COLOR} />
         </TouchableOpacity>
         <View style={styles.headerTitleWrap} pointerEvents="none">
-          <Text style={styles.headerTitle}>المحادثات</Text>
-          {totalUnread > 0 && <Text style={styles.headerSub}>{totalUnread} رسالة غير مقروءة</Text>}
+          <Text style={styles.headerTitle}>{t.docChats}</Text>
+          {totalUnread > 0 && (
+            <Text style={styles.headerSub}>
+              {totalUnread} {t.docUnreadMessages}
+            </Text>
+          )}
         </View>
         <View style={{ width: 40 }} />
       </View>
@@ -248,7 +253,7 @@ export default function ChatsListScreen() {
         <Ionicons name="search" size={18} color={Colors.textMuted} style={styles.searchIcon} />
         <TextInput
           value={search} onChangeText={setSearch}
-          placeholder="ابحث في المحادثات..."
+          placeholder={t.docSearchChats}
           placeholderTextColor={Colors.textMuted}
           style={[styles.searchInput, { textAlign: isRTL ? 'right' : 'left' }]}
         />
@@ -261,16 +266,16 @@ export default function ChatsListScreen() {
 
       <View style={styles.noticeBanner}>
         <Ionicons name="information-circle-outline" size={15} color={DOC_COLOR} />
-        <Text style={styles.noticeText}>تظهر هنا محادثات المرضى المقبولين فقط</Text>
+        <Text style={styles.noticeText}>{t.docUnreadOnly}</Text>
       </View>
 
       <FlatList
         data={filtered}
         keyExtractor={item => item.patientId}
         renderItem={({ item, index }) => (
-          <ChatItem item={item} index={index} onPress={() => handleOpenChat(item)} />
+          <ChatItem item={item} index={index} onPress={() => handleOpenChat(item)} t={t} isRTL={isRTL} />
         )}
-        ListEmptyComponent={<EmptyChats />}
+        ListEmptyComponent={<EmptyChats t={t} />}
         contentContainerStyle={filtered.length === 0 ? { flex: 1 } : { paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={styles.separator} />}

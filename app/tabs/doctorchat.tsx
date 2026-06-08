@@ -16,63 +16,22 @@ import { useAuth } from '../../context/AuthContext';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
-import { Paths } from 'expo-file-system';           // FIX: needed for v2+
+import { Paths } from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 
-// FIX: explicit type to avoid 'string' assignability error
 type MessageStatus = 'sent' | 'delivered' | 'read';
-
 type Message = {
-  id: string;
-  text: string;
-  sender: 'patient' | 'doctor';
-  time: string;
-  status?: MessageStatus;
-  type?: 'text' | 'request_access' | 'file' | 'image';
-  fileUrl?: string;
-  fileName?: string;
-  fileSize?: number;
+  id: string; text: string; sender: 'patient' | 'doctor'; time: string;
+  status?: MessageStatus; type?: 'text' | 'request_access' | 'file' | 'image';
+  fileUrl?: string; fileName?: string; fileSize?: number;
 };
 
 function nowTime() {
   return new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
 }
-
 function tsToTime(ts: number) {
   return new Date(ts).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
 }
-
-const WELCOME_MESSAGES: Record<string, string> = {
-  '1': 'أهلاً! أنا د. أحمد. كيف أستطيع مساعدتك في برنامج التمارين العلاجية؟',
-  '2': 'مرحباً! أنا د. سارة. هل لديك أسئلة عن الطاقة أو التغذية؟',
-  '3': 'أهلاً بك! أنا د. خالد. كيف يمكنني مساعدتك اليوم؟',
-  '4': 'مرحباً! أنا د. فاطمة. أنا هنا للاستماع ومساعدتك.',
-  '5': 'أهلاً! أنا د. محمد. هل لديك أسئلة عن التغذية أو الحمية؟',
-};
-
-const WELCOME_EN: Record<string, string> = {
-  '1': "Hello! I'm Dr. Ahmed. How can I help you with your therapy program?",
-  '2': "Hi! I'm Dr. Sara. Any questions about energy or nutrition?",
-  '3': "Hello! I'm Dr. Khaled. How can I help you today?",
-  '4': "Hi! I'm Dr. Fatma. I'm here to listen and help you.",
-  '5': "Hello! I'm Dr. Mohamed. Any questions about nutrition or diet?",
-};
-
-const QUICK_REPLIES_AR = [
-  'عندي سؤال عن التمارين',
-  'أشعر بألم',
-  'شكراً دكتور',
-  'هل يمكنني تغيير موعدي؟',
-  'أريد نصيحة',
-];
-
-const QUICK_REPLIES_EN = [
-  'I have a question about exercises',
-  'I feel pain',
-  'Thank you doctor',
-  'Can I change my appointment?',
-  'I need advice',
-];
 
 function formatFileSize(bytes?: number): string {
   if (!bytes) return '';
@@ -81,48 +40,34 @@ function formatFileSize(bytes?: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-// ─── Download helper ──────────────────────────────────────
-async function downloadFile(url: string, fileName: string, isImage: boolean, isRTL: boolean) {
+async function downloadFile(url: string, fileName: string, isImage: boolean, isRTL: boolean, t: any) {
   try {
     const { status } = await MediaLibrary.requestPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(
-        isRTL ? 'خطأ' : 'Error',
-        isRTL ? 'مطلوب إذن الوصول للتخزين' : 'Storage permission required',
-      );
-      return;
+      Alert.alert(isRTL ? 'خطأ' : 'Error', t.storagePerm); return;
     }
-
-    // FIX: use Paths.cache instead of FileSystem.documentDirectory
     const destPath = Paths.join(Paths.cache.uri, fileName);
     const download = await FileSystem.downloadAsync(url, destPath);
-
     if (isImage) {
       await MediaLibrary.saveToLibraryAsync(download.uri);
-      Alert.alert(
-        isRTL ? 'تم الحفظ ✅' : 'Saved ✅',
-        isRTL ? 'تم حفظ الصورة في معرض الصور' : 'Image saved to gallery',
-      );
+      Alert.alert(t.saved, t.savedToGallery);
     } else {
       Alert.alert(
-        isRTL ? 'تم التنزيل ✅' : 'Downloaded ✅',
-        isRTL ? `تم حفظ الملف: ${fileName}` : `File saved: ${fileName}`,
+        t.downloaded, `${t.fileSaved}: ${fileName}`,
         [
           { text: isRTL ? 'حسناً' : 'OK' },
-          { text: isRTL ? 'فتح' : 'Open', onPress: () => Linking.openURL(download.uri) },
+          { text: t.open, onPress: () => Linking.openURL(download.uri) },
         ],
       );
     }
   } catch {
-    Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'فشل التنزيل' : 'Download failed');
+    Alert.alert(isRTL ? 'خطأ' : 'Error', t.downloadFailed);
   }
 }
 
 // ─── Access Request Card ──────────────────────────────────
-function AccessRequestCard({
-  isRTL, doctorColor, doctorBg, chatId,
-}: {
-  isRTL: boolean; doctorColor: string; doctorBg: string; chatId: string;
+function AccessRequestCard({ isRTL, doctorColor, doctorBg, chatId, t }: {
+  isRTL: boolean; doctorColor: string; doctorBg: string; chatId: string; t: any;
 }) {
   const [loading,  setLoading]  = useState(false);
   const [accepted, setAccepted] = useState(false);
@@ -133,7 +78,7 @@ function AccessRequestCard({
       await updateDoc(doc(db, 'chats', chatId), { exerciseAccess: true });
       setAccepted(true);
     } catch {
-      Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'فشل قبول الطلب' : 'Failed to accept request');
+      Alert.alert(isRTL ? 'خطأ' : 'Error', t.failedToAccept);
     }
     setLoading(false);
   };
@@ -142,9 +87,7 @@ function AccessRequestCard({
     return (
       <View style={[styles.accessCard, { borderColor: '#4CAF5040', backgroundColor: '#E8F5E9' }]}>
         <Ionicons name="checkmark-circle" size={28} color="#4CAF50" />
-        <Text style={[styles.accessTitle, { color: '#4CAF50' }]}>
-          {isRTL ? 'تم منح الصلاحية ✓' : 'Access Granted ✓'}
-        </Text>
+        <Text style={[styles.accessTitle, { color: '#4CAF50' }]}>{t.accessGranted}</Text>
       </View>
     );
   }
@@ -153,27 +96,19 @@ function AccessRequestCard({
     <View style={[styles.accessCard, { borderColor: doctorColor + '40', backgroundColor: doctorBg }]}>
       <Ionicons name="fitness-outline" size={28} color={doctorColor} />
       <Text style={[styles.accessTitle, { color: doctorColor, textAlign: isRTL ? 'right' : 'left' }]}>
-        {isRTL ? 'طلب صلاحية التمارين' : 'Exercise Access Request'}
+        {t.exerciseAccessRequest}
       </Text>
-      <Text style={[styles.accessDesc, { textAlign: 'center' }]}>
-        {isRTL
-          ? 'يريد الدكتور الوصول إلى خطة تمارينك وإدارتها.'
-          : 'The doctor is requesting access to manage your exercise plan.'}
-      </Text>
+      <Text style={[styles.accessDesc, { textAlign: 'center' }]}>{t.exerciseAccessDesc}</Text>
       <View style={[styles.accessBtns, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         <TouchableOpacity
-          onPress={handleAccept}
-          disabled={loading}
+          onPress={handleAccept} disabled={loading}
           style={[styles.accessBtn, styles.acceptBtn, { backgroundColor: doctorColor, opacity: loading ? 0.7 : 1 }]}
           activeOpacity={0.8}
         >
-          <Text style={styles.acceptBtnText}>{isRTL ? 'قبول' : 'Accept'}</Text>
+          <Text style={styles.acceptBtnText}>{t.accept}</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.accessBtn, styles.declineBtn, { borderColor: doctorColor + '50' }]}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.declineBtnText, { color: doctorColor }]}>{isRTL ? 'رفض' : 'Decline'}</Text>
+        <TouchableOpacity style={[styles.accessBtn, styles.declineBtn, { borderColor: doctorColor + '50' }]} activeOpacity={0.8}>
+          <Text style={[styles.declineBtnText, { color: doctorColor }]}>{t.decline}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -181,10 +116,8 @@ function AccessRequestCard({
 }
 
 // ─── Message Bubble ───────────────────────────────────────
-function MessageBubble({
-  msg, isRTL, doctorColor, doctorBg, chatId,
-}: {
-  msg: Message; isRTL: boolean; doctorColor: string; doctorBg: string; chatId: string;
+function MessageBubble({ msg, isRTL, doctorColor, doctorBg, chatId, t }: {
+  msg: Message; isRTL: boolean; doctorColor: string; doctorBg: string; chatId: string; t: any;
 }) {
   const isAccessRequest = msg.type === 'request_access';
   const isFile          = msg.type === 'file';
@@ -204,36 +137,23 @@ function MessageBubble({
   if (isAccessRequest) {
     return (
       <View style={styles.accessCardWrap}>
-        <AccessRequestCard isRTL={isRTL} doctorColor={doctorColor} doctorBg={doctorBg} chatId={chatId} />
+        <AccessRequestCard isRTL={isRTL} doctorColor={doctorColor} doctorBg={doctorBg} chatId={chatId} t={t} />
       </View>
     );
   }
 
   if (isFile || isImage) {
     return (
-      <Animated.View
-        style={[
-          styles.msgRow,
-          isPatient ? styles.msgRowRight : styles.msgRowLeft,
-          { opacity: fadeAnim, transform: [{ translateX: slideAnim }] },
-        ]}
-      >
+      <Animated.View style={[styles.msgRow, isPatient ? styles.msgRowRight : styles.msgRowLeft, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
         {!isPatient && (
           <View style={[styles.docAvatar, { backgroundColor: doctorBg }]}>
             <Ionicons name="person" size={13} color={doctorColor} />
           </View>
         )}
         <TouchableOpacity
-          style={[
-            styles.fileBubble,
-            isPatient
-              ? { backgroundColor: Colors.primary }
-              : { backgroundColor: '#fff', borderColor: doctorColor + '30', borderWidth: 1.5 },
-          ]}
+          style={[styles.fileBubble, isPatient ? { backgroundColor: Colors.primary } : { backgroundColor: '#fff', borderColor: doctorColor + '30', borderWidth: 1.5 }]}
           activeOpacity={0.8}
-          onPress={() => {
-            if (msg.fileUrl) downloadFile(msg.fileUrl, msg.fileName ?? 'file', !!isImage, isRTL);
-          }}
+          onPress={() => { if (msg.fileUrl) downloadFile(msg.fileUrl, msg.fileName ?? 'file', !!isImage, isRTL, t); }}
         >
           <View style={styles.fileBubbleInner}>
             <View style={[styles.fileIconWrap, { backgroundColor: isPatient ? 'rgba(255,255,255,0.2)' : doctorColor + '15' }]}>
@@ -241,7 +161,7 @@ function MessageBubble({
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.fileName, { color: isPatient ? '#fff' : Colors.textPrimary }]} numberOfLines={1}>
-                {msg.fileName ?? (isImage ? 'صورة' : 'ملف')}
+                {msg.fileName ?? (isImage ? (isRTL ? 'صورة' : 'Image') : (isRTL ? 'ملف' : 'File'))}
               </Text>
               {!!msg.fileSize && (
                 <Text style={[styles.fileSize, { color: isPatient ? 'rgba(255,255,255,0.7)' : Colors.textMuted }]}>
@@ -267,13 +187,7 @@ function MessageBubble({
   }
 
   return (
-    <Animated.View
-      style={[
-        styles.msgRow,
-        isPatient ? styles.msgRowRight : styles.msgRowLeft,
-        { opacity: fadeAnim, transform: [{ translateX: slideAnim }] },
-      ]}
-    >
+    <Animated.View style={[styles.msgRow, isPatient ? styles.msgRowRight : styles.msgRowLeft, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
       {!isPatient && (
         <View style={[styles.docAvatar, { backgroundColor: doctorBg }]}>
           <Ionicons name="person" size={13} color={doctorColor} />
@@ -281,9 +195,7 @@ function MessageBubble({
       )}
       <View style={[
         styles.bubble,
-        isPatient
-          ? [styles.bubblePatient, { backgroundColor: Colors.primary }]
-          : [styles.bubbleDoctor, { backgroundColor: '#fff', borderColor: doctorColor + '30' }],
+        isPatient ? [styles.bubblePatient, { backgroundColor: Colors.primary }] : [styles.bubbleDoctor, { backgroundColor: '#fff', borderColor: doctorColor + '30' }],
       ]}>
         <Text style={[styles.bubbleText, isPatient ? { color: '#fff' } : { color: Colors.textPrimary }, { textAlign: isRTL ? 'right' : 'left' }]}>
           {msg.text}
@@ -314,15 +226,14 @@ function DateDivider({ label }: { label: string }) {
 }
 
 export default function DoctorChatScreen() {
-  const { isRTL } = useLang();
+  const { isRTL, t } = useLang();
   const params = useLocalSearchParams<{
     doctorId: string; doctorName: string; doctorEmoji: string;
-    doctorColor: string; doctorBg: string; specialty: string;
-    isFirebase: string;
+    doctorColor: string; doctorBg: string; specialty: string; isFirebase: string;
   }>();
 
   const doctorId    = params.doctorId    ?? '1';
-  const doctorName  = params.doctorName  ?? 'الدكتور';
+  const doctorName  = params.doctorName  ?? (isRTL ? 'الدكتور' : 'Doctor');
   const doctorEmoji = params.doctorEmoji ?? '🩺';
   const doctorColor = params.doctorColor ?? Colors.primary;
   const doctorBg    = params.doctorBg    ?? Colors.primaryUltraLight;
@@ -334,8 +245,8 @@ export default function DoctorChatScreen() {
   const chatId    = isFirebase ? `${doctorId}_${patientId}` : '';
 
   const welcomeText = isRTL
-    ? (WELCOME_MESSAGES[doctorId] ?? 'أهلاً! كيف يمكنني مساعدتك؟')
-    : (WELCOME_EN[doctorId]       ?? 'Hello! How can I help you?');
+    ? 'أهلاً! كيف يمكنني مساعدتك؟'
+    : 'Hello! How can I help you?';
 
   const [messages,  setMessages]  = useState<Message[]>(
     isFirebase ? [] : [{ id: 'w1', text: welcomeText, sender: 'doctor', time: nowTime(), status: 'read' }],
@@ -348,7 +259,7 @@ export default function DoctorChatScreen() {
   const quickAnim  = useRef(new Animated.Value(0)).current;
   const attachAnim = useRef(new Animated.Value(0)).current;
 
-  const quickReplies = isRTL ? QUICK_REPLIES_AR : QUICK_REPLIES_EN;
+  const quickReplies: string[] = t.docQuickReplies;
 
   useEffect(() => {
     if (!isFirebase || !chatId) return;
@@ -356,20 +267,13 @@ export default function DoctorChatScreen() {
     const unsub = onSnapshot(q, (snap) => {
       const msgs: Message[] = snap.docs.map(d => {
         const data = d.data();
-        // FIX: safe cast of status from Firestore string → MessageStatus
         const raw = data.status as string | undefined;
-        const status: MessageStatus | undefined =
-          raw === 'read' || raw === 'delivered' || raw === 'sent' ? raw : undefined;
+        const status: MessageStatus | undefined = raw === 'read' || raw === 'delivered' || raw === 'sent' ? raw : undefined;
         return {
-          id:       d.id,
-          text:     data.text   ?? '',
-          sender:   data.sender as 'patient' | 'doctor',
-          time:     tsToTime(data.timestamp ?? Date.now()),
-          status,
-          type:     data.type   ?? 'text',
-          fileUrl:  data.fileUrl,
-          fileName: data.fileName,
-          fileSize: data.fileSize,
+          id: d.id, text: data.text ?? '', sender: data.sender as 'patient' | 'doctor',
+          time: tsToTime(data.timestamp ?? Date.now()),
+          status, type: data.type ?? 'text',
+          fileUrl: data.fileUrl, fileName: data.fileName, fileSize: data.fileSize,
         };
       });
       setMessages(msgs);
@@ -394,30 +298,20 @@ export default function DoctorChatScreen() {
 
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim()) return;
-    setInputText('');
-    setShowQuick(false);
-
+    setInputText(''); setShowQuick(false);
     if (isFirebase && chatId && patientId) {
       try {
         const now = Date.now();
-        await addDoc(collection(db, 'chats', chatId, 'messages'), {
-          text: text.trim(), sender: 'patient', timestamp: now, status: 'sent', type: 'text',
-        });
+        await addDoc(collection(db, 'chats', chatId, 'messages'), { text: text.trim(), sender: 'patient', timestamp: now, status: 'sent', type: 'text' });
         await setDoc(doc(db, 'chats', chatId), {
           doctorId, patientId,
-          patientName:       `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'مريض',
-          lastMessage:       text.trim(),
-          lastMessageTime:   now,
-          lastMessageSender: 'patient',
-          unreadCountDoctor: increment(1),
-          exerciseAccess:    false,
+          patientName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || (isRTL ? 'مريض' : 'Patient'),
+          lastMessage: text.trim(), lastMessageTime: now, lastMessageSender: 'patient',
+          unreadCountDoctor: increment(1), exerciseAccess: false,
         }, { merge: true });
-      } catch {
-        Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'فشل إرسال الرسالة' : 'Failed to send message');
-      }
+      } catch { Alert.alert(isRTL ? 'خطأ' : 'Error', t.sendFailed); }
       return;
     }
-
     const newMsg: Message = { id: Date.now().toString(), text: text.trim(), sender: 'patient', time: nowTime(), status: 'sent' };
     setMessages(prev => [...prev, newMsg]);
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
@@ -432,52 +326,31 @@ export default function DoctorChatScreen() {
     }, 2000);
   }, [isRTL, isFirebase, chatId, patientId]);
 
-  const sendFileMessage = async (
-    fileUri: string,
-    fileName: string,
-    fileSize: number | undefined,
-    type: 'file' | 'image',
-  ) => {
-    setUploading(true);
-    setShowAttach(false);
+  const sendFileMessage = async (fileUri: string, fileName: string, fileSize: number | undefined, type: 'file' | 'image') => {
+    setUploading(true); setShowAttach(false);
     Animated.timing(attachAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start();
-
     try {
       const now = Date.now();
-      // FIX: typed as MessageStatus explicitly
       const status: MessageStatus = 'sent';
       const msgData = {
-        text:      type === 'image' ? '📷 صورة' : `📎 ${fileName}`,
-        sender:    'patient' as const,
-        timestamp: now,
-        status,
-        type,
-        fileUrl:   fileUri,
-        fileName,
-        fileSize,
+        text: type === 'image' ? (isRTL ? '📷 صورة' : '📷 Image') : `📎 ${fileName}`,
+        sender: 'patient' as const, timestamp: now, status, type, fileUrl: fileUri, fileName, fileSize,
       };
-
       if (isFirebase && chatId && patientId) {
         await addDoc(collection(db, 'chats', chatId, 'messages'), msgData);
         await setDoc(doc(db, 'chats', chatId), {
           doctorId, patientId,
-          patientName:       `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'مريض',
-          lastMessage:       msgData.text,
-          lastMessageTime:   now,
-          lastMessageSender: 'patient',
-          unreadCountDoctor: increment(1),
-          exerciseAccess:    false,
+          patientName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || (isRTL ? 'مريض' : 'Patient'),
+          lastMessage: msgData.text, lastMessageTime: now, lastMessageSender: 'patient',
+          unreadCountDoctor: increment(1), exerciseAccess: false,
         }, { merge: true });
       } else {
         const localMsg: Message = { id: String(now), ...msgData, time: nowTime() };
         setMessages(prev => [...prev, localMsg]);
         setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
       }
-    } catch {
-      Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'فشل إرسال الملف' : 'Failed to send file');
-    } finally {
-      setUploading(false);
-    }
+    } catch { Alert.alert(isRTL ? 'خطأ' : 'Error', t.sendFileFailed); }
+    finally { setUploading(false); }
   };
 
   const handlePickDocument = async () => {
@@ -486,17 +359,12 @@ export default function DoctorChatScreen() {
       if (result.canceled) return;
       const asset = result.assets[0];
       await sendFileMessage(asset.uri, asset.name, asset.size, 'file');
-    } catch {
-      Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'فشل اختيار الملف' : 'Failed to pick file');
-    }
+    } catch { Alert.alert(isRTL ? 'خطأ' : 'Error', t.sendFileFailed); }
   };
 
   const handlePickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'مطلوب إذن الوصول للصور' : 'Gallery permission required');
-      return;
-    }
+    if (status !== 'granted') { Alert.alert(isRTL ? 'خطأ' : 'Error', t.galleryPerm); return; }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
     if (result.canceled) return;
     const asset = result.assets[0];
@@ -505,10 +373,7 @@ export default function DoctorChatScreen() {
 
   const handleTakePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'مطلوب إذن الكاميرا' : 'Camera permission required');
-      return;
-    }
+    if (status !== 'granted') { Alert.alert(isRTL ? 'خطأ' : 'Error', t.cameraPerm); return; }
     const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
     if (result.canceled) return;
     await sendFileMessage(result.assets[0].uri, `photo_${Date.now()}.jpg`, undefined, 'image');
@@ -523,7 +388,6 @@ export default function DoctorChatScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar backgroundColor="#F8F5FF" barStyle="dark-content" />
-
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.replace('/tabs/doctors')} style={styles.backBtn} activeOpacity={0.8}>
           <Ionicons name="arrow-back" size={22} color={doctorColor} />
@@ -543,9 +407,7 @@ export default function DoctorChatScreen() {
       {!isFirebase && (
         <View style={[styles.noticeBanner, { borderColor: doctorColor + '30' }]}>
           <Ionicons name="information-circle-outline" size={14} color={doctorColor} />
-          <Text style={[styles.noticeText, { color: doctorColor }]}>
-            {isRTL ? 'الشات دلوقتي محلي — هيتربط بالسيرفر قريباً' : 'Chat is currently local — will connect to server soon'}
-          </Text>
+          <Text style={[styles.noticeText, { color: doctorColor }]}>{t.chatIsLocal}</Text>
         </View>
       )}
 
@@ -557,19 +419,16 @@ export default function DoctorChatScreen() {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
-          ListHeaderComponent={<DateDivider label={isRTL ? 'اليوم' : 'Today'} />}
+          ListHeaderComponent={<DateDivider label={t.today} />}
           renderItem={({ item }) => (
-            <MessageBubble msg={item} isRTL={isRTL} doctorColor={doctorColor} doctorBg={doctorBg} chatId={chatId} />
+            <MessageBubble msg={item} isRTL={isRTL} doctorColor={doctorColor} doctorBg={doctorBg} chatId={chatId} t={t} />
           )}
         />
 
         {showQuick && (
           <Animated.ScrollView
             horizontal showsHorizontalScrollIndicator={false}
-            style={[styles.quickWrap, {
-              opacity: quickAnim,
-              transform: [{ translateY: quickAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
-            }]}
+            style={[styles.quickWrap, { opacity: quickAnim, transform: [{ translateY: quickAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}
             contentContainerStyle={styles.quickContent}
           >
             {quickReplies.map((q, i) => (
@@ -582,29 +441,24 @@ export default function DoctorChatScreen() {
         )}
 
         {showAttach && (
-          <Animated.View
-            style={[styles.attachMenu, {
-              opacity: attachAnim,
-              transform: [{ translateY: attachAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
-            }]}
-          >
+          <Animated.View style={[styles.attachMenu, { opacity: attachAnim, transform: [{ translateY: attachAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
             <TouchableOpacity style={styles.attachItem} onPress={handlePickDocument} activeOpacity={0.8}>
               <View style={[styles.attachIcon, { backgroundColor: '#E8F1FB' }]}>
                 <Ionicons name="document-outline" size={22} color="#5B9BD5" />
               </View>
-              <Text style={styles.attachLabel}>{isRTL ? 'ملف' : 'File'}</Text>
+              <Text style={styles.attachLabel}>{t.file}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.attachItem} onPress={handlePickImage} activeOpacity={0.8}>
               <View style={[styles.attachIcon, { backgroundColor: '#E8F5EF' }]}>
                 <Ionicons name="image-outline" size={22} color="#4CAF82" />
               </View>
-              <Text style={styles.attachLabel}>{isRTL ? 'صور' : 'Gallery'}</Text>
+              <Text style={styles.attachLabel}>{t.gallery}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.attachItem} onPress={handleTakePhoto} activeOpacity={0.8}>
               <View style={[styles.attachIcon, { backgroundColor: '#FEF3E2' }]}>
                 <Ionicons name="camera-outline" size={22} color="#F4A32B" />
               </View>
-              <Text style={styles.attachLabel}>{isRTL ? 'كاميرا' : 'Camera'}</Text>
+              <Text style={styles.attachLabel}>{t.camera}</Text>
             </TouchableOpacity>
           </Animated.View>
         )}
@@ -613,9 +467,7 @@ export default function DoctorChatScreen() {
           {uploading && (
             <View style={styles.uploadingBar}>
               <Ionicons name="cloud-upload-outline" size={14} color={doctorColor} />
-              <Text style={[styles.uploadingText, { color: doctorColor }]}>
-                {isRTL ? 'جاري الإرسال...' : 'Sending...'}
-              </Text>
+              <Text style={[styles.uploadingText, { color: doctorColor }]}>{t.sending}</Text>
             </View>
           )}
           <View style={[styles.inputBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -630,7 +482,7 @@ export default function DoctorChatScreen() {
             <View style={[styles.inputWrap, { borderColor: doctorColor + '40' }]}>
               <TextInput
                 value={inputText} onChangeText={setInputText}
-                placeholder={isRTL ? 'اكتب رسالتك...' : 'Write your message...'}
+                placeholder={t.writeMessage}
                 placeholderTextColor={Colors.textMuted}
                 style={[styles.textInput, { textAlign: isRTL ? 'right' : 'left' }]}
                 multiline maxLength={500}
@@ -652,12 +504,7 @@ export default function DoctorChatScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#F8F5FF' },
-  header: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: Spacing.base, paddingVertical: 12,
-    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: Colors.border,
-    shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 3,
-  },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: Spacing.base, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: Colors.border, shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 3 },
   backBtn:      { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.primaryUltraLight, alignItems: 'center', justifyContent: 'center' },
   headerInfo:   { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
   headerAvatar: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
