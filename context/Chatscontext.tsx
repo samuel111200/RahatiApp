@@ -82,7 +82,10 @@ export function ChatsProvider({ children }: { children: React.ReactNode }) {
             status:               'read' as const,
           };
         });
-        setChats(list);
+        // preserve isOnline values from existing presence subscriptions
+        setChats(prev =>
+          list.map(c => ({ ...c, isOnline: prev.find(p => p.patientId === c.patientId)?.isOnline ?? false }))
+        );
 
         // subscribe to presence for each patient (skip if already subscribed)
         list.forEach(({ patientId }) => {

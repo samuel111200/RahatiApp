@@ -1,13 +1,13 @@
 import { AppState, AppStateStatus } from 'react-native';
-import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 
 async function setPresence(uid: string, isOnline: boolean): Promise<void> {
   try {
-    await updateDoc(doc(db, 'users', uid), {
+    await setDoc(doc(db, 'users', uid), {
       isOnline,
       lastSeen: Date.now(),
-    });
+    }, { merge: true });
   } catch (e) {
     console.warn('[presence] setPresence:', e);
   }
