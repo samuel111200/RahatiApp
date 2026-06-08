@@ -50,9 +50,14 @@ export default function PatientSignUp2Screen() {
       },
       { email, password },
     );
-    setLoading(false);
     if (ok) {
       router.replace('/tabs/home');
+      return;
+    }
+    setLoading(false);
+    const isEmailError = error?.includes('مستخدم') || error?.toLowerCase().includes('already');
+    if (isEmailError) {
+      setErrors({ email: error! });
     } else {
       Alert.alert(
         isRTL ? 'خطأ في إنشاء الحساب' : 'Sign Up Error',
@@ -66,12 +71,14 @@ export default function PatientSignUp2Screen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
-          <View style={styles.topRow}>
+          <View style={styles.headerArea}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
               <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={22} color={Colors.primary} />
             </TouchableOpacity>
-            <StepBar current={2} total={2} />
-            <Text style={styles.stepLabel}>{t.step2of2}</Text>
+            <View style={styles.stepRow}>
+              <StepBar current={2} total={2} />
+              <Text style={styles.stepLabel}>{t.step2of2}</Text>
+            </View>
           </View>
 
           <View style={styles.roleBadgeRow}>
@@ -82,6 +89,7 @@ export default function PatientSignUp2Screen() {
               </Text>
             </View>
           </View>
+
 
           <Text style={[styles.title, { textAlign: isRTL ? 'right' : 'left' }]}>{t.accountData}</Text>
           <Text style={[styles.subtitle, { textAlign: isRTL ? 'right' : 'left' }]}>{t.createAccount}</Text>
@@ -96,7 +104,7 @@ export default function PatientSignUp2Screen() {
                 {params.age} {t.years} · {params.gender === 'male' ? t.male : t.female}
               </Text>
             </View>
-            <Ionicons name="checkmark-circle" size={20} color="#4CAF82" />
+            <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />
           </View>
 
           <View style={styles.card}>
@@ -145,35 +153,36 @@ const styles = StyleSheet.create({
   safe:   { flex: 1, backgroundColor: Colors.background },
   scroll: { flexGrow: 1, paddingHorizontal: Spacing.xl, paddingBottom: Spacing.xxxl },
 
-  topRow:    { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: Spacing.base, marginBottom: Spacing.lg },
-  backBtn:   { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.primaryUltraLight, alignItems: 'center', justifyContent: 'center' },
-  stepLabel: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '600', marginLeft: 4 },
+  headerArea: { marginTop: Spacing.base, marginBottom: Spacing.lg, gap: 10 },
+  stepRow:    { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  backBtn:    { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.primaryUltraLight, alignItems: 'center', justifyContent: 'center' },
+  stepLabel:  { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '600' },
 
   roleBadgeRow: { alignItems: 'flex-start', marginBottom: Spacing.base },
   roleBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#E8F8F2', paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: 50, borderWidth: 1.5, borderColor: '#4CAF82',
+    backgroundColor: Colors.primaryUltraLight, paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: 50, borderWidth: 1.5, borderColor: Colors.primary,
   },
   roleBadgeEmoji: { fontSize: 18 },
-  roleBadgeText:  { fontSize: FontSize.sm, fontWeight: '700', color: '#2E7D52' },
+  roleBadgeText:  { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary },
 
   title:    { fontSize: 26, fontWeight: '800', color: Colors.textPrimary, marginBottom: 4 },
   subtitle: { fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: Spacing.base },
 
   summaryCard: {
-    alignItems: 'center', backgroundColor: '#E8F8F2',
+    alignItems: 'center', backgroundColor: Colors.primaryUltraLight,
     borderRadius: Radius.xl, padding: Spacing.base,
     marginBottom: Spacing.xl, gap: 12,
-    borderWidth: 1.5, borderColor: '#4CAF82' + '50',
+    borderWidth: 1.5, borderColor: Colors.primary + '50',
   },
   summaryAvatar: {
     width: 44, height: 44, borderRadius: 22,
-    backgroundColor: '#4CAF82' + '20',
+    backgroundColor: Colors.primary + '20',
     alignItems: 'center', justifyContent: 'center',
   },
-  summaryName: { fontSize: FontSize.base, fontWeight: '700', color: '#1A5C32' },
-  summaryMeta: { fontSize: FontSize.xs, color: '#4CAF82', marginTop: 2 },
+  summaryName: { fontSize: FontSize.base, fontWeight: '700', color: Colors.textPrimary },
+  summaryMeta: { fontSize: FontSize.xs, color: Colors.primary, marginTop: 2 },
 
   card: {
     backgroundColor: Colors.white, borderRadius: Radius.xxl,

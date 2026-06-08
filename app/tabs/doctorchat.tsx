@@ -75,6 +75,15 @@ function AccessRequestCard({ isRTL, doctorColor, doctorBg, chatId, t }: {
   const [loading,  setLoading]  = useState(false);
   const [accepted, setAccepted] = useState(false);
 
+  // read exerciseAccess from Firestore so state survives logout/login
+  useEffect(() => {
+    if (!chatId) return;
+    const unsub = onSnapshot(doc(db, 'chats', chatId), (snap) => {
+      if (snap.exists() && snap.data().exerciseAccess === true) setAccepted(true);
+    });
+    return unsub;
+  }, [chatId]);
+
   const handleAccept = async () => {
     setLoading(true);
     try {
@@ -324,7 +333,7 @@ export default function DoctorChatScreen() {
           doctorId, patientId,
           patientName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || (isRTL ? 'مريض' : 'Patient'),
           lastMessage: text.trim(), lastMessageTime: now, lastMessageSender: 'patient',
-          unreadCountDoctor: increment(1), exerciseAccess: false,
+          unreadCountDoctor: increment(1),
         }, { merge: true });
         sendPushToUser(doctorId, isRTL ? '💬 رسالة جديدة من مريضك' : '💬 New message from your patient', text.trim()).catch(() => {});
       } catch { Alert.alert(isRTL ? 'خطأ' : 'Error', t.sendFailed); }
@@ -361,7 +370,7 @@ export default function DoctorChatScreen() {
           doctorId, patientId,
           patientName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || (isRTL ? 'مريض' : 'Patient'),
           lastMessage: msgData.text, lastMessageTime: now, lastMessageSender: 'patient',
-          unreadCountDoctor: increment(1), exerciseAccess: false,
+          unreadCountDoctor: increment(1),
         }, { merge: true });
         sendPushToUser(doctorId, isRTL ? '💬 رسالة جديدة من مريضك' : '💬 New message from your patient', msgData.text).catch(() => {});
       } else {
