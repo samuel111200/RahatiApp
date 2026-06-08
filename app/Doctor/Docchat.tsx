@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   StatusBar, TextInput, Animated, Platform,
@@ -6,10 +6,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { auth, db, FSChat } from '../../utils/firebaseConfig';
 import { Colors, Spacing, FontSize } from '../../constants/Theme';
 import { useLang } from '../../context/Languagecontext';
+import { useChats } from '../../context/Chatscontext';
+import type { ChatPreview } from '../../context/Chatscontext';
 import { usePathname } from 'expo-router';
 
 const DOC_COLOR       = '#7C5CBF';
@@ -64,17 +64,6 @@ const tabStyles = StyleSheet.create({
   label:       { fontSize: 11, fontWeight: '600', color: '#B0BEC5' },
   labelActive: { color: DOC_COLOR, fontWeight: '700' },
 });
-
-type ChatPreview = {
-  patientId: string;
-  patientName: string;
-  lastMessage: string;
-  lastMessageTime: string;
-  lastMessageSender: 'doctor' | 'patient';
-  unreadCount: number;
-  isOnline: boolean;
-  status: 'read' | 'delivered' | 'sent';
-};
 
 function sortChats(list: ChatPreview[]): ChatPreview[] {
   return [...list].sort((a, b) => {
@@ -176,41 +165,20 @@ function EmptyChats({ t }: { t: any }) {
 }
 
 export default function ChatsListScreen() {
-  const { isRTL, t } = useLang();
-  const insets       = useSafeAreaInsets();
+  const { isRTL, t }      = useLang();
+  const insets             = useSafeAreaInsets();
+  const { chats: rawChats, totalUnread } = useChats();
   const [search, setSearch] = useState('');
-  const [chats,  setChats]  = useState<ChatPreview[]>([]);
 
-  // ─── Real-time Firestore subscription ─────────────────
-  useEffect(() => {
-    const doctorId = auth.currentUser?.uid;
-    if (!doctorId) return;
-
-    const q = query(
-      collection(db, 'chats'),
-      where('doctorId', '==', doctorId),
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      const list: ChatPreview[] = snap.docs.map(d => {
-        const data = d.data() as FSChat;
-        const timeStr = data.lastMessageTime
-          ? new Date(data.lastMessageTime).toLocaleTimeString(isRTL ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })
-          : '';
-        return {
-          patientId:         data.patientId,
-          patientName:       data.patientName ?? (isRTL ? 'مريض' : 'Patient'),
-          lastMessage:       data.lastMessage ?? '',
-          lastMessageTime:   timeStr,
-          lastMessageSender: data.lastMessageSender ?? 'doctor',
-          unreadCount:       data.unreadCountDoctor ?? 0,
-          isOnline:          false,
-          status:            'read' as const,
-        };
-      });
-      setChats(sortChats(list));
-    });
-    return unsub;
-  }, []);
+  const chats = sortChats(
+    rawChats.map(c => ({
+      ...c,
+      lastMessageTime: c.lastMessageTimestamp
+        ? new Date(c.lastMessageTimestamp).toLocaleTimeString(isRTL ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })
+        : '',
+      patientName: c.patientName || (isRTL ? 'مريض' : 'Patient'),
+    }))
+  );
 
   const handleOpenChat = (item: ChatPreview) => {
     router.push({
@@ -223,8 +191,7 @@ export default function ChatsListScreen() {
     });
   };
 
-  const filtered    = chats.filter(c => c.patientName.includes(search) || c.lastMessage.includes(search));
-  const totalUnread = chats.reduce((sum, c) => sum + c.unreadCount, 0);
+  const filtered = chats.filter(c => c.patientName.includes(search) || c.lastMessage.includes(search));
 
   const topPadding = insets.top > 0
     ? insets.top

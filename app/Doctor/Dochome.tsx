@@ -15,6 +15,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/Languagecontext';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 import { usePathname } from 'expo-router';
+import { sendPushToUser } from '../../utils/pushNotifications';
 
 const DOC_COLOR       = '#7C5CBF';
 const DOC_COLOR_LIGHT = '#F0EBFA';
@@ -292,6 +293,12 @@ export default function DocHome() {
       `${pendingModal.firstName} ${pendingModal.lastName}`,
       pendingModal.id,
     );
+
+    sendPushToUser(
+      pendingModal.id,
+      isRTL ? '✅ تم قبول طلبك' : '✅ Request accepted',
+      isRTL ? 'طبيبك قبل طلب انضمامك، يمكنك الآن التواصل معه' : 'Your doctor accepted your request. You can now chat.',
+    ).catch(() => {});
 
     setPendingModal(null);
   };

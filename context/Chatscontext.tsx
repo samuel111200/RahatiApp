@@ -1,9 +1,11 @@
 // context/Chatscontext.tsx
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import {
-  collection, doc, addDoc, deleteDoc, updateDoc, query, where, getDocs,
+  collection, doc, addDoc, deleteDoc, updateDoc, query, where, onSnapshot,
 } from 'firebase/firestore';
-import { auth, db } from '../utils/firebaseConfig';
+import { db } from '../utils/firebaseConfig';
+import { useAuth } from './AuthContext';
+import type { FSChat } from '../utils/firebaseConfig';
 
 function onFirestoreError(op: string, e: unknown) {
   console.warn(`[Chats] Firestore error in ${op}:`, e);
@@ -15,6 +17,7 @@ export type ChatPreview = {
   patientName: string;
   lastMessage: string;
   lastMessageTime: string;
+  lastMessageTimestamp: number;
   lastMessageSender: 'doctor' | 'patient';
   unreadCount: number;
   isOnline: boolean;
@@ -45,51 +48,66 @@ type ChatsContextType = {
 const ChatsContext = createContext<ChatsContextType | null>(null);
 
 export function ChatsProvider({ children }: { children: React.ReactNode }) {
-  const [chats,    setChats]    = useState<ChatPreview[]>([]);
+  const { user } = useAuth();
+  const [chats,     setChats]     = useState<ChatPreview[]>([]);
   const [exercises, setExercises] = useState<Record<string, PatientExercise[]>>({});
 
   const totalUnread = chats.reduce((sum, c) => sum + c.unreadCount, 0);
 
-  const doctorId = () => auth.currentUser?.uid ?? '';
+  // ─── Real-time chat list subscription ─────────────────
+  useEffect(() => {
+    const uid = user?.uid;
+    if (!uid) { setChats([]); return; }
+
+    const q = query(collection(db, 'chats'), where('doctorId', '==', uid));
+    const unsub = onSnapshot(q, (snap) => {
+      try {
+        const list: ChatPreview[] = snap.docs.map(d => {
+          const data = d.data() as FSChat;
+          const ts = data.lastMessageTime ?? 0;
+          const timeStr = ts
+            ? new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+            : '';
+          return {
+            patientId:            data.patientId,
+            patientName:          data.patientName ?? 'Patient',
+            lastMessage:          data.lastMessage ?? '',
+            lastMessageTime:      timeStr,
+            lastMessageTimestamp: ts,
+            lastMessageSender:    data.lastMessageSender ?? 'doctor',
+            unreadCount:          data.unreadCountDoctor ?? 0,
+            isOnline:             false,
+            status:               'read' as const,
+          };
+        });
+        setChats(list);
+      } catch (e) {
+        console.warn('[Chats] onSnapshot error:', e);
+      }
+    });
+    return unsub;
+  }, [user?.uid]);
 
   const markAsRead = useCallback((patientId: string) => {
-    const uid = doctorId();
-    if (uid) {
-      const chatId = `${uid}_${patientId}`;
-      updateDoc(doc(db, 'chats', chatId), { unreadCountDoctor: 0 }).catch(e => onFirestoreError('markAsRead', e));
-    }
-    setChats(prev =>
-      prev.map(c =>
-        c.patientId === patientId
-          ? { ...c, unreadCount: 0, status: 'read' as const }
-          : c,
-      ),
-    );
-  }, []);
+    const uid = user?.uid;
+    if (!uid) return;
+    const chatId = `${uid}_${patientId}`;
+    updateDoc(doc(db, 'chats', chatId), { unreadCountDoctor: 0 })
+      .catch(e => onFirestoreError('markAsRead', e));
+  }, [user?.uid]);
 
   const sendMessage = useCallback((patientId: string, text: string) => {
-    const uid  = doctorId();
-    const now  = Date.now();
-    const timeStr = new Date(now).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-
-    if (uid) {
-      const chatId = `${uid}_${patientId}`;
-      addDoc(collection(db, 'chats', chatId, 'messages'), {
-        text, sender: 'doctor', timestamp: now, status: 'sent', type: 'text',
-      }).catch(e => onFirestoreError('sendMessage/addDoc', e));
-      updateDoc(doc(db, 'chats', chatId), {
-        lastMessage: text, lastMessageTime: now, lastMessageSender: 'doctor',
-      }).catch(e => onFirestoreError('sendMessage/updateDoc', e));
-    }
-
-    setChats(prev =>
-      prev.map(c =>
-        c.patientId === patientId
-          ? { ...c, lastMessage: text, lastMessageTime: timeStr, lastMessageSender: 'doctor', status: 'sent' as const }
-          : c,
-      ),
-    );
-  }, []);
+    const uid = user?.uid;
+    if (!uid) return;
+    const now    = Date.now();
+    const chatId = `${uid}_${patientId}`;
+    addDoc(collection(db, 'chats', chatId, 'messages'), {
+      text, sender: 'doctor', timestamp: now, status: 'sent', type: 'text',
+    }).catch(e => onFirestoreError('sendMessage/addDoc', e));
+    updateDoc(doc(db, 'chats', chatId), {
+      lastMessage: text, lastMessageTime: now, lastMessageSender: 'doctor',
+    }).catch(e => onFirestoreError('sendMessage/updateDoc', e));
+  }, [user?.uid]);
 
   const getExercises = useCallback((patientId: string): PatientExercise[] => {
     return exercises[patientId] ?? [];
@@ -99,18 +117,16 @@ export function ChatsProvider({ children }: { children: React.ReactNode }) {
     patientId: string,
     exercise: Omit<PatientExercise, 'id' | 'assignedAt'>,
   ) => {
-    const uid  = doctorId();
+    const uid = user?.uid;
     const newEx: PatientExercise = {
       ...exercise,
       id:         `ex_${Date.now()}`,
       assignedAt: new Date().toISOString(),
     };
-
     setExercises(prev => ({
       ...prev,
       [patientId]: [...(prev[patientId] ?? []), newEx],
     }));
-
     if (uid) {
       addDoc(collection(db, 'exercises', patientId, 'items'), {
         ...exercise,
@@ -118,14 +134,15 @@ export function ChatsProvider({ children }: { children: React.ReactNode }) {
         assignedBy: uid,
       }).catch(e => onFirestoreError('assignExercise', e));
     }
-  }, []);
+  }, [user?.uid]);
 
   const removeExercise = useCallback((patientId: string, exerciseId: string) => {
     setExercises(prev => ({
       ...prev,
       [patientId]: (prev[patientId] ?? []).filter(e => e.id !== exerciseId),
     }));
-    deleteDoc(doc(db, 'exercises', patientId, 'items', exerciseId)).catch(e => onFirestoreError('removeExercise', e));
+    deleteDoc(doc(db, 'exercises', patientId, 'items', exerciseId))
+      .catch(e => onFirestoreError('removeExercise', e));
   }, []);
 
   return (

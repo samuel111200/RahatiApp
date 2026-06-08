@@ -15,6 +15,7 @@ import { db, FSUser } from '../../utils/firebaseConfig';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/Languagecontext';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
+import { sendPushToUser } from '../../utils/pushNotifications';
 
 type DoctorCard = {
   id: string; firebaseUid: string;
@@ -139,6 +140,11 @@ export default function DoctorsScreen() {
             doctorName: isRTL ? docItem.name : docItem.nameEn,
             status: 'pending', requestedAt: Date.now(),
           });
+          sendPushToUser(
+            docItem.firebaseUid,
+            isRTL ? '🆕 طلب انضمام جديد' : '🆕 New join request',
+            isRTL ? `${patientName} أرسل طلب انضمام` : `${patientName} sent a join request`,
+          ).catch(() => {});
         }
       } catch {}
     }

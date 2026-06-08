@@ -18,6 +18,8 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { Paths } from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
+import { uploadFileToCloudinary } from '../../utils/uploadImage';
+import { sendPushToUser } from '../../utils/pushNotifications';
 
 type MessageStatus = 'sent' | 'delivered' | 'read';
 type Message = {
@@ -309,6 +311,7 @@ export default function DoctorChatScreen() {
           lastMessage: text.trim(), lastMessageTime: now, lastMessageSender: 'patient',
           unreadCountDoctor: increment(1), exerciseAccess: false,
         }, { merge: true });
+        sendPushToUser(doctorId, isRTL ? '💬 رسالة جديدة من مريضك' : '💬 New message from your patient', text.trim()).catch(() => {});
       } catch { Alert.alert(isRTL ? 'خطأ' : 'Error', t.sendFailed); }
       return;
     }
@@ -326,15 +329,16 @@ export default function DoctorChatScreen() {
     }, 2000);
   }, [isRTL, isFirebase, chatId, patientId]);
 
-  const sendFileMessage = async (fileUri: string, fileName: string, fileSize: number | undefined, type: 'file' | 'image') => {
+  const sendFileMessage = async (fileUri: string, fileName: string, fileSize: number | undefined, type: 'file' | 'image', mimeType = 'application/octet-stream') => {
     setUploading(true); setShowAttach(false);
     Animated.timing(attachAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start();
     try {
+      const cloudUrl = await uploadFileToCloudinary(fileUri, mimeType, fileName);
       const now = Date.now();
       const status: MessageStatus = 'sent';
       const msgData = {
         text: type === 'image' ? (isRTL ? '📷 صورة' : '📷 Image') : `📎 ${fileName}`,
-        sender: 'patient' as const, timestamp: now, status, type, fileUrl: fileUri, fileName, fileSize,
+        sender: 'patient' as const, timestamp: now, status, type, fileUrl: cloudUrl, fileName, fileSize,
       };
       if (isFirebase && chatId && patientId) {
         await addDoc(collection(db, 'chats', chatId, 'messages'), msgData);
@@ -344,6 +348,7 @@ export default function DoctorChatScreen() {
           lastMessage: msgData.text, lastMessageTime: now, lastMessageSender: 'patient',
           unreadCountDoctor: increment(1), exerciseAccess: false,
         }, { merge: true });
+        sendPushToUser(doctorId, isRTL ? '💬 رسالة جديدة من مريضك' : '💬 New message from your patient', msgData.text).catch(() => {});
       } else {
         const localMsg: Message = { id: String(now), ...msgData, time: nowTime() };
         setMessages(prev => [...prev, localMsg]);
@@ -358,7 +363,7 @@ export default function DoctorChatScreen() {
       const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
       if (result.canceled) return;
       const asset = result.assets[0];
-      await sendFileMessage(asset.uri, asset.name, asset.size, 'file');
+      await sendFileMessage(asset.uri, asset.name, asset.size, 'file', asset.mimeType ?? 'application/octet-stream');
     } catch { Alert.alert(isRTL ? 'خطأ' : 'Error', t.sendFileFailed); }
   };
 
@@ -368,7 +373,8 @@ export default function DoctorChatScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
     if (result.canceled) return;
     const asset = result.assets[0];
-    await sendFileMessage(asset.uri, asset.uri.split('/').pop() ?? 'image.jpg', undefined, 'image');
+    const ext = asset.uri.split('.').pop() ?? 'jpg';
+    await sendFileMessage(asset.uri, asset.uri.split('/').pop() ?? 'image.jpg', undefined, 'image', asset.mimeType ?? `image/${ext}`);
   };
 
   const handleTakePhoto = async () => {
@@ -376,7 +382,7 @@ export default function DoctorChatScreen() {
     if (status !== 'granted') { Alert.alert(isRTL ? 'خطأ' : 'Error', t.cameraPerm); return; }
     const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
     if (result.canceled) return;
-    await sendFileMessage(result.assets[0].uri, `photo_${Date.now()}.jpg`, undefined, 'image');
+    await sendFileMessage(result.assets[0].uri, `photo_${Date.now()}.jpg`, undefined, 'image', 'image/jpeg');
   };
 
   const handleQuickReply = (text: string) => {

@@ -14,7 +14,8 @@ import { useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
 import { notify, suppressTaskListNotifOnce } from './notificationService';
 import { collection, onSnapshot, updateDoc, doc } from 'firebase/firestore';
-import { db, auth } from '../../utils/firebaseConfig';
+import { db } from '../../utils/firebaseConfig';
+import { useAuth } from '../../context/AuthContext';
 
 const { width, height } = Dimensions.get('window');
 const CARD_W = width * 0.72;
@@ -689,6 +690,7 @@ const DEFAULT_COORDINATION_EXERCISES: Exercise[] = [
 // ════════════════════════════════════════════════════════════
 export default function ExercisesScreen() {
   const { isRTL } = useLang();
+  const { user }  = useAuth();
   const router = useRouter();
 
   const [therapyList,      setTherapyList]      = useState<Exercise[]>([]);
@@ -715,7 +717,7 @@ export default function ExercisesScreen() {
 
   // ── Load doctor exercises from Firebase ───────────────
   useEffect(() => {
-    const uid = auth.currentUser?.uid;
+    const uid = user?.uid;
     if (!uid) return;
     const unsub = onSnapshot(
       collection(db, 'exercises', uid, 'items'),
@@ -752,11 +754,11 @@ export default function ExercisesScreen() {
       },
     );
     return unsub;
-  }, []);
+  }, [user?.uid]);
 
   // ── Toggle doctor exercise done ────────────────────────
   const toggleDoctorExerciseDone = async (item: Exercise) => {
-    const uid = auth.currentUser?.uid;
+    const uid = user?.uid;
     if (!uid || !item.doctorItemId) return;
     try {
       await updateDoc(doc(db, 'exercises', uid, 'items', item.doctorItemId), {

@@ -13,6 +13,9 @@ import * as Notifications from 'expo-notifications';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/Languagecontext';
+import { uploadImageToCloudinary } from '../../utils/uploadImage';
+import { db } from '../../utils/firebaseConfig';
+import { doc, getDoc } from 'firebase/firestore';
 import { PrimaryButton, OutlineButton } from '../../components/UI';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 import { notify } from './notificationService';
@@ -531,6 +534,7 @@ export default function MoreScreen() {
   const [activeModal,     setActiveModal]     = useState<ModalKey>(null);
   const [avatarUri,       setAvatarUri]       = useState<string | null>(null);
   const [showAvatarSheet, setShowAvatarSheet] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const [taskTotal, setTaskTotal] = useState(0);
   const [taskDone,  setTaskDone]  = useState(0);
@@ -539,8 +543,8 @@ export default function MoreScreen() {
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
-    AsyncStorage.getItem('user_avatar').then(uri => { if (uri) setAvatarUri(uri); });
-  }, []);
+    if (user?.photoUrl) setAvatarUri(user.photoUrl);
+  }, [user?.photoUrl]);
 
   useFocusEffect(
     useCallback(() => {
@@ -561,12 +565,28 @@ export default function MoreScreen() {
           const coreTaskIds  = new Set(coreTasks.map((t: any)  => t.key ?? t.id));
           const extraTaskIds = new Set(extraTasks.map((t: any) => t.key ?? t.id));
           setTaskDone([...doneIds].filter(id => coreTaskIds.has(id) || extraTaskIds.has(id)).length);
-          const energyRaw = await AsyncStorage.getItem(STORAGE_KEYS.ENERGY);
-          if (energyRaw !== null) setEnergy(Number(energyRaw));
+          if (user?.uid) {
+            try {
+              const snap = await getDoc(doc(db, 'users', user.uid));
+              const fsEnergy = snap.exists() ? snap.data().energyLevel : undefined;
+              if (fsEnergy != null) {
+                setEnergy(Number(fsEnergy));
+              } else {
+                const energyRaw = await AsyncStorage.getItem(STORAGE_KEYS.ENERGY);
+                if (energyRaw !== null) setEnergy(Number(energyRaw));
+              }
+            } catch {
+              const energyRaw = await AsyncStorage.getItem(STORAGE_KEYS.ENERGY);
+              if (energyRaw !== null) setEnergy(Number(energyRaw));
+            }
+          } else {
+            const energyRaw = await AsyncStorage.getItem(STORAGE_KEYS.ENERGY);
+            if (energyRaw !== null) setEnergy(Number(energyRaw));
+          }
         } catch (e) { console.warn('[MoreScreen] Stats load error:', e); }
       };
       loadStats();
-    }, [])
+    }, [user?.uid])
   );
 
   const open  = (key: ModalKey) => setActiveModal(key);
@@ -584,6 +604,7 @@ export default function MoreScreen() {
   const handleSaveEnergy = async (val: number) => {
     setEnergy(val);
     await AsyncStorage.setItem(STORAGE_KEYS.ENERGY, String(val));
+    await updateProfile({ energyLevel: val } as any);
   };
 
   const handleAvatarPressIn = () => {
@@ -595,17 +616,30 @@ export default function MoreScreen() {
 
   const handlePickAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) { Alert.alert(t.error || 'خطأ', t.photoPermissionRequired || 'مطلوب إذن'); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1,1], quality: 0.7, base64: true });
-    if (!result.canceled && result.assets[0]) {
-      const dataUri = `data:image/jpeg;base64,${result.assets[0].base64}`;
-      await AsyncStorage.setItem('user_avatar', dataUri);
-      setAvatarUri(dataUri);
+    if (!permission.granted) {
+      Alert.alert(t.error || 'خطأ', t.photoPermissionRequired || 'مطلوب إذن');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true, aspect: [1, 1], quality: 0.7,
+    });
+    if (result.canceled || !result.assets[0]) return;
+
+    setUploadingAvatar(true);
+    try {
+      const url = await uploadImageToCloudinary(result.assets[0].uri);
+      await updateProfile({ photoUrl: url });
+      setAvatarUri(url);
+    } catch {
+      Alert.alert(t.error || 'خطأ', isRTL ? 'فشل رفع الصورة، حاول مرة أخرى' : 'Image upload failed, try again');
+    } finally {
+      setUploadingAvatar(false);
     }
   };
 
   const handleDeleteAvatar = async () => {
-    await AsyncStorage.removeItem('user_avatar');
+    await updateProfile({ photoUrl: '' });
     setAvatarUri(null);
   };
 
@@ -642,8 +676,8 @@ export default function MoreScreen() {
                   ? <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
                   : <Text style={styles.avatarInitials}>{initials}</Text>}
               </View>
-              <TouchableOpacity style={styles.cameraBadge} onPress={handlePickAvatar} activeOpacity={0.85}>
-                <Ionicons name="camera" size={13} color={Colors.white} />
+              <TouchableOpacity style={styles.cameraBadge} onPress={handlePickAvatar} activeOpacity={0.85} disabled={uploadingAvatar}>
+                <Ionicons name={uploadingAvatar ? 'cloud-upload-outline' : 'camera'} size={13} color={Colors.white} />
               </TouchableOpacity>
             </View>
           </TouchableOpacity>

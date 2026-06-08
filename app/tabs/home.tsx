@@ -13,6 +13,9 @@ import {
   areWatchersRunning,
 } from './notificationService';
 import MedicationNote from '../../components/Medicationnote';
+import { useAuth } from '../../context/AuthContext';
+import { db } from '../../utils/firebaseConfig';
+import { doc, getDoc, setDoc, collection, onSnapshot } from 'firebase/firestore';
 
 interface PlanTask {
   id: string;
@@ -159,17 +162,30 @@ function getDoneStorageKey(date: Date) {
   return `plan_done_${toKey(date)}`;
 }
 
-async function loadDoneIds(date: Date): Promise<Set<string>> {
+async function loadDoneIds(date: Date, uid: string | null): Promise<Set<string>> {
+  const dateKey = toKey(date);
+  if (uid) {
+    try {
+      const snap = await getDoc(doc(db, 'users', uid, 'planHistory', dateKey));
+      if (snap.exists()) {
+        const ids = snap.data().doneIds as string[] | undefined;
+        return new Set(ids ?? []);
+      }
+    } catch {}
+  }
   const raw = await AsyncStorage.getItem(getDoneStorageKey(date));
-  if (!raw) return new Set();
-  return new Set(JSON.parse(raw));
+  return raw ? new Set(JSON.parse(raw)) : new Set();
 }
 
-async function saveDoneIds(date: Date, ids: Set<string>) {
-  await AsyncStorage.setItem(getDoneStorageKey(date), JSON.stringify([...ids]));
+async function saveDoneIds(date: Date, ids: Set<string>, uid: string | null) {
+  const arr = [...ids];
+  await AsyncStorage.setItem(getDoneStorageKey(date), JSON.stringify(arr));
+  if (uid) {
+    setDoc(doc(db, 'users', uid, 'planHistory', toKey(date)), { doneIds: arr }, { merge: true }).catch(() => {});
+  }
 }
 
-const TODAY_KEY = toKey(new Date());
+function getTodayKey() { return toKey(new Date()); }
 
 function DoneBadge({ status, onPress }: {
   status: CompletionStatus;
@@ -238,11 +254,12 @@ const badge = StyleSheet.create({
   },
 });
 
-function CalendarPicker({ visible, selected, onSelect, onClose }: {
+function CalendarPicker({ visible, selected, onSelect, onClose, minDateKey }: {
   visible: boolean;
   selected: Date;
   onSelect: (d: Date) => void;
   onClose: () => void;
+  minDateKey: string;
 }) {
   const [viewing, setViewing] = useState(new Date(selected));
 
@@ -258,7 +275,7 @@ function CalendarPicker({ visible, selected, onSelect, onClose }: {
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ];
 
-  const todayKey    = toKey(new Date());
+  const todayKey    = getTodayKey();
   const selectedKey = toKey(selected);
 
   return (
@@ -288,25 +305,48 @@ function CalendarPicker({ visible, selected, onSelect, onClose }: {
               const dKey       = toKey(d);
               const isSelected = dKey === selectedKey;
               const isToday    = dKey === todayKey;
+              const isBlocked  = dKey < minDateKey;
+              const isYesterday = dKey === minDateKey && dKey < todayKey;
               return (
-                <TouchableOpacity key={day} style={cal.cell} onPress={() => { onSelect(d); onClose(); }}>
+                <TouchableOpacity
+                  key={day}
+                  style={cal.cell}
+                  onPress={() => { if (!isBlocked) { onSelect(d); onClose(); } }}
+                  activeOpacity={isBlocked ? 1 : 0.7}
+                  disabled={isBlocked}
+                >
                   <View style={[
                     cal.dayCircle,
                     isSelected && cal.selectedDay,
                     isToday && !isSelected && cal.todayDay,
+                    isBlocked && cal.blockedDay,
+                    isYesterday && !isSelected && cal.yesterdayDay,
                   ]}>
                     <Text style={[
                       cal.dayText,
                       isSelected && cal.selectedDayText,
                       isToday && !isSelected && cal.todayDayText,
+                      isBlocked && cal.blockedDayText,
                     ]}>
                       {day}
                     </Text>
                   </View>
                   {isToday && <View style={cal.todayDot} />}
+                  {isYesterday && !isSelected && <View style={[cal.todayDot, { backgroundColor: '#aaa' }]} />}
                 </TouchableOpacity>
               );
             })}
+          </View>
+
+          <View style={cal.legend}>
+            <View style={cal.legendItem}>
+              <View style={[cal.legendDot, { backgroundColor: '#7C5CBF' }]} />
+              <Text style={cal.legendText}>اليوم</Text>
+            </View>
+            <View style={cal.legendItem}>
+              <View style={[cal.legendDot, { backgroundColor: '#bbb' }]} />
+              <Text style={cal.legendText}>أمس</Text>
+            </View>
           </View>
         </View>
       </TouchableOpacity>
@@ -441,11 +481,14 @@ const prog = StyleSheet.create({
 });
 
 export default function PlanScreen() {
+  const { user } = useAuth();
+
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showCal, setShowCal]           = useState(false);
   const [coreTasks,   setCoreTasks]     = useState<PlanTask[]>([]);
   const [extraTasks,  setExtraTasks]    = useState<PlanTask[]>([]);
-  const [coreExercises, setCoreExercises] = useState<any[]>([]);
+  const [coreExercises,   setCoreExercises]   = useState<any[]>([]);
+  const [doctorExercises, setDoctorExercises] = useState<any[]>([]);
   const [energy, setEnergy]             = useState(50);
   const [doneIds, setDoneIds]           = useState<Set<string>>(new Set());
 
@@ -460,13 +503,37 @@ export default function PlanScreen() {
     })();
   }, []);
 
+  useEffect(() => {
+    if (!user?.uid) return;
+    const unsub = onSnapshot(collection(db, 'exercises', user.uid, 'items'), (snap) => {
+      setDoctorExercises(snap.docs.map(d => ({ ...d.data(), id: d.id })));
+    });
+    return unsub;
+  }, [user?.uid]);
+
   useFocusEffect(useCallback(() => {
     loadAllData();
-  }, []));
+  }, [user?.uid]));
 
   async function loadAllData() {
-    const storedEnergy = await AsyncStorage.getItem('energy_level');
-    if (storedEnergy) setEnergy(Number(storedEnergy));
+    if (user?.uid) {
+      try {
+        const snap = await getDoc(doc(db, 'users', user.uid));
+        const fsEnergy = snap.exists() ? snap.data().energyLevel : undefined;
+        if (fsEnergy != null) {
+          setEnergy(Number(fsEnergy));
+        } else {
+          const stored = await AsyncStorage.getItem('energy_level');
+          if (stored) setEnergy(Number(stored));
+        }
+      } catch {
+        const stored = await AsyncStorage.getItem('energy_level');
+        if (stored) setEnergy(Number(stored));
+      }
+    } else {
+      const storedEnergy = await AsyncStorage.getItem('energy_level');
+      if (storedEnergy) setEnergy(Number(storedEnergy));
+    }
 
     const today = toKey(new Date());
 
@@ -510,10 +577,10 @@ export default function PlanScreen() {
 
   useEffect(() => {
     (async () => {
-      const ids = await loadDoneIds(selectedDate);
+      const ids = await loadDoneIds(selectedDate, user?.uid ?? null);
       setDoneIds(ids);
     })();
-  }, [selectedDate]);
+  }, [selectedDate, user?.uid]);
 
   useFocusEffect(useCallback(() => {
     const checkNotifDone = async () => {
@@ -525,7 +592,7 @@ export default function PlanScreen() {
       setDoneIds(prev => {
         const next = new Set(prev);
         next.add(taskId);
-        saveDoneIds(selectedDate, next);
+        saveDoneIds(selectedDate, next, user?.uid ?? null);
         return next;
       });
     };
@@ -534,7 +601,15 @@ export default function PlanScreen() {
     return () => clearInterval(interval);
   }, [selectedDate]));
 
+  const todayKey    = getTodayKey();
+  const selectedKey = toKey(selectedDate);
+  const yesterday   = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return toKey(d); })();
+  const isPastDay   = selectedKey < todayKey;
+  const isFutureDay = selectedKey > todayKey;
+  const isToday     = selectedKey === todayKey;
+
   const handleToggleDone = async (taskId: string) => {
+    if (isPastDay || isFutureDay) return;
     const task = withExercises.find(t => t.id === taskId);
     if (!task) return;
     const status = getStatus(task);
@@ -547,17 +622,16 @@ export default function PlanScreen() {
       } else {
         next.add(taskId);
       }
-      saveDoneIds(selectedDate, next);
+      saveDoneIds(selectedDate, next, user?.uid ?? null);
       return next;
     });
   };
 
-  const selectedKey = toKey(selectedDate);
-
-  const dayCoreTasks  = coreTasks.filter(t => !t.date || t.date === selectedKey || t.date === TODAY_KEY);
+  const dayCoreTasks  = coreTasks.filter(t => !t.date || t.date === selectedKey);
   const dayExtraTasks = extraTasks.filter(t => t.date === selectedKey);
 
-  const withExercises = buildPlanList(dayCoreTasks, dayExtraTasks, coreExercises);
+  const allExercises  = [...coreExercises, ...doctorExercises];
+  const withExercises = buildPlanList(dayCoreTasks, dayExtraTasks, allExercises);
 
   const totalEffort = [...dayCoreTasks, ...dayExtraTasks].reduce((s, t) => s + t.effortScore, 0);
   const maxEffort   = (dayCoreTasks.length + dayExtraTasks.length) * 3;
@@ -568,6 +642,8 @@ export default function PlanScreen() {
 
   function getStatus(task: PlanTask): CompletionStatus {
     if (doneIds.has(task.id)) return 'done';
+    if (isFutureDay) return 'pending';
+    if (isPastDay) return 'pending';
     if (!isTaskAvailable(task, selectedDate)) return 'locked';
     return 'pending';
   }
@@ -579,8 +655,16 @@ export default function PlanScreen() {
       <StatusBar backgroundColor="#f8f5ff" barStyle="dark-content" translucent={false} />
 
       <View style={s.navbar}>
-        <View style={{ width: 40 }} />
-        <Text style={s.navTitle}>خطتي اليوم</Text>
+        <TouchableOpacity
+          style={[s.navIconBtn, { opacity: isToday ? 0.3 : 1 }]}
+          onPress={() => setSelectedDate(new Date())}
+          disabled={isToday}
+        >
+          <Ionicons name="today-outline" size={20} color="#7C5CBF" />
+        </TouchableOpacity>
+        <Text style={s.navTitle}>
+          {isToday ? 'خطتي اليوم' : selectedKey === yesterday ? 'أمس' : formatDateAr(selectedDate)}
+        </Text>
         <View style={s.calBtnWrapper}>
           <TouchableOpacity onPress={() => setShowCal(true)} style={s.navIconBtn}>
             <Ionicons name="calendar-outline" size={22} color="#7C5CBF" />
@@ -594,6 +678,20 @@ export default function PlanScreen() {
         <View style={s.datePill}>
           <Text style={s.dateText}>{formatDateAr(selectedDate)}</Text>
         </View>
+
+        {isPastDay && (
+          <View style={s.modeBanner}>
+            <Ionicons name="eye-outline" size={15} color="#888" />
+            <Text style={s.modeBannerText}>عرض سجل الأمس — لا يمكن التعديل</Text>
+          </View>
+        )}
+
+        {isFutureDay && (
+          <View style={s.modeBanner}>
+            <Ionicons name="calendar-outline" size={15} color="#7C5CBF" />
+            <Text style={[s.modeBannerText, { color: '#7C5CBF' }]}>تخطيط مسبق — المهام لا تُحسب حتى يحين يومها</Text>
+          </View>
+        )}
 
         <View style={s.placeholderCard}>
           <Text style={s.placeholderEmoji}>🌿</Text>
@@ -618,7 +716,7 @@ export default function PlanScreen() {
                 <Text style={[s.summaryText, { color: '#C97B3A' }]}>{dayExtraTasks.length} إضافي</Text>
               </View>
             )}
-            {coreExercises.length > 0 && (
+            {allExercises.length > 0 && (
               <View style={[s.summaryPill, { backgroundColor: '#E8F5EF' }]}>
                 <Text style={s.summaryEmoji}>🏋️</Text>
                 <Text style={[s.summaryText, { color: '#4CAF82' }]}>{dayCoreTasks.length + dayExtraTasks.length} تمرين</Text>
@@ -661,16 +759,22 @@ export default function PlanScreen() {
 
         {!hasTasks ? (
           <View style={s.emptyState}>
-            <Text style={{ fontSize: 40 }}>📭</Text>
-            <Text style={s.emptyText}>لا توجد مهام في هذا اليوم</Text>
-            <TouchableOpacity
-              style={s.goToTasksBtn}
-              onPress={() => router.push('/tabs/tasks')}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="add-circle-outline" size={18} color="#7C5CBF" />
-              <Text style={s.goToTasksText}>أضف مهام من صفحة المهام</Text>
-            </TouchableOpacity>
+            <Text style={{ fontSize: 40 }}>{isPastDay ? '📋' : '📭'}</Text>
+            <Text style={s.emptyText}>
+              {isPastDay ? 'لا توجد مهام مسجلة لهذا اليوم' : 'لا توجد مهام في هذا اليوم'}
+            </Text>
+            {!isPastDay && (
+              <TouchableOpacity
+                style={s.goToTasksBtn}
+                onPress={() => router.push('/tabs/tasks')}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="add-circle-outline" size={18} color="#7C5CBF" />
+                <Text style={s.goToTasksText}>
+                  {isFutureDay ? 'خطط مهام لهذا اليوم' : 'أضف مهام من صفحة المهام'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
           <View style={s.timeline}>
@@ -694,6 +798,7 @@ export default function PlanScreen() {
         selected={selectedDate}
         onSelect={setSelectedDate}
         onClose={() => setShowCal(false)}
+        minDateKey={yesterday}
       />
       <MedicationNote />
     </View>
@@ -751,6 +856,13 @@ const s = StyleSheet.create({
     paddingHorizontal: 18, paddingVertical: 10, marginTop: 8,
   },
   goToTasksText: { fontSize: 14, fontWeight: '700', color: '#7C5CBF' },
+  modeBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    backgroundColor: '#f5f5f5', borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 9, marginBottom: 14,
+    borderWidth: 1, borderColor: '#e8e8e8',
+  },
+  modeBannerText: { fontSize: 13, color: '#888', fontWeight: '500' },
   legend: {
     flexDirection: 'row', alignItems: 'center', gap: 16,
     marginBottom: 14, paddingHorizontal: 4,
@@ -816,4 +928,11 @@ const cal = StyleSheet.create({
   selectedDayText: { color: '#fff', fontWeight: '700' },
   todayDayText:    { color: '#7C5CBF', fontWeight: '700' },
   todayDot:        { width: 4, height: 4, borderRadius: 2, backgroundColor: '#7C5CBF', marginTop: 2 },
+  blockedDay:      { opacity: 0.2 },
+  blockedDayText:  { color: '#999' },
+  yesterdayDay:    { borderWidth: 1.5, borderColor: '#bbb' },
+  legend:          { flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#f0ebfa' },
+  legendItem:      { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  legendDot:       { width: 8, height: 8, borderRadius: 4 },
+  legendText:      { fontSize: 11, color: '#888' },
 });

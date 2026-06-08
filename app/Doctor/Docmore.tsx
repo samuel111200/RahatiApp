@@ -13,6 +13,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/Languagecontext';
+import { uploadImageToCloudinary } from '../../utils/uploadImage';
 import { PrimaryButton, OutlineButton } from '../../components/UI';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -385,6 +386,7 @@ export default function DocMoreScreen() {
   const [activeModal,     setActiveModal]     = useState<ModalKey>(null);
   const [avatarUri,       setAvatarUri]       = useState<string | null>(null);
   const [showAvatarSheet, setShowAvatarSheet] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [specialty,       setSpecialty]       = useState('');
   const [licenseNumber,   setLicenseNumber]   = useState('');
 
@@ -395,27 +397,9 @@ export default function DocMoreScreen() {
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    AsyncStorage.getItem('user_avatar').then(uri => { if (uri) setAvatarUri(uri); });
-    AsyncStorage.getItem('doctor_extra_fields').then(raw => {
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        setSpecialty(parsed.specialty || '');
-        setLicenseNumber(parsed.licenseNumber || '');
-      }
-    });
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      AsyncStorage.getItem('doctor_extra_fields').then(raw => {
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          setSpecialty(parsed.specialty || '');
-          setLicenseNumber(parsed.licenseNumber || '');
-        }
-      }).catch(e => console.warn('[DocMoreScreen] extra fields error:', e));
-    }, [])
-  );
+    if (user?.photoUrl) setAvatarUri(user.photoUrl);
+    if (user?.specialty) setSpecialty(user.specialty);
+  }, [user?.photoUrl, user?.specialty]);
 
   useEffect(() => {
     const doctorId = auth.currentUser?.uid;
@@ -439,9 +423,8 @@ export default function DocMoreScreen() {
     await updateProfile({
       firstName: data.firstName, lastName: data.lastName,
       email: data.email, age: data.age, gender: data.gender,
+      specialty: data.specialty,
     } as any);
-    const extraFields = { specialty: data.specialty, licenseNumber: data.licenseNumber };
-    await AsyncStorage.setItem('doctor_extra_fields', JSON.stringify(extraFields));
     setSpecialty(data.specialty || '');
     setLicenseNumber(data.licenseNumber || '');
   };
@@ -462,18 +445,24 @@ export default function DocMoreScreen() {
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true, aspect: [1, 1], quality: 0.7, base64: true,
+      allowsEditing: true, aspect: [1, 1], quality: 0.7,
     });
-    if (!result.canceled && result.assets[0]) {
-      const dataUri = `data:image/jpeg;base64,${result.assets[0].base64}`;
-      await AsyncStorage.setItem('user_avatar', dataUri);
-      setAvatarUri(dataUri);
+    if (result.canceled || !result.assets[0]) return;
+    setUploadingAvatar(true);
+    try {
+      const url = await uploadImageToCloudinary(result.assets[0].uri);
+      await updateProfile({ photoUrl: url } as any);
+      setAvatarUri(url);
       await notifyAvatarUpdated('added');
+    } catch {
+      Alert.alert(t.docError, isRTL ? 'فشل رفع الصورة، حاول مرة أخرى' : 'Image upload failed, try again');
+    } finally {
+      setUploadingAvatar(false);
     }
   };
 
   const handleDeleteAvatar = async () => {
-    await AsyncStorage.removeItem('user_avatar');
+    await updateProfile({ photoUrl: '' } as any);
     setAvatarUri(null);
     await notifyAvatarUpdated('deleted');
   };
@@ -527,8 +516,8 @@ export default function DocMoreScreen() {
                   ? <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
                   : <Text style={styles.avatarInitials}>{initials}</Text>}
               </View>
-              <TouchableOpacity style={styles.cameraBadge} onPress={handlePickAvatar} activeOpacity={0.85}>
-                <Ionicons name="camera" size={13} color={Colors.white} />
+              <TouchableOpacity style={styles.cameraBadge} onPress={handlePickAvatar} activeOpacity={0.85} disabled={uploadingAvatar}>
+                <Ionicons name={uploadingAvatar ? 'cloud-upload-outline' : 'camera'} size={13} color={Colors.white} />
               </TouchableOpacity>
             </View>
           </TouchableOpacity>

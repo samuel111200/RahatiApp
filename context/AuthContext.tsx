@@ -8,6 +8,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db, FSUser } from '../utils/firebaseConfig';
+import { registerPushToken, startTokenRefreshListener } from '../utils/pushNotifications';
 
 export interface User {
   uid?: string;
@@ -76,6 +77,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return unsub;
   }, []);
 
+  useEffect(() => {
+    if (!user?.uid) return;
+    return startTokenRefreshListener(user.uid);
+  }, [user?.uid]);
+
   const signIn = async (
     email: string,
     password: string,
@@ -99,6 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           createdAt: data.createdAt,
         });
         setIsAuthenticated(true);
+        registerPushToken(cred.user.uid).catch(() => {});
         return { ok: true, role: data.role };
       }
       return { ok: true, role: 'patient' };
@@ -145,6 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setUser({ uid, ...personal, email: account.email, role, provider: 'email' });
       setIsAuthenticated(true);
+      registerPushToken(uid).catch(() => {});
       return { ok: true, role };
     } catch (e: any) {
       const code = e?.code ?? '';

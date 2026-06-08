@@ -13,10 +13,12 @@ import {
   orderBy, query, setDoc, getDoc,
 } from 'firebase/firestore';
 import { auth, db } from '../../utils/firebaseConfig';
+import { uploadFileToCloudinary } from '../../utils/uploadImage';
 import { Colors, Spacing, FontSize } from '../../constants/Theme';
 import { useLang } from '../../context/Languagecontext';
 import { useChats } from '../../context/Chatscontext';
 import { notifyMessageSent } from './DocNotifService';
+import { sendPushToUser } from '../../utils/pushNotifications';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
@@ -72,7 +74,7 @@ type Message = {
 type FirebaseExercise = {
   id: string; title: string; emoji: string; durationMin: number;
   description?: string; assignedAt: number; completed?: boolean; type?: ExSectionKey;
-  fileUri?: string; fileName?: string; mimeType?: string; source: 'doctor';
+  fileUrl?: string; fileUri?: string; fileName?: string; mimeType?: string; source: 'doctor';
   pendingEdit?: {
     title?: string; emoji?: string; durationMin?: number; description?: string;
     type?: ExSectionKey; requestedAt: number; requestedBy: 'doctor';
@@ -449,13 +451,22 @@ function ExerciseManagementModal({
     if (saving) return;
     setSaving(true);
     try {
+      let fileExtra: Record<string, any> = {};
+      if (attachFile) {
+        const fileUrl = await uploadFileToCloudinary(attachFile.uri, attachFile.mimeType, attachFile.name);
+        fileExtra = { fileUrl, fileName: attachFile.name, mimeType: attachFile.mimeType };
+      }
       await addDoc(collection(db, 'exercises', patientId, 'items'), {
         title: newTitle.trim(), emoji: newEmoji.trim() || '🏋️',
         durationMin: mins, description: newDesc.trim() || '',
         assignedAt: Date.now(), completed: false, type: newType, pendingEdit: null,
-        source: 'doctor',
-        ...(attachFile && { fileUri: attachFile.uri, fileName: attachFile.name, mimeType: attachFile.mimeType }),
+        source: 'doctor', ...fileExtra,
       });
+      sendPushToUser(
+        patientId,
+        isRTL ? '🏋️ تمرين جديد من طبيبك' : '🏋️ New exercise from your doctor',
+        `${newEmoji.trim() || '🏋️'} ${newTitle.trim()}`,
+      ).catch(() => {});
       resetForm(); setShowAddForm(false);
     } catch (e) { console.warn('[ExerciseModal] add error:', e); setSaving(false); }
   };
@@ -501,9 +512,10 @@ function ExerciseManagementModal({
   };
 
   const handleSaveExFile = async (ex: FirebaseExercise) => {
-    if (!ex.fileUri || savingId === ex.id) return;
+    const uri = ex.fileUrl || ex.fileUri;
+    if (!uri || savingId === ex.id) return;
     setSavingId(ex.id);
-    await saveAttachmentToDevice(ex.fileUri, ex.fileName || 'file', ex.mimeType, isRTL);
+    await saveAttachmentToDevice(uri, ex.fileName || 'file', ex.mimeType, isRTL);
     setSavingId(null);
   };
 
@@ -666,7 +678,7 @@ function ExerciseManagementModal({
                           {ex.pendingEdit.durationMin && <Text style={exStyles.pendingPreviewText}>{t.docExerciseDurationLabel2} {ex.pendingEdit.durationMin} {t.docExerciseMin}</Text>}
                         </View>
                       )}
-                      {!!ex.fileUri && (
+                      {!!(ex.fileUrl || ex.fileUri) && (
                         <TouchableOpacity style={exStyles.fileChip} onPress={() => handleSaveExFile(ex)} activeOpacity={0.8}>
                           {savingId === ex.id ? <ActivityIndicator size="small" color={DOC_COLOR} /> : <Ionicons name="document-attach-outline" size={13} color={DOC_COLOR} />}
                           <Text style={exStyles.fileChipText} numberOfLines={1}>{ex.fileName || t.docExerciseAttachment}</Text>
@@ -925,6 +937,7 @@ export default function Docpatient() {
     }).catch(() => {});
     await updateChatMeta(text.trim(), ts);
     notifyMessageSent(patientName || (isRTL ? 'مريض' : 'Patient'), patientId || '', text.trim()).catch(() => {});
+    if (patientId) sendPushToUser(patientId, isRTL ? '💬 رسالة من طبيبك' : '💬 Message from your doctor', text.trim()).catch(() => {});
     setInputText('');
     setShowQuick(false);
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
@@ -932,15 +945,23 @@ export default function Docpatient() {
 
   const handleSendAttachment = useCallback(async (a: PickedAttachment) => {
     if (!chatId) return;
+    let fileUrl: string;
+    try {
+      fileUrl = await uploadFileToCloudinary(a.uri, a.mimeType, a.name);
+    } catch {
+      Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'فشل رفع الملف، حاول مرة أخرى' : 'File upload failed, try again');
+      return;
+    }
     const ts      = Date.now();
     const msgType = a.type === 'image' ? 'image' : 'file';
     const preview = a.type === 'image' ? t.docImageMsg : `📎 ${a.name}`;
     await addDoc(collection(db, 'chats', chatId, 'messages'), {
       text: preview, sender: 'doctor', timestamp: ts, status: 'sent', type: msgType,
-      fileUri: a.uri, fileName: a.name, fileSize: a.size ?? null, mimeType: a.mimeType,
+      fileUrl, fileName: a.name, fileSize: a.size ?? null, mimeType: a.mimeType,
     }).catch(() => {});
     await updateChatMeta(preview, ts);
     notifyMessageSent(patientName || (isRTL ? 'مريض' : 'Patient'), patientId || '', preview).catch(() => {});
+    if (patientId) sendPushToUser(patientId, isRTL ? '💬 رسالة من طبيبك' : '💬 Message from your doctor', preview).catch(() => {});
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   }, [chatId, patientId, patientName, isRTL, updateChatMeta]);
 
