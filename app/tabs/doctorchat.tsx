@@ -57,11 +57,11 @@ async function downloadFile(url: string, fileName: string, isImage: boolean, isR
       Alert.alert(t.saved, t.savedToGallery);
     } else {
       Alert.alert(
-        t.downloaded, `${t.fileSaved}: ${fileName}`,
-        [
-          { text: isRTL ? 'حسناً' : 'OK' },
-          { text: t.open, onPress: () => Linking.openURL(download.uri) },
-        ],
+          t.downloaded, `${t.fileSaved}: ${fileName}`,
+          [
+            { text: isRTL ? 'حسناً' : 'OK' },
+            { text: t.open, onPress: () => Linking.openURL(download.uri) },
+          ],
       );
     }
   } catch {
@@ -98,33 +98,33 @@ function AccessRequestCard({ isRTL, doctorColor, doctorBg, chatId, t }: {
 
   if (accepted) {
     return (
-      <View style={[styles.accessCard, { borderColor: '#4CAF5040', backgroundColor: '#E8F5E9' }]}>
-        <Ionicons name="checkmark-circle" size={28} color="#4CAF50" />
-        <Text style={[styles.accessTitle, { color: '#4CAF50' }]}>{t.accessGranted}</Text>
-      </View>
+        <View style={[styles.accessCard, { borderColor: '#4CAF5040', backgroundColor: '#E8F5E9' }]}>
+          <Ionicons name="checkmark-circle" size={28} color="#4CAF50" />
+          <Text style={[styles.accessTitle, { color: '#4CAF50' }]}>{t.accessGranted}</Text>
+        </View>
     );
   }
 
   return (
-    <View style={[styles.accessCard, { borderColor: doctorColor + '40', backgroundColor: doctorBg }]}>
-      <Ionicons name="fitness-outline" size={28} color={doctorColor} />
-      <Text style={[styles.accessTitle, { color: doctorColor, textAlign: isRTL ? 'right' : 'left' }]}>
-        {t.exerciseAccessRequest}
-      </Text>
-      <Text style={[styles.accessDesc, { textAlign: 'center' }]}>{t.exerciseAccessDesc}</Text>
-      <View style={[styles.accessBtns, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-        <TouchableOpacity
-          onPress={handleAccept} disabled={loading}
-          style={[styles.accessBtn, styles.acceptBtn, { backgroundColor: doctorColor, opacity: loading ? 0.7 : 1 }]}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.acceptBtnText}>{t.accept}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.accessBtn, styles.declineBtn, { borderColor: doctorColor + '50' }]} activeOpacity={0.8}>
-          <Text style={[styles.declineBtnText, { color: doctorColor }]}>{t.decline}</Text>
-        </TouchableOpacity>
+      <View style={[styles.accessCard, { borderColor: doctorColor + '40', backgroundColor: doctorBg }]}>
+        <Ionicons name="fitness-outline" size={28} color={doctorColor} />
+        <Text style={[styles.accessTitle, { color: doctorColor, textAlign: isRTL ? 'right' : 'left' }]}>
+          {t.exerciseAccessRequest}
+        </Text>
+        <Text style={[styles.accessDesc, { textAlign: 'center' }]}>{t.exerciseAccessDesc}</Text>
+        <View style={[styles.accessBtns, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <TouchableOpacity
+              onPress={handleAccept} disabled={loading}
+              style={[styles.accessBtn, styles.acceptBtn, { backgroundColor: doctorColor, opacity: loading ? 0.7 : 1 }]}
+              activeOpacity={0.8}
+          >
+            <Text style={styles.acceptBtnText}>{t.accept}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.accessBtn, styles.declineBtn, { borderColor: doctorColor + '50' }]} activeOpacity={0.8}>
+            <Text style={[styles.declineBtnText, { color: doctorColor }]}>{t.decline}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
   );
 }
 
@@ -149,92 +149,92 @@ function MessageBubble({ msg, isRTL, doctorColor, doctorBg, chatId, t }: {
 
   if (isAccessRequest) {
     return (
-      <View style={styles.accessCardWrap}>
-        <AccessRequestCard isRTL={isRTL} doctorColor={doctorColor} doctorBg={doctorBg} chatId={chatId} t={t} />
-      </View>
+        <View style={styles.accessCardWrap}>
+          <AccessRequestCard isRTL={isRTL} doctorColor={doctorColor} doctorBg={doctorBg} chatId={chatId} t={t} />
+        </View>
     );
   }
 
   if (isFile || isImage) {
     return (
-      <Animated.View style={[styles.msgRow, isPatient ? styles.msgRowRight : styles.msgRowLeft, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
-        {!isPatient && (
-          <View style={[styles.docAvatar, { backgroundColor: doctorBg }]}>
-            <Ionicons name="person" size={13} color={doctorColor} />
-          </View>
-        )}
-        <TouchableOpacity
-          style={[styles.fileBubble, isPatient ? { backgroundColor: Colors.primary } : { backgroundColor: '#fff', borderColor: doctorColor + '30', borderWidth: 1.5 }]}
-          activeOpacity={0.8}
-          onPress={() => { if (msg.fileUrl) downloadFile(msg.fileUrl, msg.fileName ?? 'file', !!isImage, isRTL, t); }}
-        >
-          <View style={styles.fileBubbleInner}>
-            <View style={[styles.fileIconWrap, { backgroundColor: isPatient ? 'rgba(255,255,255,0.2)' : doctorColor + '15' }]}>
-              <Ionicons name={isImage ? 'image-outline' : 'document-outline'} size={22} color={isPatient ? '#fff' : doctorColor} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.fileName, { color: isPatient ? '#fff' : Colors.textPrimary }]} numberOfLines={1}>
-                {msg.fileName ?? (isImage ? (isRTL ? 'صورة' : 'Image') : (isRTL ? 'ملف' : 'File'))}
-              </Text>
-              {!!msg.fileSize && (
-                <Text style={[styles.fileSize, { color: isPatient ? 'rgba(255,255,255,0.7)' : Colors.textMuted }]}>
-                  {formatFileSize(msg.fileSize)}
+        <Animated.View style={[styles.msgRow, isPatient ? styles.msgRowRight : styles.msgRowLeft, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
+          {!isPatient && (
+              <View style={[styles.docAvatar, { backgroundColor: doctorBg }]}>
+                <Ionicons name="person" size={13} color={doctorColor} />
+              </View>
+          )}
+          <TouchableOpacity
+              style={[styles.fileBubble, isPatient ? { backgroundColor: Colors.primary } : { backgroundColor: '#fff', borderColor: doctorColor + '30', borderWidth: 1.5 }]}
+              activeOpacity={0.8}
+              onPress={() => { if (msg.fileUrl) downloadFile(msg.fileUrl, msg.fileName ?? 'file', !!isImage, isRTL, t); }}
+          >
+            <View style={styles.fileBubbleInner}>
+              <View style={[styles.fileIconWrap, { backgroundColor: isPatient ? 'rgba(255,255,255,0.2)' : doctorColor + '15' }]}>
+                <Ionicons name={isImage ? 'image-outline' : 'document-outline'} size={22} color={isPatient ? '#fff' : doctorColor} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.fileName, { color: isPatient ? '#fff' : Colors.textPrimary }]} numberOfLines={1}>
+                  {msg.fileName ?? (isImage ? (isRTL ? 'صورة' : 'Image') : (isRTL ? 'ملف' : 'File'))}
                 </Text>
+                {!!msg.fileSize && (
+                    <Text style={[styles.fileSize, { color: isPatient ? 'rgba(255,255,255,0.7)' : Colors.textMuted }]}>
+                      {formatFileSize(msg.fileSize)}
+                    </Text>
+                )}
+              </View>
+              <Ionicons name="download-outline" size={18} color={isPatient ? '#fff' : doctorColor} />
+            </View>
+            <View style={styles.bubbleMeta}>
+              <Text style={[styles.timeText, isPatient && { color: 'rgba(255,255,255,0.7)' }]}>{msg.time}</Text>
+              {isPatient && (
+                  <Ionicons
+                      name={msg.status === 'read' ? 'checkmark-done' : 'checkmark-done-outline'}
+                      size={12}
+                      color={msg.status === 'read' ? '#93E0FF' : 'rgba(255,255,255,0.6)'}
+                  />
               )}
             </View>
-            <Ionicons name="download-outline" size={18} color={isPatient ? '#fff' : doctorColor} />
-          </View>
-          <View style={styles.bubbleMeta}>
-            <Text style={[styles.timeText, isPatient && { color: 'rgba(255,255,255,0.7)' }]}>{msg.time}</Text>
-            {isPatient && (
-              <Ionicons
-                name={msg.status === 'read' ? 'checkmark-done' : 'checkmark-done-outline'}
-                size={12}
-                color={msg.status === 'read' ? '#93E0FF' : 'rgba(255,255,255,0.6)'}
-              />
-            )}
-          </View>
-        </TouchableOpacity>
-      </Animated.View>
+          </TouchableOpacity>
+        </Animated.View>
     );
   }
 
   return (
-    <Animated.View style={[styles.msgRow, isPatient ? styles.msgRowRight : styles.msgRowLeft, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
-      {!isPatient && (
-        <View style={[styles.docAvatar, { backgroundColor: doctorBg }]}>
-          <Ionicons name="person" size={13} color={doctorColor} />
+      <Animated.View style={[styles.msgRow, isPatient ? styles.msgRowRight : styles.msgRowLeft, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
+        {!isPatient && (
+            <View style={[styles.docAvatar, { backgroundColor: doctorBg }]}>
+              <Ionicons name="person" size={13} color={doctorColor} />
+            </View>
+        )}
+        <View style={[
+          styles.bubble,
+          isPatient ? [styles.bubblePatient, { backgroundColor: Colors.primary }] : [styles.bubbleDoctor, { backgroundColor: '#fff', borderColor: doctorColor + '30' }],
+        ]}>
+          <Text style={[styles.bubbleText, isPatient ? { color: '#fff' } : { color: Colors.textPrimary }, { textAlign: isRTL ? 'right' : 'left' }]}>
+            {msg.text}
+          </Text>
+          <View style={styles.bubbleMeta}>
+            <Text style={[styles.timeText, isPatient && { color: 'rgba(255,255,255,0.7)' }]}>{msg.time}</Text>
+            {isPatient && (
+                <Ionicons
+                    name={msg.status === 'read' ? 'checkmark-done' : 'checkmark-done-outline'}
+                    size={12}
+                    color={msg.status === 'read' ? '#93E0FF' : 'rgba(255,255,255,0.6)'}
+                />
+            )}
+          </View>
         </View>
-      )}
-      <View style={[
-        styles.bubble,
-        isPatient ? [styles.bubblePatient, { backgroundColor: Colors.primary }] : [styles.bubbleDoctor, { backgroundColor: '#fff', borderColor: doctorColor + '30' }],
-      ]}>
-        <Text style={[styles.bubbleText, isPatient ? { color: '#fff' } : { color: Colors.textPrimary }, { textAlign: isRTL ? 'right' : 'left' }]}>
-          {msg.text}
-        </Text>
-        <View style={styles.bubbleMeta}>
-          <Text style={[styles.timeText, isPatient && { color: 'rgba(255,255,255,0.7)' }]}>{msg.time}</Text>
-          {isPatient && (
-            <Ionicons
-              name={msg.status === 'read' ? 'checkmark-done' : 'checkmark-done-outline'}
-              size={12}
-              color={msg.status === 'read' ? '#93E0FF' : 'rgba(255,255,255,0.6)'}
-            />
-          )}
-        </View>
-      </View>
-    </Animated.View>
+      </Animated.View>
   );
 }
 
 function DateDivider({ label }: { label: string }) {
   return (
-    <View style={styles.dividerRow}>
-      <View style={styles.dividerLine} />
-      <Text style={styles.dividerText}>{label}</Text>
-      <View style={styles.dividerLine} />
-    </View>
+      <View style={styles.dividerRow}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.dividerText}>{label}</Text>
+        <View style={styles.dividerLine} />
+      </View>
   );
 }
 
@@ -259,16 +259,16 @@ export default function DoctorChatScreen() {
   const chatId    = isFirebase ? `${doctorId}_${patientId}` : '';
 
   const welcomeText = isRTL
-    ? 'أهلاً! كيف يمكنني مساعدتك؟'
-    : 'Hello! How can I help you?';
+      ? 'أهلاً! كيف يمكنني مساعدتك؟'
+      : 'Hello! How can I help you?';
 
   const [messages,  setMessages]  = useState<Message[]>(
-    isFirebase ? [] : [{ id: 'w1', text: welcomeText, sender: 'doctor', time: nowTime(), status: 'read' }],
+      isFirebase ? [] : [{ id: 'w1', text: welcomeText, sender: 'doctor', time: nowTime(), status: 'read' }],
   );
-  const [inputText,  setInputText]  = useState('');
-  const [showQuick,  setShowQuick]  = useState(false);
-  const [showAttach, setShowAttach] = useState(false);
-  const [uploading,  setUploading]  = useState(false);
+  const [inputText,       setInputText]       = useState('');
+  const [showQuick,       setShowQuick]       = useState(false);
+  const [showAttach,      setShowAttach]      = useState(false);
+  const [uploading,       setUploading]       = useState(false);
   const [doctorOnline,    setDoctorOnline]    = useState(false);
   const [doctorPhotoUrl,  setDoctorPhotoUrl]  = useState<string | null>(null);
   const listRef    = useRef<FlatList>(null);
@@ -277,7 +277,7 @@ export default function DoctorChatScreen() {
 
   const quickReplies: string[] = t.docQuickReplies;
 
-  // ─── Keyboard: scroll to end when keyboard opens ──────
+  // scroll to end when keyboard opens
   useEffect(() => {
     const sub = Keyboard.addListener('keyboardDidShow', () => {
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
@@ -426,267 +426,149 @@ export default function DoctorChatScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.safeOuter}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-        <StatusBar backgroundColor="#F8F5FF" barStyle="dark-content" />
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.replace("/tabs/doctors")}
-            style={styles.backBtn}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="arrow-back" size={22} color={doctorColor} />
-          </TouchableOpacity>
-          <View style={styles.headerInfo}>
-            <View style={[styles.headerAvatar, { backgroundColor: doctorBg }]}>
-              {doctorPhotoUrl ? (
-                <Image
-                  source={{ uri: doctorPhotoUrl }}
-                  style={styles.headerAvatarImg}
-                />
-              ) : (
-                <Text style={{ fontSize: 20 }}>{doctorEmoji}</Text>
-              )}
+      <KeyboardAvoidingView
+          style={styles.safeOuter}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+          <StatusBar backgroundColor="#F8F5FF" barStyle="dark-content" />
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.replace('/tabs/doctors')} style={styles.backBtn} activeOpacity={0.8}>
+              <Ionicons name="arrow-back" size={22} color={doctorColor} />
+            </TouchableOpacity>
+            <View style={styles.headerInfo}>
+              <View style={[styles.headerAvatar, { backgroundColor: doctorBg }]}>
+                {doctorPhotoUrl
+                    ? <Image source={{ uri: doctorPhotoUrl }} style={styles.headerAvatarImg} />
+                    : <Text style={{ fontSize: 20 }}>{doctorEmoji}</Text>}
+              </View>
+              <View>
+                <Text style={styles.headerName} numberOfLines={1}>{doctorName}</Text>
+                {isFirebase ? (
+                    <View style={styles.onlineRow}>
+                      <View style={[styles.onlineDot, !doctorOnline && styles.offlineDot]} />
+                      <Text style={[styles.onlineText, !doctorOnline && styles.offlineText]}>
+                        {doctorOnline ? (isRTL ? 'متصل الآن' : 'Online') : (isRTL ? 'غير متصل' : 'Offline')}
+                      </Text>
+                    </View>
+                ) : (
+                    <Text style={[styles.headerSpec, { color: doctorColor }]} numberOfLines={1}>{specialty}</Text>
+                )}
+              </View>
             </View>
-            <View>
-              <Text style={styles.headerName} numberOfLines={1}>
-                {doctorName}
-              </Text>
-              {isFirebase ? (
-                <View style={styles.onlineRow}>
-                  <View
-                    style={[
-                      styles.onlineDot,
-                      !doctorOnline && styles.offlineDot,
-                    ]}
-                  />
-                  <Text
-                    style={[
-                      styles.onlineText,
-                      !doctorOnline && styles.offlineText,
-                    ]}
-                  >
-                    {doctorOnline
-                      ? isRTL
-                        ? "متصل الآن"
-                        : "Online"
-                      : isRTL
-                        ? "غير متصل"
-                        : "Offline"}
-                  </Text>
-                </View>
-              ) : (
-                <Text
-                  style={[styles.headerSpec, { color: doctorColor }]}
-                  numberOfLines={1}
-                >
-                  {specialty}
-                </Text>
-              )}
-            </View>
+            <View style={{ width: 38 }} />
           </View>
-          <View style={{ width: 38 }} />
-        </View>
 
-        {!isFirebase && (
-          <View
-            style={[styles.noticeBanner, { borderColor: doctorColor + "30" }]}
-          >
-            <Ionicons
-              name="information-circle-outline"
-              size={14}
-              color={doctorColor}
-            />
-            <Text style={[styles.noticeText, { color: doctorColor }]}>
-              {t.chatIsLocal}
-            </Text>
-          </View>
-        )}
-      </SafeAreaView>
-
-      <View style={{ flex: 1 }}>
-        <FlatList
-          ref={listRef}
-          data={messages}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
-          onContentSizeChange={() =>
-            listRef.current?.scrollToEnd({ animated: false })
-          }
-          ListHeaderComponent={<DateDivider label={t.today} />}
-          renderItem={({ item }) => (
-            <MessageBubble
-              msg={item}
-              isRTL={isRTL}
-              doctorColor={doctorColor}
-              doctorBg={doctorBg}
-              chatId={chatId}
-              t={t}
-            />
+          {!isFirebase && (
+              <View style={[styles.noticeBanner, { borderColor: doctorColor + '30' }]}>
+                <Ionicons name="information-circle-outline" size={14} color={doctorColor} />
+                <Text style={[styles.noticeText, { color: doctorColor }]}>{t.chatIsLocal}</Text>
+              </View>
           )}
-        />
+        </SafeAreaView>
 
-        {showQuick && (
-          <View style={styles.quickWrap}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.quickContent}
-            >
-              {quickReplies.map((q, i) => (
-                <TouchableOpacity
-                  key={i}
-                  onPress={() => handleQuickReply(q)}
-                  style={[
-                    styles.quickChip,
-                    { borderColor: doctorColor + "50" },
-                  ]}
-                  activeOpacity={0.8}
+        <View style={{ flex: 1 }}>
+          <FlatList
+              ref={listRef}
+              data={messages}
+              keyExtractor={item => item.id}
+              contentContainerStyle={styles.listContent}
+              showsVerticalScrollIndicator={false}
+              maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+              onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+              ListHeaderComponent={<DateDivider label={t.today} />}
+              renderItem={({ item }) => (
+                  <MessageBubble msg={item} isRTL={isRTL} doctorColor={doctorColor} doctorBg={doctorBg} chatId={chatId} t={t} />
+              )}
+          />
+
+          {showQuick && (
+              <View style={styles.quickWrap}>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.quickContent}
                 >
-                  <Text style={[styles.quickChipText, { color: doctorColor }]}>
-                    {q}
-                  </Text>
+                  {quickReplies.map((q, i) => (
+                      <TouchableOpacity
+                          key={i}
+                          onPress={() => handleQuickReply(q)}
+                          style={[styles.quickChip, { borderColor: doctorColor + '50' }]}
+                          activeOpacity={0.8}
+                      >
+                        <Text style={[styles.quickChipText, { color: doctorColor }]}>{q}</Text>
+                      </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+          )}
+
+          {showAttach && (
+              <Animated.View style={[styles.attachMenu, { opacity: attachAnim, transform: [{ translateY: attachAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+                <TouchableOpacity style={styles.attachItem} onPress={handlePickDocument} activeOpacity={0.8}>
+                  <View style={[styles.attachIcon, { backgroundColor: '#E8F1FB' }]}>
+                    <Ionicons name="document-outline" size={22} color="#5B9BD5" />
+                  </View>
+                  <Text style={styles.attachLabel}>{t.file}</Text>
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        {showAttach && (
-          <Animated.View
-            style={[
-              styles.attachMenu,
-              {
-                opacity: attachAnim,
-                transform: [
-                  {
-                    translateY: attachAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [20, 0],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            <TouchableOpacity
-              style={styles.attachItem}
-              onPress={handlePickDocument}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.attachIcon, { backgroundColor: "#E8F1FB" }]}>
-                <Ionicons name="document-outline" size={22} color="#5B9BD5" />
-              </View>
-              <Text style={styles.attachLabel}>{t.file}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.attachItem}
-              onPress={handlePickImage}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.attachIcon, { backgroundColor: "#E8F5EF" }]}>
-                <Ionicons name="image-outline" size={22} color="#4CAF82" />
-              </View>
-              <Text style={styles.attachLabel}>{t.gallery}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.attachItem}
-              onPress={handleTakePhoto}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.attachIcon, { backgroundColor: "#FEF3E2" }]}>
-                <Ionicons name="camera-outline" size={22} color="#F4A32B" />
-              </View>
-              <Text style={styles.attachLabel}>{t.camera}</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        )}
-
-        <View
-          style={[styles.inputBarWrap, { paddingBottom: insets.bottom || 12 }]}
-        >
-          {uploading && (
-            <View style={styles.uploadingBar}>
-              <Ionicons
-                name="cloud-upload-outline"
-                size={14}
-                color={doctorColor}
-              />
-              <Text style={[styles.uploadingText, { color: doctorColor }]}>
-                {t.sending}
-              </Text>
-            </View>
+                <TouchableOpacity style={styles.attachItem} onPress={handlePickImage} activeOpacity={0.8}>
+                  <View style={[styles.attachIcon, { backgroundColor: '#E8F5EF' }]}>
+                    <Ionicons name="image-outline" size={22} color="#4CAF82" />
+                  </View>
+                  <Text style={styles.attachLabel}>{t.gallery}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.attachItem} onPress={handleTakePhoto} activeOpacity={0.8}>
+                  <View style={[styles.attachIcon, { backgroundColor: '#FEF3E2' }]}>
+                    <Ionicons name="camera-outline" size={22} color="#F4A32B" />
+                  </View>
+                  <Text style={styles.attachLabel}>{t.camera}</Text>
+                </TouchableOpacity>
+              </Animated.View>
           )}
-          <View
-            style={[
-              styles.inputBar,
-              { flexDirection: isRTL ? "row-reverse" : "row" },
-            ]}
-          >
-            <TouchableOpacity
-              onPress={toggleQuick}
-              style={[
-                styles.iconBtn,
-                { backgroundColor: showQuick ? doctorColor : doctorBg },
-              ]}
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name={showQuick ? "close" : "flash"}
-                size={18}
-                color={showQuick ? "#fff" : doctorColor}
-              />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={toggleAttach}
-              style={[
-                styles.iconBtn,
-                { backgroundColor: showAttach ? doctorColor : doctorBg },
-              ]}
-              activeOpacity={0.8}
-            >
-              <Ionicons
-                name={showAttach ? "close" : "attach"}
-                size={18}
-                color={showAttach ? "#fff" : doctorColor}
-              />
-            </TouchableOpacity>
-            <View
-              style={[styles.inputWrap, { borderColor: doctorColor + "40" }]}
-            >
-              <TextInput
-                value={inputText}
-                onChangeText={setInputText}
-                placeholder={t.writeMessage}
-                placeholderTextColor={Colors.textMuted}
-                style={[
-                  styles.textInput,
-                  { textAlign: isRTL ? "right" : "left" },
-                ]}
-                multiline
-                maxLength={500}
-              />
+
+          <View style={[styles.inputBarWrap, { paddingBottom: insets.bottom || 12 }]}>
+            {uploading && (
+                <View style={styles.uploadingBar}>
+                  <Ionicons name="cloud-upload-outline" size={14} color={doctorColor} />
+                  <Text style={[styles.uploadingText, { color: doctorColor }]}>{t.sending}</Text>
+                </View>
+            )}
+            <View style={[styles.inputBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <TouchableOpacity
+                  onPress={toggleQuick}
+                  style={[styles.iconBtn, { backgroundColor: showQuick ? doctorColor : doctorBg }]}
+                  activeOpacity={0.8}
+              >
+                <Ionicons name={showQuick ? 'close' : 'flash'} size={18} color={showQuick ? '#fff' : doctorColor} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                  onPress={toggleAttach}
+                  style={[styles.iconBtn, { backgroundColor: showAttach ? doctorColor : doctorBg }]}
+                  activeOpacity={0.8}
+              >
+                <Ionicons name={showAttach ? 'close' : 'attach'} size={18} color={showAttach ? '#fff' : doctorColor} />
+              </TouchableOpacity>
+              <View style={[styles.inputWrap, { borderColor: doctorColor + '40' }]}>
+                <TextInput
+                    value={inputText}
+                    onChangeText={setInputText}
+                    placeholder={t.writeMessage}
+                    placeholderTextColor={Colors.textMuted}
+                    style={[styles.textInput, { textAlign: isRTL ? 'right' : 'left' }]}
+                    multiline maxLength={500}
+                />
+              </View>
+              <TouchableOpacity
+                  onPress={() => sendMessage(inputText)}
+                  style={[styles.sendBtn, { backgroundColor: inputText.trim() ? doctorColor : '#B0BEC5' }]}
+                  activeOpacity={0.8} disabled={!inputText.trim()}
+              >
+                <Ionicons name="send" size={16} color="#fff" />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              onPress={() => sendMessage(inputText)}
-              style={[
-                styles.sendBtn,
-                { backgroundColor: inputText.trim() ? doctorColor : "#B0BEC5" },
-              ]}
-              activeOpacity={0.8}
-              disabled={!inputText.trim()}
-            >
-              <Ionicons name="send" size={16} color="#fff" />
-            </TouchableOpacity>
           </View>
         </View>
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
   );
 }
 
@@ -694,17 +576,17 @@ const styles = StyleSheet.create({
   safeOuter: { flex: 1, backgroundColor: '#F8F5FF' },
   safe: { backgroundColor: '#F8F5FF' },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: Spacing.base, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: Colors.border, shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 3 },
-  backBtn:      { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.primaryUltraLight, alignItems: 'center', justifyContent: 'center' },
-  headerInfo:   { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  backBtn:         { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.primaryUltraLight, alignItems: 'center', justifyContent: 'center' },
+  headerInfo:      { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
   headerAvatar:    { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   headerAvatarImg: { width: 42, height: 42, borderRadius: 21 },
-  headerName:   { fontSize: FontSize.base, fontWeight: '700', color: Colors.textPrimary },
-  headerSpec:   { fontSize: 11, fontWeight: '600', marginTop: 1 },
-  onlineRow:    { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
-  onlineDot:    { width: 7, height: 7, borderRadius: 4, backgroundColor: '#4CAF82', marginRight: 5 },
-  offlineDot:   { backgroundColor: '#B0BEC5' },
-  onlineText:   { fontSize: 11, color: '#4CAF82', fontWeight: '600' },
-  offlineText:  { color: '#B0BEC5' },
+  headerName:      { fontSize: FontSize.base, fontWeight: '700', color: Colors.textPrimary },
+  headerSpec:      { fontSize: 11, fontWeight: '600', marginTop: 1 },
+  onlineRow:       { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
+  onlineDot:       { width: 7, height: 7, borderRadius: 4, backgroundColor: '#4CAF82', marginRight: 5 },
+  offlineDot:      { backgroundColor: '#B0BEC5' },
+  onlineText:      { fontSize: 11, color: '#4CAF82', fontWeight: '600' },
+  offlineText:     { color: '#B0BEC5' },
   noticeBanner: { flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: Spacing.base, marginTop: 10, marginBottom: 4, backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 7 },
   noticeText:   { fontSize: 11, fontWeight: '500', flex: 1 },
   listContent:  { paddingHorizontal: Spacing.base, paddingBottom: 12, paddingTop: 8 },
@@ -728,7 +610,6 @@ const styles = StyleSheet.create({
   dividerText: { fontSize: 11, color: Colors.textMuted, fontWeight: '600', backgroundColor: '#F8F5FF', paddingHorizontal: 8, borderRadius: 8 },
   quickWrap:    { backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: Colors.border, paddingVertical: 10 },
   quickContent: { paddingHorizontal: Spacing.base, gap: 8, alignItems: 'center', flexDirection: 'row' },
-  quickInner:   { flexDirection: 'row', gap: 8, alignItems: 'center' },
   quickChip:     { backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1.5, shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 1 },
   quickChipText: { fontSize: 12, fontWeight: '600' },
   attachMenu:  { flexDirection: 'row', gap: 16, paddingHorizontal: Spacing.base, paddingVertical: 10, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: Colors.border },
