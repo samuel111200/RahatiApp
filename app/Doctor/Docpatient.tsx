@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  StatusBar, TextInput, KeyboardAvoidingView,
+  StatusBar, TextInput, KeyboardAvoidingView, Keyboard,
   Platform, Animated, Modal, ScrollView, Alert,
   ActivityIndicator, Image,
 } from 'react-native';
@@ -883,6 +883,7 @@ export default function Docpatient() {
   const [showQuick,       setShowQuick]       = useState(false);
   const [showAttach,      setShowAttach]      = useState(false);
   const [patientPhotoUrl, setPatientPhotoUrl] = useState<string | null>(null);
+  const [kbHeight,        setKbHeight]        = useState(0);
 
   const listRef   = useRef<any>(null);
   const quickAnim = useRef(new Animated.Value(0)).current;
@@ -943,6 +944,16 @@ export default function Docpatient() {
     updateDoc(doc(db, 'chats', chatId), { lastMessage, lastMessageTime: ts, lastMessageSender: 'doctor' }).catch(() => {}),
   [chatId]);
 
+  const sendAccessRequest = useCallback(async () => {
+    if (!chatId) return;
+    const ts = Date.now();
+    const text = isRTL ? '🏋️ طلب الوصول لبرنامج التمارين' : '🏋️ Exercise access request';
+    await addDoc(collection(db, 'chats', chatId, 'messages'), {
+      text, sender: 'doctor', timestamp: ts, status: 'sent', type: 'request_access',
+    }).catch(() => {});
+    await updateChatMeta(text, ts);
+  }, [chatId, isRTL, updateChatMeta]);
+
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || !chatId) return;
     const ts = Date.now();
@@ -991,8 +1002,19 @@ export default function Docpatient() {
 
   const QUICK_REPLIES: string[] = t.docQuickReplies;
 
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', e => {
+      if (Platform.OS === 'android') setKbHeight(e.endCoordinates.height);
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+    });
+    const hide = Keyboard.addListener('keyboardDidHide', () => {
+      if (Platform.OS === 'android') setKbHeight(0);
+    });
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <StatusBar backgroundColor="#F8F5FF" barStyle="dark-content" />
 
       <View style={styles.header}>
@@ -1018,22 +1040,22 @@ export default function Docpatient() {
         <TouchableOpacity
           style={[styles.exerciseBtn, exerciseAccess && styles.exerciseBtnActive]}
           activeOpacity={0.8}
-          onPress={() => setShowExercises(true)}
+          onPress={() => exerciseAccess ? setShowExercises(true) : sendAccessRequest()}
         >
-          <Ionicons name="barbell-outline" size={20} color={exerciseAccess ? '#fff' : DOC_COLOR} />
-          {exerciseAccess && <View style={styles.exerciseBtnDot} />}
+          <Ionicons name="barbell-outline" size={20} color={exerciseAccess ? '#4CAF82' : DOC_COLOR} />
         </TouchableOpacity>
       </View>
 
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1, marginBottom: kbHeight }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? keyboardOffset : 0}
       >
         <FlatList
           ref={listRef}
           data={messages}
           keyExtractor={(item) => item.id}
+          style={{ flex: 1 }}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
@@ -1042,23 +1064,25 @@ export default function Docpatient() {
         />
 
         {showQuick && (
-          <Animated.ScrollView
-            horizontal showsHorizontalScrollIndicator={false}
-            style={[styles.quickWrap, {
-              opacity: quickAnim,
-              transform: [{ translateY: quickAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
-            }]}
-            contentContainerStyle={styles.quickContent}
-          >
-            {QUICK_REPLIES.map((qr, i) => (
-              <TouchableOpacity key={i} onPress={() => handleQuickReply(qr)} style={styles.quickChip} activeOpacity={0.8}>
-                <Text style={styles.quickChipText}>{qr}</Text>
-              </TouchableOpacity>
-            ))}
-          </Animated.ScrollView>
+          <Animated.View style={[styles.quickWrap, {
+            opacity: quickAnim,
+            transform: [{ translateY: quickAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
+          }]}>
+            <ScrollView
+              horizontal showsHorizontalScrollIndicator={false}
+              style={{ flex: 1 }}
+              contentContainerStyle={styles.quickContent}
+            >
+              {QUICK_REPLIES.map((qr, i) => (
+                <TouchableOpacity key={i} onPress={() => handleQuickReply(qr)} style={styles.quickChip} activeOpacity={0.8}>
+                  <Text style={styles.quickChipText}>{qr}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </Animated.View>
         )}
 
-        <View style={[styles.inputBar, rtlRow(isRTL)]}>
+        <View style={[styles.inputBar, rtlRow(isRTL), { paddingBottom: 10 + insets.bottom }]}>
           <TouchableOpacity onPress={toggleQuick} style={[styles.iconBtn, showQuick && styles.iconBtnActive]} activeOpacity={0.8}>
             <Ionicons name={showQuick ? 'close' : 'flash'} size={20} color={showQuick ? '#fff' : DOC_COLOR} />
           </TouchableOpacity>
@@ -1113,15 +1137,14 @@ const styles = StyleSheet.create({
   offlineDot:         { backgroundColor: '#B0BEC5' },
   onlineText:         { fontSize: 11, color: '#4CAF82', fontWeight: '600' },
   offlineText:        { color: '#B0BEC5' },
-  exerciseBtn:        { width: 40, height: 40, borderRadius: 20, backgroundColor: DOC_COLOR_LIGHT, alignItems: 'center', justifyContent: 'center', position: 'relative', marginLeft: 10 },
-  exerciseBtnActive:  { backgroundColor: DOC_COLOR },
-  exerciseBtnDot:     { position: 'absolute', top: 6, right: 6, width: 8, height: 8, borderRadius: 4, backgroundColor: '#4CAF82', borderWidth: 1.5, borderColor: '#fff' },
+  exerciseBtn:        { width: 40, height: 40, borderRadius: 20, backgroundColor: DOC_COLOR_LIGHT, alignItems: 'center', justifyContent: 'center', marginLeft: 10 },
+  exerciseBtnActive:  { backgroundColor: '#E8F8F2', borderWidth: 1.5, borderColor: '#4CAF82' },
   listContent:        { paddingHorizontal: Spacing.base, paddingBottom: 12 },
-  quickWrap:          { maxHeight: 50, marginBottom: 4 },
-  quickContent:       { paddingHorizontal: Spacing.base, alignItems: 'center' },
+  quickWrap:          { height: 56, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#F0EBFA' },
+  quickContent:       { paddingHorizontal: Spacing.base, alignItems: 'center', flexDirection: 'row' },
   quickChip:          { backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1.5, borderColor: DOC_COLOR + '40', shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2, marginRight: 8 },
-  quickChipText:      { fontSize: 12, color: DOC_COLOR, fontWeight: '600' },
-  inputBar:           { alignItems: 'flex-end', paddingHorizontal: Spacing.base, paddingVertical: 10, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#F0EBFA', shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 4 },
+  quickChipText:      { fontSize: 12, color: DOC_COLOR, fontWeight: '600', lineHeight: 18 },
+  inputBar:           { alignItems: 'flex-end', paddingHorizontal: Spacing.base, paddingTop: 10, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#F0EBFA', shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 4 },
   inputWrap:          { flex: 1, backgroundColor: Colors.background, borderRadius: 22, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1.5, borderColor: '#E8DFFA', minHeight: 44, maxHeight: 120, marginHorizontal: 8 },
   textInput:          { flex: 1, fontSize: FontSize.base, color: Colors.textPrimary, padding: 0, lineHeight: 20 },
   iconBtn:            { width: 44, height: 44, borderRadius: 22, backgroundColor: DOC_COLOR_LIGHT, alignItems: 'center', justifyContent: 'center' },

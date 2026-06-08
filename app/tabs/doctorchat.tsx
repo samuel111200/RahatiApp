@@ -240,7 +240,6 @@ function DateDivider({ label }: { label: string }) {
 
 export default function DoctorChatScreen() {
   const { isRTL, t } = useLang();
-  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     doctorId: string; doctorName: string; doctorEmoji: string;
     doctorColor: string; doctorBg: string; specialty: string; isFirebase: string;
@@ -254,6 +253,7 @@ export default function DoctorChatScreen() {
   const specialty   = params.specialty   ?? '';
   const isFirebase  = params.isFirebase  === '1';
 
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const patientId = user?.uid ?? '';
   const chatId    = isFirebase ? `${doctorId}_${patientId}` : '';
@@ -268,6 +268,7 @@ export default function DoctorChatScreen() {
   const [inputText,       setInputText]       = useState('');
   const [showQuick,       setShowQuick]       = useState(false);
   const [showAttach,      setShowAttach]      = useState(false);
+  const [kbHeight,        setKbHeight]        = useState(0);
   const [uploading,       setUploading]       = useState(false);
   const [doctorOnline,    setDoctorOnline]    = useState(false);
   const [doctorPhotoUrl,  setDoctorPhotoUrl]  = useState<string | null>(null);
@@ -279,10 +280,14 @@ export default function DoctorChatScreen() {
 
   // scroll to end when keyboard opens
   useEffect(() => {
-    const sub = Keyboard.addListener('keyboardDidShow', () => {
+    const show = Keyboard.addListener('keyboardDidShow', e => {
+      if (Platform.OS === 'android') setKbHeight(e.endCoordinates.height);
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
     });
-    return () => sub.remove();
+    const hide = Keyboard.addListener('keyboardDidHide', () => {
+      if (Platform.OS === 'android') setKbHeight(0);
+    });
+    return () => { show.remove(); hide.remove(); };
   }, []);
 
   useEffect(() => {
@@ -426,52 +431,51 @@ export default function DoctorChatScreen() {
   };
 
   return (
-      <KeyboardAvoidingView
-          style={styles.safeOuter}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-          <StatusBar backgroundColor="#F8F5FF" barStyle="dark-content" />
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.replace('/tabs/doctors')} style={styles.backBtn} activeOpacity={0.8}>
-              <Ionicons name="arrow-back" size={22} color={doctorColor} />
-            </TouchableOpacity>
-            <View style={styles.headerInfo}>
-              <View style={[styles.headerAvatar, { backgroundColor: doctorBg }]}>
-                {doctorPhotoUrl
-                    ? <Image source={{ uri: doctorPhotoUrl }} style={styles.headerAvatarImg} />
-                    : <Text style={{ fontSize: 20 }}>{doctorEmoji}</Text>}
-              </View>
-              <View>
-                <Text style={styles.headerName} numberOfLines={1}>{doctorName}</Text>
-                {isFirebase ? (
-                    <View style={styles.onlineRow}>
-                      <View style={[styles.onlineDot, !doctorOnline && styles.offlineDot]} />
-                      <Text style={[styles.onlineText, !doctorOnline && styles.offlineText]}>
-                        {doctorOnline ? (isRTL ? 'متصل الآن' : 'Online') : (isRTL ? 'غير متصل' : 'Offline')}
-                      </Text>
-                    </View>
-                ) : (
-                    <Text style={[styles.headerSpec, { color: doctorColor }]} numberOfLines={1}>{specialty}</Text>
-                )}
-              </View>
+      <SafeAreaView style={styles.safeOuter} edges={['top', 'left', 'right']}>
+        <StatusBar backgroundColor="#F8F5FF" barStyle="dark-content" />
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.replace('/tabs/doctors')} style={styles.backBtn} activeOpacity={0.8}>
+            <Ionicons name="arrow-back" size={22} color={doctorColor} />
+          </TouchableOpacity>
+          <View style={styles.headerInfo}>
+            <View style={[styles.headerAvatar, { backgroundColor: doctorBg }]}>
+              {doctorPhotoUrl
+                  ? <Image source={{ uri: doctorPhotoUrl }} style={styles.headerAvatarImg} />
+                  : <Text style={{ fontSize: 20 }}>{doctorEmoji}</Text>}
             </View>
-            <View style={{ width: 38 }} />
+            <View>
+              <Text style={styles.headerName} numberOfLines={1}>{doctorName}</Text>
+              {isFirebase ? (
+                  <View style={styles.onlineRow}>
+                    <View style={[styles.onlineDot, !doctorOnline && styles.offlineDot]} />
+                    <Text style={[styles.onlineText, !doctorOnline && styles.offlineText]}>
+                      {doctorOnline ? (isRTL ? 'متصل الآن' : 'Online') : (isRTL ? 'غير متصل' : 'Offline')}
+                    </Text>
+                  </View>
+              ) : (
+                  <Text style={[styles.headerSpec, { color: doctorColor }]} numberOfLines={1}>{specialty}</Text>
+              )}
+            </View>
           </View>
+          <View style={{ width: 38 }} />
+        </View>
 
-          {!isFirebase && (
-              <View style={[styles.noticeBanner, { borderColor: doctorColor + '30' }]}>
-                <Ionicons name="information-circle-outline" size={14} color={doctorColor} />
-                <Text style={[styles.noticeText, { color: doctorColor }]}>{t.chatIsLocal}</Text>
-              </View>
-          )}
-        </SafeAreaView>
+        {!isFirebase && (
+            <View style={[styles.noticeBanner, { borderColor: doctorColor + '30' }]}>
+              <Ionicons name="information-circle-outline" size={14} color={doctorColor} />
+              <Text style={[styles.noticeText, { color: doctorColor }]}>{t.chatIsLocal}</Text>
+            </View>
+        )}
 
-        <View style={{ flex: 1 }}>
+        <KeyboardAvoidingView
+            style={{ flex: 1, marginBottom: kbHeight }}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <FlatList
               ref={listRef}
               data={messages}
               keyExtractor={item => item.id}
+              style={{ flex: 1 }}
               contentContainerStyle={styles.listContent}
               showsVerticalScrollIndicator={false}
               maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
@@ -526,7 +530,7 @@ export default function DoctorChatScreen() {
               </Animated.View>
           )}
 
-          <View style={[styles.inputBarWrap, { paddingBottom: insets.bottom || 12 }]}>
+          <View style={[styles.inputBarWrap, { paddingBottom: insets.bottom || 8 }]}>
             {uploading && (
                 <View style={styles.uploadingBar}>
                   <Ionicons name="cloud-upload-outline" size={14} color={doctorColor} />
@@ -567,8 +571,8 @@ export default function DoctorChatScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
   );
 }
 
@@ -611,7 +615,7 @@ const styles = StyleSheet.create({
   quickWrap:    { backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: Colors.border, paddingVertical: 10 },
   quickContent: { paddingHorizontal: Spacing.base, gap: 8, alignItems: 'center', flexDirection: 'row' },
   quickChip:     { backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1.5, shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 1 },
-  quickChipText: { fontSize: 12, fontWeight: '600' },
+  quickChipText: { fontSize: 12, fontWeight: '600', lineHeight: 18 },
   attachMenu:  { flexDirection: 'row', gap: 16, paddingHorizontal: Spacing.base, paddingVertical: 10, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: Colors.border },
   attachItem:  { alignItems: 'center', gap: 6 },
   attachIcon:  { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
