@@ -2,10 +2,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  StatusBar, TextInput, KeyboardAvoidingView,
-  Platform, Animated, Alert, Linking, Image,
+  StatusBar, TextInput, ScrollView,
+  Platform, Animated, Alert, Linking, Image, Keyboard,
+  KeyboardAvoidingView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { collection, onSnapshot, addDoc, updateDoc, setDoc, doc, query, orderBy, increment, getDoc } from 'firebase/firestore';
@@ -230,6 +231,7 @@ function DateDivider({ label }: { label: string }) {
 
 export default function DoctorChatScreen() {
   const { isRTL, t } = useLang();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     doctorId: string; doctorName: string; doctorEmoji: string;
     doctorColor: string; doctorBg: string; specialty: string; isFirebase: string;
@@ -265,6 +267,14 @@ export default function DoctorChatScreen() {
   const attachAnim = useRef(new Animated.Value(0)).current;
 
   const quickReplies: string[] = t.docQuickReplies;
+
+  // ─── Keyboard: scroll to end when keyboard opens ──────
+  useEffect(() => {
+    const sub = Keyboard.addListener('keyboardDidShow', () => {
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     if (!isFirebase || !doctorId) return;
@@ -407,87 +417,180 @@ export default function DoctorChatScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar backgroundColor="#F8F5FF" barStyle="dark-content" />
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace('/tabs/doctors')} style={styles.backBtn} activeOpacity={0.8}>
-          <Ionicons name="arrow-back" size={22} color={doctorColor} />
-        </TouchableOpacity>
-        <View style={styles.headerInfo}>
-          <View style={[styles.headerAvatar, { backgroundColor: doctorBg }]}>
-            {doctorPhotoUrl
-              ? <Image source={{ uri: doctorPhotoUrl }} style={styles.headerAvatarImg} />
-              : <Text style={{ fontSize: 20 }}>{doctorEmoji}</Text>}
-          </View>
-          <View>
-            <Text style={styles.headerName} numberOfLines={1}>{doctorName}</Text>
-            {isFirebase ? (
-              <View style={styles.onlineRow}>
-                <View style={[styles.onlineDot, !doctorOnline && styles.offlineDot]} />
-                <Text style={[styles.onlineText, !doctorOnline && styles.offlineText]}>
-                  {doctorOnline ? (isRTL ? 'متصل الآن' : 'Online') : (isRTL ? 'غير متصل' : 'Offline')}
+    <KeyboardAvoidingView
+      style={styles.safeOuter}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
+      <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+        <StatusBar backgroundColor="#F8F5FF" barStyle="dark-content" />
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.replace("/tabs/doctors")}
+            style={styles.backBtn}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="arrow-back" size={22} color={doctorColor} />
+          </TouchableOpacity>
+          <View style={styles.headerInfo}>
+            <View style={[styles.headerAvatar, { backgroundColor: doctorBg }]}>
+              {doctorPhotoUrl ? (
+                <Image
+                  source={{ uri: doctorPhotoUrl }}
+                  style={styles.headerAvatarImg}
+                />
+              ) : (
+                <Text style={{ fontSize: 20 }}>{doctorEmoji}</Text>
+              )}
+            </View>
+            <View>
+              <Text style={styles.headerName} numberOfLines={1}>
+                {doctorName}
+              </Text>
+              {isFirebase ? (
+                <View style={styles.onlineRow}>
+                  <View
+                    style={[
+                      styles.onlineDot,
+                      !doctorOnline && styles.offlineDot,
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.onlineText,
+                      !doctorOnline && styles.offlineText,
+                    ]}
+                  >
+                    {doctorOnline
+                      ? isRTL
+                        ? "متصل الآن"
+                        : "Online"
+                      : isRTL
+                        ? "غير متصل"
+                        : "Offline"}
+                  </Text>
+                </View>
+              ) : (
+                <Text
+                  style={[styles.headerSpec, { color: doctorColor }]}
+                  numberOfLines={1}
+                >
+                  {specialty}
                 </Text>
-              </View>
-            ) : (
-              <Text style={[styles.headerSpec, { color: doctorColor }]} numberOfLines={1}>{specialty}</Text>
-            )}
+              )}
+            </View>
           </View>
+          <View style={{ width: 38 }} />
         </View>
-        <View style={{ width: 38 }} />
-      </View>
 
-      {!isFirebase && (
-        <View style={[styles.noticeBanner, { borderColor: doctorColor + '30' }]}>
-          <Ionicons name="information-circle-outline" size={14} color={doctorColor} />
-          <Text style={[styles.noticeText, { color: doctorColor }]}>{t.chatIsLocal}</Text>
-        </View>
-      )}
+        {!isFirebase && (
+          <View
+            style={[styles.noticeBanner, { borderColor: doctorColor + "30" }]}
+          >
+            <Ionicons
+              name="information-circle-outline"
+              size={14}
+              color={doctorColor}
+            />
+            <Text style={[styles.noticeText, { color: doctorColor }]}>
+              {t.chatIsLocal}
+            </Text>
+          </View>
+        )}
+      </SafeAreaView>
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <View style={{ flex: 1 }}>
         <FlatList
           ref={listRef}
           data={messages}
-          keyExtractor={item => item.id}
+          keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+          maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+          onContentSizeChange={() =>
+            listRef.current?.scrollToEnd({ animated: false })
+          }
           ListHeaderComponent={<DateDivider label={t.today} />}
           renderItem={({ item }) => (
-            <MessageBubble msg={item} isRTL={isRTL} doctorColor={doctorColor} doctorBg={doctorBg} chatId={chatId} t={t} />
+            <MessageBubble
+              msg={item}
+              isRTL={isRTL}
+              doctorColor={doctorColor}
+              doctorBg={doctorBg}
+              chatId={chatId}
+              t={t}
+            />
           )}
         />
 
         {showQuick && (
-          <Animated.ScrollView
-            horizontal showsHorizontalScrollIndicator={false}
-            style={[styles.quickWrap, { opacity: quickAnim, transform: [{ translateY: quickAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}
-            contentContainerStyle={styles.quickContent}
-          >
-            {quickReplies.map((q, i) => (
-              <TouchableOpacity key={i} onPress={() => handleQuickReply(q)}
-                style={[styles.quickChip, { borderColor: doctorColor + '50' }]} activeOpacity={0.8}>
-                <Text style={[styles.quickChipText, { color: doctorColor }]}>{q}</Text>
-              </TouchableOpacity>
-            ))}
-          </Animated.ScrollView>
+          <View style={styles.quickWrap}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.quickContent}
+            >
+              {quickReplies.map((q, i) => (
+                <TouchableOpacity
+                  key={i}
+                  onPress={() => handleQuickReply(q)}
+                  style={[
+                    styles.quickChip,
+                    { borderColor: doctorColor + "50" },
+                  ]}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.quickChipText, { color: doctorColor }]}>
+                    {q}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
         )}
 
         {showAttach && (
-          <Animated.View style={[styles.attachMenu, { opacity: attachAnim, transform: [{ translateY: attachAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
-            <TouchableOpacity style={styles.attachItem} onPress={handlePickDocument} activeOpacity={0.8}>
-              <View style={[styles.attachIcon, { backgroundColor: '#E8F1FB' }]}>
+          <Animated.View
+            style={[
+              styles.attachMenu,
+              {
+                opacity: attachAnim,
+                transform: [
+                  {
+                    translateY: attachAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [20, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.attachItem}
+              onPress={handlePickDocument}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.attachIcon, { backgroundColor: "#E8F1FB" }]}>
                 <Ionicons name="document-outline" size={22} color="#5B9BD5" />
               </View>
               <Text style={styles.attachLabel}>{t.file}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.attachItem} onPress={handlePickImage} activeOpacity={0.8}>
-              <View style={[styles.attachIcon, { backgroundColor: '#E8F5EF' }]}>
+            <TouchableOpacity
+              style={styles.attachItem}
+              onPress={handlePickImage}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.attachIcon, { backgroundColor: "#E8F5EF" }]}>
                 <Ionicons name="image-outline" size={22} color="#4CAF82" />
               </View>
               <Text style={styles.attachLabel}>{t.gallery}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.attachItem} onPress={handleTakePhoto} activeOpacity={0.8}>
-              <View style={[styles.attachIcon, { backgroundColor: '#FEF3E2' }]}>
+            <TouchableOpacity
+              style={styles.attachItem}
+              onPress={handleTakePhoto}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.attachIcon, { backgroundColor: "#FEF3E2" }]}>
                 <Ionicons name="camera-outline" size={22} color="#F4A32B" />
               </View>
               <Text style={styles.attachLabel}>{t.camera}</Text>
@@ -495,47 +598,92 @@ export default function DoctorChatScreen() {
           </Animated.View>
         )}
 
-        <View style={styles.inputBarWrap}>
+        <View
+          style={[styles.inputBarWrap, { paddingBottom: insets.bottom || 12 }]}
+        >
           {uploading && (
             <View style={styles.uploadingBar}>
-              <Ionicons name="cloud-upload-outline" size={14} color={doctorColor} />
-              <Text style={[styles.uploadingText, { color: doctorColor }]}>{t.sending}</Text>
+              <Ionicons
+                name="cloud-upload-outline"
+                size={14}
+                color={doctorColor}
+              />
+              <Text style={[styles.uploadingText, { color: doctorColor }]}>
+                {t.sending}
+              </Text>
             </View>
           )}
-          <View style={[styles.inputBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <TouchableOpacity onPress={toggleQuick}
-              style={[styles.iconBtn, { backgroundColor: showQuick ? doctorColor : doctorBg }]} activeOpacity={0.8}>
-              <Ionicons name={showQuick ? 'close' : 'flash'} size={18} color={showQuick ? '#fff' : doctorColor} />
+          <View
+            style={[
+              styles.inputBar,
+              { flexDirection: isRTL ? "row-reverse" : "row" },
+            ]}
+          >
+            <TouchableOpacity
+              onPress={toggleQuick}
+              style={[
+                styles.iconBtn,
+                { backgroundColor: showQuick ? doctorColor : doctorBg },
+              ]}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name={showQuick ? "close" : "flash"}
+                size={18}
+                color={showQuick ? "#fff" : doctorColor}
+              />
             </TouchableOpacity>
-            <TouchableOpacity onPress={toggleAttach}
-              style={[styles.iconBtn, { backgroundColor: showAttach ? doctorColor : doctorBg }]} activeOpacity={0.8}>
-              <Ionicons name={showAttach ? 'close' : 'attach'} size={18} color={showAttach ? '#fff' : doctorColor} />
+            <TouchableOpacity
+              onPress={toggleAttach}
+              style={[
+                styles.iconBtn,
+                { backgroundColor: showAttach ? doctorColor : doctorBg },
+              ]}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name={showAttach ? "close" : "attach"}
+                size={18}
+                color={showAttach ? "#fff" : doctorColor}
+              />
             </TouchableOpacity>
-            <View style={[styles.inputWrap, { borderColor: doctorColor + '40' }]}>
+            <View
+              style={[styles.inputWrap, { borderColor: doctorColor + "40" }]}
+            >
               <TextInput
-                value={inputText} onChangeText={setInputText}
+                value={inputText}
+                onChangeText={setInputText}
                 placeholder={t.writeMessage}
                 placeholderTextColor={Colors.textMuted}
-                style={[styles.textInput, { textAlign: isRTL ? 'right' : 'left' }]}
-                multiline maxLength={500}
+                style={[
+                  styles.textInput,
+                  { textAlign: isRTL ? "right" : "left" },
+                ]}
+                multiline
+                maxLength={500}
               />
             </View>
             <TouchableOpacity
               onPress={() => sendMessage(inputText)}
-              style={[styles.sendBtn, { backgroundColor: inputText.trim() ? doctorColor : '#B0BEC5' }]}
-              activeOpacity={0.8} disabled={!inputText.trim()}
+              style={[
+                styles.sendBtn,
+                { backgroundColor: inputText.trim() ? doctorColor : "#B0BEC5" },
+              ]}
+              activeOpacity={0.8}
+              disabled={!inputText.trim()}
             >
               <Ionicons name="send" size={16} color="#fff" />
             </TouchableOpacity>
           </View>
         </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F8F5FF' },
+  safeOuter: { flex: 1, backgroundColor: '#F8F5FF' },
+  safe: { backgroundColor: '#F8F5FF' },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: Spacing.base, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: Colors.border, shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 3 },
   backBtn:      { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.primaryUltraLight, alignItems: 'center', justifyContent: 'center' },
   headerInfo:   { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -569,8 +717,9 @@ const styles = StyleSheet.create({
   dividerRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 14, paddingHorizontal: 8 },
   dividerLine: { flex: 1, height: 1, backgroundColor: Colors.border },
   dividerText: { fontSize: 11, color: Colors.textMuted, fontWeight: '600', backgroundColor: '#F8F5FF', paddingHorizontal: 8, borderRadius: 8 },
-  quickWrap:    { maxHeight: 50, marginBottom: 4 },
-  quickContent: { paddingHorizontal: Spacing.base, gap: 8, alignItems: 'center' },
+  quickWrap:    { backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: Colors.border, paddingVertical: 10 },
+  quickContent: { paddingHorizontal: Spacing.base, gap: 8, alignItems: 'center', flexDirection: 'row' },
+  quickInner:   { flexDirection: 'row', gap: 8, alignItems: 'center' },
   quickChip:     { backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1.5, shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 1 },
   quickChipText: { fontSize: 12, fontWeight: '600' },
   attachMenu:  { flexDirection: 'row', gap: 16, paddingHorizontal: Spacing.base, paddingVertical: 10, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: Colors.border },
@@ -580,7 +729,7 @@ const styles = StyleSheet.create({
   inputBarWrap:  { backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: Colors.border, shadowColor: Colors.shadow, shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 4 },
   uploadingBar:  { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: Spacing.base, paddingTop: 6 },
   uploadingText: { fontSize: 11, fontWeight: '600' },
-  inputBar:  { alignItems: 'flex-end', gap: 8, paddingHorizontal: Spacing.base, paddingTop: 10, paddingBottom: 12 },
+  inputBar:  { alignItems: 'flex-end', gap: 8, paddingHorizontal: Spacing.base, paddingTop: 10, paddingBottom: 0 },
   inputWrap: { flex: 1, backgroundColor: Colors.background, borderRadius: 22, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1.5, minHeight: 44, maxHeight: 120 },
   textInput: { flex: 1, fontSize: FontSize.base, color: Colors.textPrimary, padding: 0, lineHeight: 20 },
   iconBtn:   { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
