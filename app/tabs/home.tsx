@@ -95,14 +95,23 @@ const CAT_TO_EFFORT: Record<string, number> = { work: 3, study: 2, home: 2 };
 
 function mapRawTask(raw: any, fallbackDate: string, type: 'core' | 'extra'): PlanTask {
   const timeParts = (raw.time ?? '').split(' - ');
+
+  // حساب اللون من الـ cat لو مفيش bg في الـ data
+  const catBgMap: Record<string, { color: string; bg: string }> = {
+    work:  { color: '#5B9BD5', bg: '#E8F1FB' },
+    study: { color: '#4CAF82', bg: '#E8F5EF' },
+    home:  { color: '#C97B3A', bg: '#FEF3E2' },
+  };
+  const catStyle = catBgMap[raw.cat] ?? { color: '#7C5CBF', bg: '#F0EBFA' };
+
   return {
     id:          raw.key   ?? raw.id   ?? String(Date.now()),
     title:       raw.name  ?? raw.title ?? raw.key ?? 'مهمة',
     timeFrom:    raw.timeFrom ?? timeParts[0] ?? '',
     timeTo:      raw.timeTo   ?? timeParts[1] ?? '',
     emoji:       raw.icon  ?? raw.emoji ?? '📌',
-    color:       raw.color ?? '#7C5CBF',
-    bg:          raw.bg    ?? '#F0EBFA',
+    color:       raw.color ?? catStyle.color,
+    bg:          raw.bg    ?? catStyle.bg,
     date:        raw.date  ?? fallbackDate,
     effortScore: raw.effortScore ?? CAT_TO_EFFORT[raw.cat] ?? 2,
     taskType:    type,
@@ -111,35 +120,47 @@ function mapRawTask(raw: any, fallbackDate: string, type: 'core' | 'extra'): Pla
 
 function mapExerciseToTask(exercise: any, index: number, afterTaskDate: string): PlanTask {
   return {
-    id: `exercise_${exercise.key ?? index}`,
+    id: `exercise_${exercise.key ?? exercise.id ?? index}`,
     title: exercise.title ?? exercise.titleEn ?? "تمرين",
     timeFrom: "",
     timeTo: "",
     emoji: exercise.emoji ?? "🏋️",
-    color: exercise.color ?? "#7C5CBF",
+    color: exercise.color ?? "#4CAF82",
     bg: exercise.bg ?? "#EDE6F8",
     date: afterTaskDate,
     effortScore: 1,
     isExercise: true,
-    breakDescription: exercise.desc ?? exercise.descEn ?? "",
+    breakDescription: exercise.desc ?? exercise.descEn ?? exercise.description ?? "",
   };
 }
+
+// ─── DEFAULT EXERCISES fallback لو مفيش exercises في Firestore ───────────────
+const DEFAULT_EXERCISES = [
+  { key: 'ex_default_1', emoji: '🧘', title: 'تمدد سريع', titleEn: 'Quick Stretch', color: '#4CAF82', bg: '#E8F5EF', desc: 'تمدد بسيط لمدة دقيقتين بين المهام', descEn: 'Simple 2-minute stretch between tasks' },
+  { key: 'ex_default_2', emoji: '🚶', title: 'مشي قصير', titleEn: 'Short Walk', color: '#4CAF82', bg: '#E8F5EF', desc: 'امشي خطوات بسيطة للتنشيط', descEn: 'Take a few steps to refresh' },
+  { key: 'ex_default_3', emoji: '💨', title: 'تنفس عميق', titleEn: 'Deep Breathing', color: '#4CAF82', bg: '#E8F5EF', desc: 'خد 5 أنفاس عميقة وببطء', descEn: 'Take 5 slow deep breaths' },
+];
 
 function buildPlanList(
   coreTasks: PlanTask[],
   extraTasks: PlanTask[],
-  coreExercises: any[],
+  exercises: any[],
 ): PlanTask[] {
-  const allTasks = [...sortTasksByTime(coreTasks), ...sortTasksByTime(extraTasks)];
+  const allTasks = [
+    ...sortTasksByTime(coreTasks),
+    ...sortTasksByTime(extraTasks),
+  ];
   if (allTasks.length === 0) return [];
-  if (coreExercises.length === 0) return allTasks;
+
+  // لو مفيش exercises خالص استخدم الـ defaults
+  const exercisePool = exercises.length > 0 ? exercises : DEFAULT_EXERCISES;
 
   const result: PlanTask[] = [];
   allTasks.forEach((task, index) => {
     result.push(task);
-    // Insert exercise BETWEEN tasks — not after the last one
+    // تمرين بين كل تاسكين — مش بعد الأخيرة
     if (index < allTasks.length - 1) {
-      const ex = coreExercises[Math.floor(Math.random() * coreExercises.length)];
+      const ex = exercisePool[index % exercisePool.length];
       result.push(mapExerciseToTask(ex, index, task.date));
     }
   });
@@ -370,9 +391,9 @@ function TaskCard({ task, energy, isLast, status, onToggleDone, selectedDate, t 
 
       <View style={[
         card.box,
-        { backgroundColor: isDone ? '#f0faf4' : task.bg },
-        isExercise && !isDone && card.exerciseBox,
+        { backgroundColor: task.bg },
         isDone && card.boxDone,
+        isExercise && card.exerciseBox,
       ]}>
         {isExercise && (
           <View style={card.exerciseBadgeRow}>
@@ -479,7 +500,6 @@ export default function PlanScreen() {
   const [showCal, setShowCal]           = useState(false);
   const [coreTasks,   setCoreTasks]     = useState<PlanTask[]>([]);
   const [extraTasks,  setExtraTasks]    = useState<PlanTask[]>([]);
-  const [coreExercises,   setCoreExercises]   = useState<any[]>([]);
   const [doctorExercises, setDoctorExercises] = useState<any[]>([]);
   const [energy, setEnergy]             = useState(50);
   const [doneIds, setDoneIds]           = useState<Set<string>>(new Set());
@@ -516,7 +536,7 @@ export default function PlanScreen() {
     return unsub;
   }, [user?.uid]);
 
-  // Energy + local exercises — load once on focus
+  // Energy — load once on focus
   useFocusEffect(useCallback(() => {
     loadAllData();
   }, [user?.uid]));
@@ -540,9 +560,6 @@ export default function PlanScreen() {
       const storedEnergy = await AsyncStorage.getItem('energy_level');
       if (storedEnergy) setEnergy(Number(storedEnergy));
     }
-
-    const exRaw = await AsyncStorage.getItem(CORE_EXERCISES_KEY);
-    setCoreExercises(exRaw ? JSON.parse(exRaw) : []);
   }
 
   useEffect(() => {
@@ -578,6 +595,12 @@ export default function PlanScreen() {
   const isFutureDay = selectedKey > todayKey;
   const isToday     = selectedKey === todayKey;
 
+  const dayCoreTasks  = coreTasks.filter(t => !t.date || t.date === selectedKey);
+  const dayExtraTasks = extraTasks.filter(t => t.date === selectedKey);
+
+  // doctorExercises من Firestore، لو فاضي buildPlanList هيستخدم DEFAULT_EXERCISES
+  const withExercises = buildPlanList(dayCoreTasks, dayExtraTasks, doctorExercises);
+
   const handleToggleDone = async (taskId: string) => {
     if (isPastDay || isFutureDay) return;
     const task = withExercises.find(t => t.id === taskId);
@@ -596,12 +619,6 @@ export default function PlanScreen() {
       return next;
     });
   };
-
-  const dayCoreTasks  = coreTasks.filter(t => !t.date || t.date === selectedKey);
-  const dayExtraTasks = extraTasks.filter(t => t.date === selectedKey);
-
-  const allExercises  = [...coreExercises, ...doctorExercises];
-  const withExercises = buildPlanList(dayCoreTasks, dayExtraTasks, allExercises);
 
   const totalEffort = [...dayCoreTasks, ...dayExtraTasks].reduce((s, t) => s + t.effortScore, 0);
   const maxEffort   = (dayCoreTasks.length + dayExtraTasks.length) * 3;
@@ -686,7 +703,7 @@ export default function PlanScreen() {
                 <Text style={[s.summaryText, { color: '#C97B3A' }]}>{dayExtraTasks.length} {t.extraTasksCount}</Text>
               </View>
             )}
-            {allExercises.length > 0 && (
+            {doctorExercises.length > 0 && (
               <View style={[s.summaryPill, { backgroundColor: '#E8F5EF' }]}>
                 <Text style={s.summaryEmoji}>🏋️</Text>
                 <Text style={[s.summaryText, { color: '#4CAF82' }]}>{dayCoreTasks.length + dayExtraTasks.length} {t.exercisesCount}</Text>
@@ -858,14 +875,13 @@ const card = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06, shadowRadius: 4, elevation: 1,
   },
-  boxDone:     {
+  boxDone: {
     borderWidth: 1.5, borderColor: '#b8e6c9',
     shadowOpacity: 0, elevation: 0,
   },
   exerciseBox: {
     borderWidth: 1.5, borderColor: '#b8e6c9',
     borderStyle: 'dashed', shadowOpacity: 0, elevation: 0,
-    backgroundColor: '#f0faf4',
   },
   exerciseBadgeRow: { marginBottom: 4 },
   exerciseBadge:    {
