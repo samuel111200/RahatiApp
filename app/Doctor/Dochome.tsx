@@ -8,7 +8,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import {
-  collection, query, where, onSnapshot, doc, updateDoc, setDoc,
+  collection, query, where, onSnapshot, doc, updateDoc, setDoc, getDoc,
 } from 'firebase/firestore';
 import { auth, db, FSRelationship } from '../../utils/firebaseConfig';
 import { useAuth } from '../../context/AuthContext';
@@ -248,11 +248,17 @@ export default function DocHome() {
           const rel = relDoc.data() as FSRelationship;
           const patientName = rel.patientName ?? '';
           const parts = patientName.split(' ');
+          let avatar: string | undefined;
+          try {
+            const userSnap = await getDoc(doc(db, 'users', rel.patientId));
+            if (userSnap.exists()) avatar = userSnap.data().photoUrl ?? undefined;
+          } catch {}
           return {
             id:          rel.patientId,
             relId:       relDoc.id,
             firstName:   parts[0] ?? (isRTL ? 'مريض' : 'Patient'),
             lastName:    parts.slice(1).join(' ') || '',
+            avatar,
             status:      rel.status === 'accepted' ? 'accepted' : 'pending' as PatientStatus,
             requestedAt: new Date(rel.requestedAt).toISOString(),
             acceptedAt:  rel.acceptedAt ? new Date(rel.acceptedAt).toISOString() : undefined,

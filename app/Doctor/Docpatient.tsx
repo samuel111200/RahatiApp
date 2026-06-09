@@ -22,8 +22,10 @@ import { sendPushToUser } from '../../utils/pushNotifications';
 import { subscribeToPresence } from '../../utils/presence';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
+import * as Sharing from 'expo-sharing';
+import * as WebBrowser from 'expo-web-browser';
 
 const DOC_COLOR       = '#7C5CBF';
 const DOC_COLOR_LIGHT = '#F0EBFA';
@@ -51,6 +53,18 @@ type FSChat = {
 
 type ExSectionKey = 'therapy' | 'yoga' | 'aerobic' | 'endurance' | 'strength' | 'coordination';
 
+const _AR_DIGITS = '٠١٢٣٤٥٦٧٨٩';
+function fmtMsgTime(ts: number, isRTL: boolean): string {
+  const d = new Date(ts);
+  const h = d.getHours(), m = d.getMinutes(), am = h < 12, h12 = h % 12 || 12;
+  if (isRTL) {
+    const toAr = (n: number, pad = 0) =>
+      n.toString().padStart(pad, '0').replace(/\d/g, x => _AR_DIGITS[+x]);
+    return `${toAr(h12)}:${toAr(m, 2)} ${am ? 'ص' : 'م'}`;
+  }
+  return `${h12}:${m.toString().padStart(2, '0')} ${am ? 'AM' : 'PM'}`;
+}
+
 const EX_SECTION_CONFIGS = [
   { key: 'therapy'      as ExSectionKey, labelAr: 'علاجي',  labelEn: 'Therapy',      color: '#5B9BD5', bg: '#E8F1FB', accent: '#D0E5F7', emoji: '🩺' },
   { key: 'yoga'         as ExSectionKey, labelAr: 'يوغا',   labelEn: 'Yoga',         color: '#4CAF82', bg: '#E8F5EF', accent: '#D6EFE3', emoji: '🧘' },
@@ -58,6 +72,25 @@ const EX_SECTION_CONFIGS = [
   { key: 'endurance'    as ExSectionKey, labelAr: 'تحمّل',  labelEn: 'Endurance',    color: '#D45BAA', bg: '#FCEEF8', accent: '#F8D6F0', emoji: '💪' },
   { key: 'strength'     as ExSectionKey, labelAr: 'قوة',    labelEn: 'Strength',     color: '#7B5EA7', bg: '#F0EBF8', accent: '#E0D5F2', emoji: '🏋️' },
   { key: 'coordination' as ExSectionKey, labelAr: 'تناسق',  labelEn: 'Coordination', color: '#2A9D8F', bg: '#E6F5F3', accent: '#C8EBE7', emoji: '🎯' },
+];
+
+type SysEx = { key: string; emoji: string; titleAr: string; titleEn: string; type: ExSectionKey; durationMin: number; descAr: string; descEn: string; };
+const SYSTEM_EXERCISES: SysEx[] = [
+  { key: 'wristCurls',      emoji: '🤲', titleAr: 'ثني الرسغ',                 titleEn: 'Wrist Curls',              type: 'therapy',      durationMin: 5, descAr: 'يزيد الثبات ويقلل الرعشة',              descEn: 'Increases stability and reduces tremors' },
+  { key: 'childsPose',      emoji: '🧘', titleAr: 'وضعية الطفل',               titleEn: "Child's Pose",             type: 'yoga',         durationMin: 5, descAr: 'تخفف الإرهاق وترخي المفاصل',            descEn: 'Relieves fatigue and relaxes joints' },
+  { key: 'warriorTwo',      emoji: '🥋', titleAr: 'وضعية المحارب الثاني',      titleEn: 'Warrior II',               type: 'yoga',         durationMin: 3, descAr: 'تبني التحمل وتحسن التوازن',              descEn: 'Builds endurance and improves balance' },
+  { key: 'jabPunches',      emoji: '👊', titleAr: 'اللكمات الأمامية',           titleEn: 'Jab Punches',              type: 'yoga',         durationMin: 5, descAr: 'تنشط الدورة الدموية',                   descEn: 'Boosts circulation' },
+  { key: 'comboPunches',    emoji: '🥊', titleAr: 'اللكمات المركبة',            titleEn: 'Combination Punches',      type: 'yoga',         durationMin: 5, descAr: 'تقوي الذراعين والكتفين',                descEn: 'Strengthens arms and shoulders' },
+  { key: 'singleLegStand',  emoji: '🦩', titleAr: 'الوقوف على ساق واحدة',      titleEn: 'Single Leg Stand',         type: 'aerobic',      durationMin: 5, descAr: 'يحسن التوازن والتنسيق',                 descEn: 'Improves balance and coordination' },
+  { key: 'armBottles',      emoji: '💪', titleAr: 'تمارين الذراعين بالزجاجات', titleEn: 'Arm Exercises with Bottles', type: 'endurance',  durationMin: 5, descAr: 'تقوي العضلات بأدوات بسيطة',             descEn: 'Strengthens muscles with simple tools' },
+  { key: 'seatedEndurance', emoji: '🪑', titleAr: 'تمارين التحمل الجلوسية',    titleEn: 'Seated Endurance',         type: 'endurance',    durationMin: 5, descAr: 'مناسب للجلوس الطويل',                   descEn: 'Suitable for extended sitting' },
+  { key: 'neckFlexibility', emoji: '🧘', titleAr: 'مرونة الرقبة (استلقاء)',    titleEn: 'Neck Flexibility (Lying)', type: 'endurance',    durationMin: 5, descAr: 'يخفف توتر الرقبة والكتفين',             descEn: 'Relieves neck and shoulder tension' },
+  { key: 'standUpStrength', emoji: '🏋️', titleAr: 'النهوض لقوة الساقين',       titleEn: 'Stand Up for Leg Strength', type: 'endurance',   durationMin: 5, descAr: 'يقوي عضلات الفخذ والساقين',             descEn: 'Strengthens thigh and leg muscles' },
+  { key: 'upperBodyStretch',emoji: '🔄', titleAr: 'تمدد الجزء العلوي',         titleEn: 'Upper Body Stretch',       type: 'endurance',    durationMin: 5, descAr: 'يحسن المرونة ويخفف التوتر',             descEn: 'Improves flexibility and relieves tension' },
+  { key: 'marchingInPlace', emoji: '🚶', titleAr: 'المشي في المكان',            titleEn: 'Marching in Place',        type: 'strength',     durationMin: 5, descAr: 'ينشط الدورة الدموية',                   descEn: 'Activates circulation' },
+  { key: 'chairSquat',      emoji: '🪑', titleAr: 'القرفصاء مع الكرسي',        titleEn: 'Chair Squat',              type: 'strength',     durationMin: 5, descAr: 'يقوي عضلات الفخذ والأرداف',             descEn: 'Strengthens thigh and glute muscles' },
+  { key: 'towelArmStrength',emoji: '🧣', titleAr: 'تقوية الذراع بالمنشفة',     titleEn: 'Arm Strength with Towel',  type: 'coordination', durationMin: 5, descAr: 'يحسن قوة الذراع والتنسيق',              descEn: 'Improves arm strength and coordination' },
+  { key: 'seatedBicycle',   emoji: '🚴', titleAr: 'الدراجة الجلوسية',           titleEn: 'Seated Bicycle',           type: 'coordination', durationMin: 5, descAr: 'يحسن التنسيق الحركي',                   descEn: 'Improves motor coordination' },
 ];
 
 type AttachmentType = 'image' | 'file';
@@ -99,35 +132,50 @@ const formatSize = (bytes?: number) => {
 };
 
 async function saveAttachmentToDevice(uri: string, fileName: string, mimeType?: string, isRTL = false) {
-  try {
-    const isImage = mimeType?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
-    if (isImage) {
-      const { status } = await MediaLibrary.requestPermissionsAsync();
+  const isImage = mimeType?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
+
+  const getLocalUri = async (): Promise<string> => {
+    if (!uri.startsWith('http')) return uri;
+    const dest = (FileSystem.cacheDirectory ?? '') + fileName;
+    return (await FileSystem.downloadAsync(uri, dest)).uri;
+  };
+
+  const saveToGallery = async () => {
+    try {
+      const { status } = await MediaLibrary.requestPermissionsAsync(false, ['photo']);
       if (status !== 'granted') {
-        Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'مطلوب إذن حفظ الصور' : 'Gallery permission required');
+        Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'مطلوب إذن الوصول للمعرض' : 'Gallery permission required');
         return;
       }
-      let localUri = uri;
-      if (uri.startsWith('http')) {
-        const dest = (FileSystem.cacheDirectory ?? '') + fileName;
-        const dl   = await FileSystem.downloadAsync(uri, dest);
-        localUri   = dl.uri;
-      }
-      await MediaLibrary.saveToLibraryAsync(localUri);
-      Alert.alert(
-        isRTL ? '✅ تم الحفظ' : '✅ Saved',
-        isRTL ? 'تم حفظ الصورة في معرض الصور' : 'Image saved to gallery',
+      await MediaLibrary.saveToLibraryAsync(await getLocalUri());
+      Alert.alert(isRTL ? '✅ تم الحفظ' : '✅ Saved', isRTL ? 'تم حفظ الصورة في معرض الصور' : 'Image saved to gallery');
+    } catch (e) { console.warn('[saveToGallery]', e); Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'فشل حفظ الصورة' : 'Failed to save image'); }
+  };
+
+  const chooseFolder = async () => {
+    try {
+      const localUri = await getLocalUri();
+      const perm = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+      if (!perm.granted) return;
+      const destUri = await FileSystem.StorageAccessFramework.createFileAsync(
+        perm.directoryUri, fileName, mimeType ?? 'application/octet-stream',
       );
-    } else {
-      const dest = (FileSystem.documentDirectory ?? FileSystem.cacheDirectory ?? '') + fileName;
-      if (uri.startsWith('http')) { await FileSystem.downloadAsync(uri, dest); }
-      else if (uri !== dest)      { await FileSystem.copyAsync({ from: uri, to: dest }); }
-      Alert.alert(
-        isRTL ? '✅ تم الحفظ' : '✅ Saved',
-        isRTL ? `تم حفظ الملف:\n${dest}` : `File saved to:\n${dest}`,
-      );
-    }
-  } catch (e) { console.warn('[saveAttachment]', e); }
+      const base64 = await FileSystem.readAsStringAsync(localUri, { encoding: FileSystem.EncodingType.Base64 });
+      await FileSystem.writeAsStringAsync(destUri, base64, { encoding: FileSystem.EncodingType.Base64 });
+      Alert.alert(isRTL ? '✅ تم الحفظ' : '✅ Saved', isRTL ? 'تم حفظ الملف بنجاح' : 'File saved successfully');
+    } catch (e) { console.warn('[chooseFolder]', e); Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'فشل حفظ الملف' : 'Failed to save file'); }
+  };
+
+  const buttons: any[] = [];
+  if (isImage) buttons.push({ text: isRTL ? '🖼️ حفظ في المعرض' : '🖼️ Save to Gallery', onPress: saveToGallery });
+  buttons.push({ text: isRTL ? '📁 اختر مجلد الحفظ' : '📁 Choose Folder', onPress: chooseFolder });
+  buttons.push({ text: isRTL ? 'إلغاء' : 'Cancel', style: 'cancel' });
+
+  Alert.alert(
+    isRTL ? 'تحميل' : 'Download',
+    isRTL ? 'اختر مكان الحفظ' : 'Choose where to save',
+    buttons,
+  );
 }
 
 // ─── Attachment Sheet ─────────────────────────────────────
@@ -213,7 +261,7 @@ const sheetStyles = StyleSheet.create({
 });
 
 // ─── Message Bubble ──────────────────────────────────────
-function MessageBubble({ msg, isRTL, t }: { msg: Message; isRTL: boolean; t: any }) {
+function MessageBubble({ msg, isRTL, t, patientPhotoUrl }: { msg: Message; isRTL: boolean; t: any; patientPhotoUrl?: string | null }) {
   const isDoc     = msg.sender === 'doctor';
   const fadeAnim  = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(isDoc ? 20 : -20)).current;
@@ -226,12 +274,28 @@ function MessageBubble({ msg, isRTL, t }: { msg: Message; isRTL: boolean; t: any
     ]).start();
   }, []);
 
+  const [viewingFull, setViewingFull] = useState(false);
+
   const handleSave = async () => {
     const uri = msg.fileUri || msg.fileUrl;
     if (!uri || saving) return;
     setSaving(true);
     await saveAttachmentToDevice(uri, msg.fileName || 'file', msg.mimeType, isRTL);
     setSaving(false);
+  };
+
+  const openFile = async () => {
+    const uri = msg.fileUri || msg.fileUrl;
+    if (!uri) return;
+    try {
+      if (uri.startsWith('http')) {
+        await WebBrowser.openBrowserAsync(uri);
+      } else {
+        await Sharing.shareAsync(uri, { mimeType: msg.mimeType, dialogTitle: msg.fileName || 'File' });
+      }
+    } catch (e) {
+      Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'تعذر فتح الملف' : 'Could not open file');
+    }
   };
 
   if (msg.type === 'request_access') {
@@ -254,11 +318,19 @@ function MessageBubble({ msg, isRTL, t }: { msg: Message; isRTL: boolean; t: any
     const imgUri = msg.fileUri || msg.fileUrl;
     return (
       <Animated.View style={[msgStyles.row, isDoc ? msgStyles.rowRight : msgStyles.rowLeft, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
-        {!isDoc && <View style={msgStyles.patientAvatar}><Ionicons name="person" size={14} color={DOC_COLOR} /></View>}
+        {!isDoc && (
+          <View style={msgStyles.patientAvatar}>
+            {patientPhotoUrl
+              ? <Image source={{ uri: patientPhotoUrl }} style={{ width: 30, height: 30, borderRadius: 15 }} />
+              : <Ionicons name="person" size={14} color={DOC_COLOR} />}
+          </View>
+        )}
         <View style={[msgStyles.bubble, isDoc ? msgStyles.bubbleDoc : msgStyles.bubblePatient, { padding: 4 }]}>
-          {imgUri
-            ? <Image source={{ uri: imgUri }} style={msgStyles.imageThumb} resizeMode="cover" />
-            : <View style={[msgStyles.imageThumb, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#eee' }]}><Ionicons name="image-outline" size={32} color="#bbb" /></View>}
+          <TouchableOpacity onPress={() => imgUri && setViewingFull(true)} activeOpacity={0.9}>
+            {imgUri
+              ? <Image source={{ uri: imgUri }} style={msgStyles.imageThumb} resizeMode="cover" />
+              : <View style={[msgStyles.imageThumb, { alignItems: 'center', justifyContent: 'center', backgroundColor: '#eee' }]}><Ionicons name="image-outline" size={32} color="#bbb" /></View>}
+          </TouchableOpacity>
           <TouchableOpacity style={msgStyles.downloadOverlay} onPress={handleSave} activeOpacity={0.8}>
             {saving ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="download" size={18} color="#fff" />}
           </TouchableOpacity>
@@ -267,6 +339,19 @@ function MessageBubble({ msg, isRTL, t }: { msg: Message; isRTL: boolean; t: any
             {isDoc && <Ionicons name={msg.status === 'read' ? 'checkmark-done' : 'checkmark-done-outline'} size={13} color={msg.status === 'read' ? '#D4BBFF' : 'rgba(255,255,255,0.6)'} />}
           </View>
         </View>
+        {viewingFull && imgUri && (
+          <Modal visible transparent animationType="fade" onRequestClose={() => setViewingFull(false)}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', alignItems: 'center', justifyContent: 'center' }}>
+              <TouchableOpacity
+                style={{ position: 'absolute', top: 50, right: 20, zIndex: 10, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}
+                onPress={() => setViewingFull(false)}
+              >
+                <Ionicons name="close" size={22} color="#fff" />
+              </TouchableOpacity>
+              <Image source={{ uri: imgUri }} style={{ width: '100%', height: '80%' }} resizeMode="contain" />
+            </View>
+          </Modal>
+        )}
       </Animated.View>
     );
   }
@@ -274,18 +359,30 @@ function MessageBubble({ msg, isRTL, t }: { msg: Message; isRTL: boolean; t: any
   if (msg.type === 'file') {
     return (
       <Animated.View style={[msgStyles.row, isDoc ? msgStyles.rowRight : msgStyles.rowLeft, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
-        {!isDoc && <View style={msgStyles.patientAvatar}><Ionicons name="person" size={14} color={DOC_COLOR} /></View>}
+        {!isDoc && (
+          <View style={msgStyles.patientAvatar}>
+            {patientPhotoUrl
+              ? <Image source={{ uri: patientPhotoUrl }} style={{ width: 30, height: 30, borderRadius: 15 }} />
+              : <Ionicons name="person" size={14} color={DOC_COLOR} />}
+          </View>
+        )}
         <View style={[msgStyles.bubble, isDoc ? msgStyles.bubbleDoc : msgStyles.bubblePatient, { minWidth: 190 }]}>
-          <TouchableOpacity style={msgStyles.fileRow} onPress={handleSave} activeOpacity={0.8}>
-            <View style={[msgStyles.fileIcon, { backgroundColor: isDoc ? 'rgba(255,255,255,0.2)' : DOC_COLOR_LIGHT }]}>
-              {saving ? <ActivityIndicator size="small" color={isDoc ? '#fff' : DOC_COLOR} /> : <Ionicons name="document-attach" size={22} color={isDoc ? '#fff' : DOC_COLOR} />}
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[msgStyles.fileName, isDoc && { color: '#fff' }]} numberOfLines={2}>{msg.fileName || (isRTL ? 'ملف' : 'File')}</Text>
-              {!!msg.fileSize && <Text style={[msgStyles.fileSize, isDoc && { color: 'rgba(255,255,255,0.7)' }]}>{formatSize(msg.fileSize)}</Text>}
-            </View>
-            <Ionicons name="download-outline" size={18} color={isDoc ? 'rgba(255,255,255,0.8)' : DOC_COLOR} />
-          </TouchableOpacity>
+          <View style={msgStyles.fileRow}>
+            <TouchableOpacity style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }} onPress={openFile} activeOpacity={0.8}>
+              <View style={[msgStyles.fileIcon, { backgroundColor: isDoc ? 'rgba(255,255,255,0.2)' : DOC_COLOR_LIGHT }]}>
+                <Ionicons name="document-attach" size={22} color={isDoc ? '#fff' : DOC_COLOR} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[msgStyles.fileName, isDoc && { color: '#fff' }]} numberOfLines={2}>{msg.fileName || (isRTL ? 'ملف' : 'File')}</Text>
+                {!!msg.fileSize && <Text style={[msgStyles.fileSize, isDoc && { color: 'rgba(255,255,255,0.7)' }]}>{formatSize(msg.fileSize)}</Text>}
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleSave} activeOpacity={0.8} style={{ paddingLeft: 8 }}>
+              {saving
+                ? <ActivityIndicator size="small" color={isDoc ? '#fff' : DOC_COLOR} />
+                : <Ionicons name="download-outline" size={20} color={isDoc ? 'rgba(255,255,255,0.8)' : DOC_COLOR} />}
+            </TouchableOpacity>
+          </View>
           <View style={msgStyles.bubbleMeta}>
             <Text style={[msgStyles.timeText, isDoc && { color: 'rgba(255,255,255,0.7)' }]}>{msg.time}</Text>
             {isDoc && <Ionicons name={msg.status === 'read' ? 'checkmark-done' : 'checkmark-done-outline'} size={13} color={msg.status === 'read' ? '#D4BBFF' : 'rgba(255,255,255,0.6)'} />}
@@ -297,7 +394,13 @@ function MessageBubble({ msg, isRTL, t }: { msg: Message; isRTL: boolean; t: any
 
   return (
     <Animated.View style={[msgStyles.row, isDoc ? msgStyles.rowRight : msgStyles.rowLeft, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
-      {!isDoc && <View style={msgStyles.patientAvatar}><Ionicons name="person" size={14} color={DOC_COLOR} /></View>}
+      {!isDoc && (
+        <View style={msgStyles.patientAvatar}>
+          {patientPhotoUrl
+            ? <Image source={{ uri: patientPhotoUrl }} style={{ width: 30, height: 30, borderRadius: 15 }} />
+            : <Ionicons name="person" size={14} color={DOC_COLOR} />}
+        </View>
+      )}
       <View style={[msgStyles.bubble, isDoc ? msgStyles.bubbleDoc : msgStyles.bubblePatient]}>
         <Text style={[msgStyles.bubbleText, isDoc ? msgStyles.bubbleTextDoc : msgStyles.bubbleTextPatient]}>{msg.text}</Text>
         <View style={msgStyles.bubbleMeta}>
@@ -313,7 +416,7 @@ const msgStyles = StyleSheet.create({
   row:      { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 6 },
   rowRight: { justifyContent: 'flex-end' },
   rowLeft:  { justifyContent: 'flex-start' },
-  patientAvatar:     { width: 30, height: 30, borderRadius: 15, backgroundColor: DOC_COLOR_LIGHT, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: DOC_COLOR + '30', marginRight: 8 },
+  patientAvatar:     { width: 30, height: 30, borderRadius: 15, backgroundColor: DOC_COLOR_LIGHT, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: DOC_COLOR + '30', marginRight: 8, overflow: 'hidden' },
   bubble:            { maxWidth: '75%', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 },
   bubbleDoc:         { backgroundColor: DOC_COLOR, borderBottomRightRadius: 4, shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 6, elevation: 3 },
   bubblePatient:     { backgroundColor: '#fff', borderBottomLeftRadius: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 4, elevation: 1, borderWidth: 1, borderColor: Colors.border },
@@ -363,7 +466,8 @@ function ExerciseManagementModal({
   const [doctorExercises,  setDoctorExercises]  = useState<FirebaseExercise[]>([]);
   const [patientExercises, setPatientExercises] = useState<PatientExercise[]>([]);
   const [loadingPatient,   setLoadingPatient]   = useState(true);
-  const [activeSection, setActiveSection] = useState<ExSectionKey>('therapy');
+  const [mode,          setMode]          = useState<'library' | 'assigned'>('library');
+  const [activeSection, setActiveSection] = useState<ExSectionKey | 'all'>('therapy');
   const [showAddForm,   setShowAddForm]   = useState(false);
   const [editingEx,     setEditingEx]     = useState<FirebaseExercise | null>(null);
   const [newTitle,   setNewTitle]   = useState('');
@@ -431,9 +535,11 @@ function ExerciseManagementModal({
     setNewDesc(''); setAttachFile(null); setSaving(false);
   };
 
-  const activeCfg = EX_SECTION_CONFIGS.find((s) => s.key === activeSection)!;
+  const activeCfg = EX_SECTION_CONFIGS.find((s) => s.key === activeSection) ?? EX_SECTION_CONFIGS[0];
   const doctorInSection  = doctorExercises.filter(e => (e.type ?? 'therapy') === activeSection);
   const patientInSection = patientExercises.filter(e => e.type === activeSection);
+  const assignedDoctor  = activeSection === 'all' ? doctorExercises  : doctorInSection;
+  const assignedPatient = activeSection === 'all' ? patientExercises : patientInSection;
 
   const getSectionCount = (key: ExSectionKey) => {
     const dCount = doctorExercises.filter(e => (e.type ?? 'therapy') === key).length;
@@ -444,6 +550,22 @@ function ExerciseManagementModal({
   const totalExercises = doctorExercises.length + patientExercises.length;
   const doneCount      = doctorExercises.filter(e => e.completed).length
                        + patientExercises.filter(e => e.completed).length;
+
+  const assignSystemExercise = async (ex: SysEx) => {
+    try {
+      const title = isRTL ? ex.titleAr : ex.titleEn;
+      await addDoc(collection(db, 'exercises', patientId, 'items'), {
+        title, emoji: ex.emoji, durationMin: ex.durationMin,
+        description: isRTL ? ex.descAr : ex.descEn,
+        assignedAt: Date.now(), completed: false, type: ex.type,
+        pendingEdit: null, source: 'doctor', systemKey: ex.key,
+      });
+      sendPushToUser(patientId,
+        isRTL ? '🏋️ تمرين جديد من طبيبك' : '🏋️ New exercise from your doctor',
+        `${ex.emoji} ${title}`,
+      ).catch(() => {});
+    } catch (e) { console.warn('[assignSysEx]', e); }
+  };
 
   const handleAdd = async () => {
     if (!newTitle.trim()) { Alert.alert(t.docExerciseNotice, t.docEnterExerciseName); return; }
@@ -541,16 +663,60 @@ function ExerciseManagementModal({
             <Text style={exStyles.headerTitle}>{exTitle}</Text>
             <Text style={exStyles.headerSub}>{subTitle}</Text>
           </View>
-          <TouchableOpacity style={exStyles.addHeaderBtn} onPress={() => { setNewType(activeSection); setShowAddForm(true); }} activeOpacity={0.8}>
+          <TouchableOpacity style={exStyles.addHeaderBtn} onPress={() => { setMode('assigned'); setActiveSection('all'); setNewType(activeSection === 'all' ? 'therapy' : activeSection as ExSectionKey); setShowAddForm(true); }} activeOpacity={0.8}>
             <Ionicons name="add" size={22} color="#fff" />
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Mode Toggle ── */}
+        <View style={{ flexDirection: 'row', marginHorizontal: 16, marginBottom: 8, backgroundColor: '#EDE9F8', borderRadius: 12, padding: 3 }}>
+          <TouchableOpacity
+            style={[{ flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center' }, mode === 'library' && { backgroundColor: DOC_COLOR }]}
+            onPress={() => { setMode('library'); setShowAddForm(false); setActiveSection('therapy'); }} activeOpacity={0.8}
+          >
+            <Text style={{ fontSize: 13, fontWeight: '700', color: mode === 'library' ? '#fff' : DOC_COLOR }}>
+              {isRTL ? '📚 المكتبة' : '📚 Library'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[{ flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center' }, mode === 'assigned' && { backgroundColor: DOC_COLOR }]}
+            onPress={() => { setMode('assigned'); setShowAddForm(false); setActiveSection('all'); }} activeOpacity={0.8}
+          >
+            <Text style={{ fontSize: 13, fontWeight: '700', color: mode === 'assigned' ? '#fff' : DOC_COLOR }}>
+              {isRTL ? `✅ المُعيَّنة (${doctorExercises.length})` : `✅ Assigned (${doctorExercises.length})`}
+            </Text>
           </TouchableOpacity>
         </View>
 
         {/* ── Section Tabs ── */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={exStyles.tabsRow} style={exStyles.tabsScroll}>
+          {/* All tab — only in assigned mode */}
+          {mode === 'assigned' && (() => {
+            const isAct = activeSection === 'all';
+            const total = doctorExercises.length + patientExercises.length;
+            return (
+              <TouchableOpacity
+                key="all"
+                style={[exStyles.tabBtn, isAct && { backgroundColor: DOC_COLOR }]}
+                onPress={() => setActiveSection('all')} activeOpacity={0.8}
+              >
+                <Text style={{ fontSize: 13 }}>📋</Text>
+                <Text style={[exStyles.tabLabel, { color: isAct ? '#fff' : DOC_COLOR }]}>
+                  {isRTL ? 'الكل' : 'All'}
+                </Text>
+                {total > 0 && (
+                  <View style={[exStyles.tabBadge, { backgroundColor: isAct ? 'rgba(255,255,255,0.3)' : DOC_COLOR + '22' }]}>
+                    <Text style={[exStyles.tabBadgeText, { color: isAct ? '#fff' : DOC_COLOR }]}>{total}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })()}
           {EX_SECTION_CONFIGS.map((sec) => {
             const isAct = activeSection === sec.key;
-            const cnt   = getSectionCount(sec.key);
+            const cnt   = mode === 'library'
+              ? SYSTEM_EXERCISES.filter(e => e.type === sec.key).length
+              : getSectionCount(sec.key);
             return (
               <TouchableOpacity
                 key={sec.key}
@@ -573,8 +739,56 @@ function ExerciseManagementModal({
 
         <ScrollView contentContainerStyle={exStyles.listContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
+          {/* ── Library Mode ── */}
+          {mode === 'library' && (() => {
+            const libList = SYSTEM_EXERCISES.filter(e => e.type === activeSection);
+            const libCfg  = EX_SECTION_CONFIGS.find(s => s.key === activeSection)!;
+            if (libList.length === 0) return (
+              <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+                <Text style={{ fontSize: 36, marginBottom: 8 }}>{libCfg.emoji}</Text>
+                <Text style={{ fontSize: 14, color: Colors.textMuted, textAlign: 'center' }}>
+                  {isRTL ? 'لا توجد تمارين في هذه الفئة' : 'No exercises in this category'}
+                </Text>
+              </View>
+            );
+            return libList.map((ex) => {
+              const alreadyAssigned = doctorExercises.some(d => (d as any).systemKey === ex.key);
+              return (
+                <View key={ex.key} style={[exStyles.patientCard, { backgroundColor: libCfg.bg, borderLeftColor: libCfg.color, flexDirection: 'row', alignItems: 'center' }]}>
+                  <Text style={{ fontSize: 26, marginRight: 12 }}>{ex.emoji}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[exStyles.patientCardTitle, { color: libCfg.color }]} numberOfLines={1}>
+                      {isRTL ? ex.titleAr : ex.titleEn}
+                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                      <Ionicons name="time-outline" size={11} color={libCfg.color} />
+                      <Text style={[exStyles.patientCardMeta, { color: libCfg.color }]}>{ex.durationMin} {isRTL ? 'دقيقة' : 'min'}</Text>
+                    </View>
+                    <Text style={[exStyles.patientCardDesc, { marginTop: 3 }]} numberOfLines={1}>
+                      {isRTL ? ex.descAr : ex.descEn}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={{
+                      paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20,
+                      backgroundColor: alreadyAssigned ? '#4CAF50' : libCfg.color,
+                      opacity: alreadyAssigned ? 0.7 : 1, marginLeft: 8,
+                    }}
+                    onPress={() => !alreadyAssigned && assignSystemExercise(ex)}
+                    activeOpacity={alreadyAssigned ? 1 : 0.8}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#fff' }}>
+                      {alreadyAssigned ? (isRTL ? '✓ مُضاف' : '✓ Added') : (isRTL ? '+ إضافة' : '+ Add')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            });
+          })()}
+
+          {/* ── Assigned Mode ── */}
           {/* Patient base exercises */}
-          {patientInSection.length > 0 && (
+          {mode === 'assigned' && assignedPatient.length > 0 && (
             <View style={exStyles.sectionGroup}>
               <View style={exStyles.sectionGroupHeader}>
                 <Ionicons name="person-outline" size={14} color={activeCfg.color} />
@@ -582,10 +796,10 @@ function ExerciseManagementModal({
                   {t.docPatientBaseExercises}
                 </Text>
                 <View style={[exStyles.sectionGroupBadge, { backgroundColor: activeCfg.color + '20' }]}>
-                  <Text style={[exStyles.sectionGroupBadgeText, { color: activeCfg.color }]}>{patientInSection.length}</Text>
+                  <Text style={[exStyles.sectionGroupBadgeText, { color: activeCfg.color }]}>{assignedPatient.length}</Text>
                 </View>
               </View>
-              {patientInSection.map((pe) => {
+              {assignedPatient.map((pe) => {
                 const cfg = EX_SECTION_CONFIGS.find(s => s.key === pe.type) ?? activeCfg;
                 return (
                   <View key={pe.key} style={[exStyles.patientCard, { backgroundColor: cfg.bg, borderLeftColor: cfg.color }]}>
@@ -627,18 +841,18 @@ function ExerciseManagementModal({
           )}
 
           {/* Doctor exercises */}
-          {doctorInSection.length > 0 && (
-            <View style={[exStyles.sectionGroup, { marginTop: patientInSection.length > 0 ? 10 : 0 }]}>
+          {mode === 'assigned' && assignedDoctor.length > 0 && (
+            <View style={[exStyles.sectionGroup, { marginTop: assignedPatient.length > 0 ? 10 : 0 }]}>
               <View style={exStyles.sectionGroupHeader}>
                 <Ionicons name="medical-outline" size={14} color={DOC_COLOR} />
                 <Text style={[exStyles.sectionGroupTitle, { color: DOC_COLOR }]}>
                   {t.docDoctorExercises}
                 </Text>
                 <View style={[exStyles.sectionGroupBadge, { backgroundColor: DOC_COLOR + '20' }]}>
-                  <Text style={[exStyles.sectionGroupBadgeText, { color: DOC_COLOR }]}>{doctorInSection.length}</Text>
+                  <Text style={[exStyles.sectionGroupBadgeText, { color: DOC_COLOR }]}>{assignedDoctor.length}</Text>
                 </View>
               </View>
-              {doctorInSection.map((ex) => {
+              {assignedDoctor.map((ex) => {
                 const cfg        = EX_SECTION_CONFIGS.find((s) => s.key === (ex.type ?? 'therapy'))!;
                 const hasPending = !!ex.pendingEdit && (ex.pendingEdit as any).status === 'pending';
                 return (
@@ -704,17 +918,17 @@ function ExerciseManagementModal({
           )}
 
           {/* Empty state */}
-          {patientInSection.length === 0 && doctorInSection.length === 0 && !showAddForm && (
+          {mode === 'assigned' && assignedPatient.length === 0 && assignedDoctor.length === 0 && !showAddForm && (
             <View style={exStyles.emptyState}>
-              <Text style={{ fontSize: 48 }}>{activeCfg.emoji}</Text>
+              <Text style={{ fontSize: 48 }}>{activeSection === 'all' ? '📋' : activeCfg.emoji}</Text>
               <Text style={exStyles.emptyText}>
-                {isRTL
-                  ? `${t.docNoExercisesSection} ${activeCfg.labelAr}`
-                  : `${t.docNoExercisesSection} ${activeCfg.labelEn}`}
+                {activeSection === 'all'
+                  ? (isRTL ? 'لا توجد تمارين مُعيَّنة بعد' : 'No exercises assigned yet')
+                  : (isRTL ? `${t.docNoExercisesSection} ${activeCfg.labelAr}` : `${t.docNoExercisesSection} ${activeCfg.labelEn}`)}
               </Text>
               <TouchableOpacity
                 style={[exStyles.emptyAddBtn, { borderColor: activeCfg.color }]}
-                onPress={() => { setNewType(activeSection); setShowAddForm(true); }}
+                onPress={() => { setNewType(activeSection === 'all' ? 'therapy' : activeSection as ExSectionKey); setShowAddForm(true); }}
               >
                 <Ionicons name="add" size={16} color={activeCfg.color} />
                 <Text style={[exStyles.emptyAddText, { color: activeCfg.color }]}>{t.docAddExerciseBtn}</Text>
@@ -723,7 +937,7 @@ function ExerciseManagementModal({
           )}
 
           {/* Add Form */}
-          {showAddForm && (
+          {mode === 'assigned' && showAddForm && (
             <View style={exStyles.addForm}>
               <Text style={exStyles.addFormTitle}>{t.docNewExerciseTitle}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={exStyles.typeRow}>
@@ -885,8 +1099,9 @@ export default function Docpatient() {
   const [patientPhotoUrl, setPatientPhotoUrl] = useState<string | null>(null);
   const [kbHeight,        setKbHeight]        = useState(0);
 
-  const listRef   = useRef<any>(null);
-  const quickAnim = useRef(new Animated.Value(0)).current;
+  const listRef          = useRef<any>(null);
+  const quickAnim        = useRef(new Animated.Value(0)).current;
+  const initialScrollDone = useRef(false);
 
   useFocusEffect(useCallback(() => { if (patientId) markAsRead(patientId); }, [patientId]));
 
@@ -910,7 +1125,7 @@ export default function Docpatient() {
         const data = d.data() as FSMessage;
         return {
           id: d.id, text: data.text, sender: data.sender,
-          time: new Date(data.timestamp).toLocaleTimeString(isRTL ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' }),
+          time: fmtMsgTime(data.timestamp, isRTL),
           status: data.status, type: data.type, fileUri: data.fileUri, fileUrl: data.fileUrl,
           fileName: data.fileName, fileSize: data.fileSize, mimeType: data.mimeType,
         };
@@ -1003,6 +1218,15 @@ export default function Docpatient() {
   const QUICK_REPLIES: string[] = t.docQuickReplies;
 
   useEffect(() => {
+    if (messages.length > 0 && !initialScrollDone.current) {
+      setTimeout(() => {
+        listRef.current?.scrollToEnd({ animated: false });
+        initialScrollDone.current = true;
+      }, 150);
+    }
+  }, [messages]);
+
+  useEffect(() => {
     const show = Keyboard.addListener('keyboardDidShow', e => {
       if (Platform.OS === 'android') setKbHeight(e.endCoordinates.height);
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
@@ -1058,9 +1282,9 @@ export default function Docpatient() {
           style={{ flex: 1 }}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+          extraData={patientPhotoUrl}
           ListHeaderComponent={<DateDivider label={t.docToday} />}
-          renderItem={({ item }) => <MessageBubble msg={item} isRTL={isRTL} t={t} />}
+          renderItem={({ item }) => <MessageBubble msg={item} isRTL={isRTL} t={t} patientPhotoUrl={patientPhotoUrl} />}
         />
 
         {showQuick && (

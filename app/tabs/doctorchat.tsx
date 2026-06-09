@@ -2,8 +2,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  StatusBar, TextInput, ScrollView,
-  Platform, Animated, Alert, Linking, Image, Keyboard,
+  StatusBar, TextInput, ScrollView, Modal,
+  Platform, Animated, Alert, Image, Keyboard,
   KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,9 +16,10 @@ import { db } from '../../utils/firebaseConfig';
 import { useAuth } from '../../context/AuthContext';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
-import { Paths } from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
+import * as Sharing from 'expo-sharing';
+import * as WebBrowser from 'expo-web-browser';
 import { uploadFileToCloudinary } from '../../utils/uploadImage';
 import { sendPushToUser } from '../../utils/pushNotifications';
 import { subscribeToPresence } from '../../utils/presence';
@@ -27,15 +28,25 @@ type MessageStatus = 'sent' | 'delivered' | 'read';
 type Message = {
   id: string; text: string; sender: 'patient' | 'doctor'; time: string;
   status?: MessageStatus; type?: 'text' | 'request_access' | 'file' | 'image';
-  fileUrl?: string; fileName?: string; fileSize?: number;
+  fileUrl?: string; fileName?: string; fileSize?: number; mimeType?: string;
 };
 
-function nowTime() {
-  return new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+const AR_DIGITS = '٠١٢٣٤٥٦٧٨٩';
+function fmtTime(ts: number, isRTL: boolean): string {
+  const d  = new Date(ts);
+  const h  = d.getHours();
+  const m  = d.getMinutes();
+  const am = h < 12;
+  const h12 = h % 12 || 12;
+  if (isRTL) {
+    const toAr = (n: number, pad = 0) =>
+      n.toString().padStart(pad, '0').replace(/\d/g, x => AR_DIGITS[+x]);
+    return `${toAr(h12)}:${toAr(m, 2)} ${am ? 'ص' : 'م'}`;
+  }
+  return `${h12}:${m.toString().padStart(2, '0')} ${am ? 'AM' : 'PM'}`;
 }
-function tsToTime(ts: number) {
-  return new Date(ts).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-}
+function nowTime(isRTL: boolean)          { return fmtTime(Date.now(), isRTL); }
+function tsToTime(ts: number, isRTL: boolean) { return fmtTime(ts, isRTL); }
 
 function formatFileSize(bytes?: number): string {
   if (!bytes) return '';
@@ -44,29 +55,50 @@ function formatFileSize(bytes?: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-async function downloadFile(url: string, fileName: string, isImage: boolean, isRTL: boolean, t: any) {
-  try {
-    const { status } = await MediaLibrary.requestPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert(isRTL ? 'خطأ' : 'Error', t.storagePerm); return;
-    }
-    const destPath = Paths.join(Paths.cache.uri, fileName);
-    const download = await FileSystem.downloadAsync(url, destPath);
-    if (isImage) {
-      await MediaLibrary.saveToLibraryAsync(download.uri);
-      Alert.alert(t.saved, t.savedToGallery);
-    } else {
-      Alert.alert(
-          t.downloaded, `${t.fileSaved}: ${fileName}`,
-          [
-            { text: isRTL ? 'حسناً' : 'OK' },
-            { text: t.open, onPress: () => Linking.openURL(download.uri) },
-          ],
+async function downloadFile(url: string, fileName: string, mimeType: string | undefined, isRTL: boolean) {
+  const isImage = mimeType?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
+
+  const getLocalUri = async (): Promise<string> => {
+    const dest = (FileSystem.cacheDirectory ?? '') + fileName;
+    return (await FileSystem.downloadAsync(url, dest)).uri;
+  };
+
+  const saveToGallery = async () => {
+    try {
+      const { status } = await MediaLibrary.requestPermissionsAsync(false, ['photo']);
+      if (status !== 'granted') {
+        Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'مطلوب إذن الوصول للمعرض' : 'Gallery permission required');
+        return;
+      }
+      await MediaLibrary.saveToLibraryAsync(await getLocalUri());
+      Alert.alert(isRTL ? '✅ تم الحفظ' : '✅ Saved', isRTL ? 'تم حفظ الصورة في معرض الصور' : 'Image saved to gallery');
+    } catch (e) { console.warn('[downloadFile]', e); Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'فشل حفظ الصورة' : 'Failed to save image'); }
+  };
+
+  const chooseFolder = async () => {
+    try {
+      const localUri = await getLocalUri();
+      const perm = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+      if (!perm.granted) return;
+      const destUri = await FileSystem.StorageAccessFramework.createFileAsync(
+        perm.directoryUri, fileName, mimeType ?? 'application/octet-stream',
       );
-    }
-  } catch {
-    Alert.alert(isRTL ? 'خطأ' : 'Error', t.downloadFailed);
-  }
+      const base64 = await FileSystem.readAsStringAsync(localUri, { encoding: FileSystem.EncodingType.Base64 });
+      await FileSystem.writeAsStringAsync(destUri, base64, { encoding: FileSystem.EncodingType.Base64 });
+      Alert.alert(isRTL ? '✅ تم الحفظ' : '✅ Saved', isRTL ? 'تم حفظ الملف بنجاح' : 'File saved successfully');
+    } catch (e) { console.warn('[chooseFolder]', e); Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'فشل حفظ الملف' : 'Failed to save file'); }
+  };
+
+  const buttons: any[] = [];
+  if (isImage) buttons.push({ text: isRTL ? '🖼️ حفظ في المعرض' : '🖼️ Save to Gallery', onPress: saveToGallery });
+  buttons.push({ text: isRTL ? '📁 اختر مجلد الحفظ' : '📁 Choose Folder', onPress: chooseFolder });
+  buttons.push({ text: isRTL ? 'إلغاء' : 'Cancel', style: 'cancel' });
+
+  Alert.alert(
+    isRTL ? 'تحميل' : 'Download',
+    isRTL ? 'اختر مكان الحفظ' : 'Choose where to save',
+    buttons,
+  );
 }
 
 // ─── Access Request Card ──────────────────────────────────
@@ -129,8 +161,8 @@ function AccessRequestCard({ isRTL, doctorColor, doctorBg, chatId, t }: {
 }
 
 // ─── Message Bubble ───────────────────────────────────────
-function MessageBubble({ msg, isRTL, doctorColor, doctorBg, chatId, t }: {
-  msg: Message; isRTL: boolean; doctorColor: string; doctorBg: string; chatId: string; t: any;
+function MessageBubble({ msg, isRTL, doctorColor, doctorBg, chatId, t, doctorPhotoUrl }: {
+  msg: Message; isRTL: boolean; doctorColor: string; doctorBg: string; chatId: string; t: any; doctorPhotoUrl?: string | null;
 }) {
   const isAccessRequest = msg.type === 'request_access';
   const isFile          = msg.type === 'file';
@@ -138,6 +170,17 @@ function MessageBubble({ msg, isRTL, doctorColor, doctorBg, chatId, t }: {
   const isPatient       = msg.sender === 'patient';
   const fadeAnim        = useRef(new Animated.Value(0)).current;
   const slideAnim       = useRef(new Animated.Value(isPatient ? 20 : -20)).current;
+  const [viewingFull,   setViewingFull] = useState(false);
+
+  const openFile = async () => {
+    const uri = msg.fileUrl;
+    if (!uri) return;
+    try {
+      await WebBrowser.openBrowserAsync(uri);
+    } catch (e) {
+      Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'تعذر فتح الملف' : 'Could not open file');
+    }
+  };
 
   useEffect(() => {
     if (isAccessRequest) return;
@@ -156,33 +199,81 @@ function MessageBubble({ msg, isRTL, doctorColor, doctorBg, chatId, t }: {
   }
 
   if (isFile || isImage) {
+    if (isImage) {
+      const imgUri = msg.fileUrl;
+      return (
+          <Animated.View style={[styles.msgRow, isPatient ? styles.msgRowRight : styles.msgRowLeft, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
+            {!isPatient && (
+                <View style={[styles.docAvatar, { backgroundColor: doctorBg }]}>
+                  {doctorPhotoUrl
+                    ? <Image source={{ uri: doctorPhotoUrl }} style={{ width: 28, height: 28, borderRadius: 14 }} />
+                    : <Ionicons name="person" size={13} color={doctorColor} />}
+                </View>
+            )}
+            <View style={[styles.fileBubble, isPatient ? { backgroundColor: Colors.primary, padding: 4 } : { backgroundColor: '#fff', borderColor: doctorColor + '30', borderWidth: 1.5, padding: 4 }]}>
+              <TouchableOpacity onPress={() => imgUri && setViewingFull(true)} activeOpacity={0.9}>
+                {imgUri
+                  ? <Image source={{ uri: imgUri }} style={{ width: 200, height: 160, borderRadius: 12 }} resizeMode="cover" />
+                  : <View style={{ width: 200, height: 160, borderRadius: 12, backgroundColor: '#eee', alignItems: 'center', justifyContent: 'center' }}><Ionicons name="image-outline" size={32} color="#bbb" /></View>}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ position: 'absolute', top: 10, right: 10, width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' }}
+                onPress={() => { if (msg.fileUrl) downloadFile(msg.fileUrl, msg.fileName ?? 'image.jpg', msg.mimeType, isRTL); }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="download-outline" size={17} color="#fff" />
+              </TouchableOpacity>
+              <View style={[styles.bubbleMeta, { paddingHorizontal: 6, paddingBottom: 4 }]}>
+                <Text style={[styles.timeText, isPatient && { color: 'rgba(255,255,255,0.7)' }]}>{msg.time}</Text>
+                {isPatient && <Ionicons name={msg.status === 'read' ? 'checkmark-done' : 'checkmark-done-outline'} size={12} color={msg.status === 'read' ? '#93E0FF' : 'rgba(255,255,255,0.6)'} />}
+              </View>
+            </View>
+            {viewingFull && imgUri && (
+              <Modal visible transparent animationType="fade" onRequestClose={() => setViewingFull(false)}>
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', alignItems: 'center', justifyContent: 'center' }}>
+                  <TouchableOpacity
+                    style={{ position: 'absolute', top: 50, right: 20, zIndex: 10, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}
+                    onPress={() => setViewingFull(false)}
+                  >
+                    <Ionicons name="close" size={22} color="#fff" />
+                  </TouchableOpacity>
+                  <Image source={{ uri: imgUri }} style={{ width: '100%', height: '80%' }} resizeMode="contain" />
+                </View>
+              </Modal>
+            )}
+          </Animated.View>
+      );
+    }
+
     return (
         <Animated.View style={[styles.msgRow, isPatient ? styles.msgRowRight : styles.msgRowLeft, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
           {!isPatient && (
               <View style={[styles.docAvatar, { backgroundColor: doctorBg }]}>
-                <Ionicons name="person" size={13} color={doctorColor} />
+                {doctorPhotoUrl
+                  ? <Image source={{ uri: doctorPhotoUrl }} style={{ width: 28, height: 28, borderRadius: 14 }} />
+                  : <Ionicons name="person" size={13} color={doctorColor} />}
               </View>
           )}
-          <TouchableOpacity
-              style={[styles.fileBubble, isPatient ? { backgroundColor: Colors.primary } : { backgroundColor: '#fff', borderColor: doctorColor + '30', borderWidth: 1.5 }]}
-              activeOpacity={0.8}
-              onPress={() => { if (msg.fileUrl) downloadFile(msg.fileUrl, msg.fileName ?? 'file', !!isImage, isRTL, t); }}
-          >
+          <View style={[styles.fileBubble, isPatient ? { backgroundColor: Colors.primary } : { backgroundColor: '#fff', borderColor: doctorColor + '30', borderWidth: 1.5 }]}>
             <View style={styles.fileBubbleInner}>
-              <View style={[styles.fileIconWrap, { backgroundColor: isPatient ? 'rgba(255,255,255,0.2)' : doctorColor + '15' }]}>
-                <Ionicons name={isImage ? 'image-outline' : 'document-outline'} size={22} color={isPatient ? '#fff' : doctorColor} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.fileName, { color: isPatient ? '#fff' : Colors.textPrimary }]} numberOfLines={1}>
-                  {msg.fileName ?? (isImage ? (isRTL ? 'صورة' : 'Image') : (isRTL ? 'ملف' : 'File'))}
-                </Text>
-                {!!msg.fileSize && (
-                    <Text style={[styles.fileSize, { color: isPatient ? 'rgba(255,255,255,0.7)' : Colors.textMuted }]}>
-                      {formatFileSize(msg.fileSize)}
-                    </Text>
-                )}
-              </View>
-              <Ionicons name="download-outline" size={18} color={isPatient ? '#fff' : doctorColor} />
+              <TouchableOpacity style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }} onPress={openFile} activeOpacity={0.8}>
+                <View style={[styles.fileIconWrap, { backgroundColor: isPatient ? 'rgba(255,255,255,0.2)' : doctorColor + '15' }]}>
+                  <Ionicons name="document-outline" size={22} color={isPatient ? '#fff' : doctorColor} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.fileName, { color: isPatient ? '#fff' : Colors.textPrimary }]} numberOfLines={1}>
+                    {msg.fileName ?? (isRTL ? 'ملف' : 'File')}
+                  </Text>
+                  {!!msg.fileSize && (
+                      <Text style={[styles.fileSize, { color: isPatient ? 'rgba(255,255,255,0.7)' : Colors.textMuted }]}>
+                        {formatFileSize(msg.fileSize)}
+                      </Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => { if (msg.fileUrl) downloadFile(msg.fileUrl, msg.fileName ?? 'file', msg.mimeType, isRTL); }} activeOpacity={0.8} style={{ paddingLeft: 8 }}>
+                <Ionicons name="download-outline" size={18} color={isPatient ? '#fff' : doctorColor} />
+              </TouchableOpacity>
             </View>
             <View style={styles.bubbleMeta}>
               <Text style={[styles.timeText, isPatient && { color: 'rgba(255,255,255,0.7)' }]}>{msg.time}</Text>
@@ -194,7 +285,7 @@ function MessageBubble({ msg, isRTL, doctorColor, doctorBg, chatId, t }: {
                   />
               )}
             </View>
-          </TouchableOpacity>
+          </View>
         </Animated.View>
     );
   }
@@ -203,7 +294,9 @@ function MessageBubble({ msg, isRTL, doctorColor, doctorBg, chatId, t }: {
       <Animated.View style={[styles.msgRow, isPatient ? styles.msgRowRight : styles.msgRowLeft, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
         {!isPatient && (
             <View style={[styles.docAvatar, { backgroundColor: doctorBg }]}>
-              <Ionicons name="person" size={13} color={doctorColor} />
+              {doctorPhotoUrl
+                ? <Image source={{ uri: doctorPhotoUrl }} style={{ width: 28, height: 28, borderRadius: 14 }} />
+                : <Ionicons name="person" size={13} color={doctorColor} />}
             </View>
         )}
         <View style={[
@@ -263,7 +356,7 @@ export default function DoctorChatScreen() {
       : 'Hello! How can I help you?';
 
   const [messages,  setMessages]  = useState<Message[]>(
-      isFirebase ? [] : [{ id: 'w1', text: welcomeText, sender: 'doctor', time: nowTime(), status: 'read' }],
+      isFirebase ? [] : [{ id: 'w1', text: welcomeText, sender: 'doctor', time: nowTime(isRTL), status: 'read' }],
   );
   const [inputText,       setInputText]       = useState('');
   const [showQuick,       setShowQuick]       = useState(false);
@@ -272,11 +365,21 @@ export default function DoctorChatScreen() {
   const [uploading,       setUploading]       = useState(false);
   const [doctorOnline,    setDoctorOnline]    = useState(false);
   const [doctorPhotoUrl,  setDoctorPhotoUrl]  = useState<string | null>(null);
-  const listRef    = useRef<FlatList>(null);
-  const quickAnim  = useRef(new Animated.Value(0)).current;
-  const attachAnim = useRef(new Animated.Value(0)).current;
+  const listRef           = useRef<FlatList>(null);
+  const quickAnim         = useRef(new Animated.Value(0)).current;
+  const attachAnim        = useRef(new Animated.Value(0)).current;
+  const initialScrollDone = useRef(false);
 
   const quickReplies: string[] = t.docQuickReplies;
+
+  useEffect(() => {
+    if (messages.length > 0 && !initialScrollDone.current) {
+      setTimeout(() => {
+        listRef.current?.scrollToEnd({ animated: false });
+        initialScrollDone.current = true;
+      }, 150);
+    }
+  }, [messages]);
 
   // scroll to end when keyboard opens
   useEffect(() => {
@@ -312,9 +415,9 @@ export default function DoctorChatScreen() {
         const status: MessageStatus | undefined = raw === 'read' || raw === 'delivered' || raw === 'sent' ? raw : undefined;
         return {
           id: d.id, text: data.text ?? '', sender: data.sender as 'patient' | 'doctor',
-          time: tsToTime(data.timestamp ?? Date.now()),
+          time: tsToTime(data.timestamp ?? Date.now(), isRTL),
           status, type: data.type ?? 'text',
-          fileUrl: data.fileUrl, fileName: data.fileName, fileSize: data.fileSize,
+          fileUrl: data.fileUrl, fileName: data.fileName, fileSize: data.fileSize, mimeType: data.mimeType,
         };
       });
       setMessages(msgs);
@@ -354,14 +457,14 @@ export default function DoctorChatScreen() {
       } catch { Alert.alert(isRTL ? 'خطأ' : 'Error', t.sendFailed); }
       return;
     }
-    const newMsg: Message = { id: Date.now().toString(), text: text.trim(), sender: 'patient', time: nowTime(), status: 'sent' };
+    const newMsg: Message = { id: Date.now().toString(), text: text.trim(), sender: 'patient', time: nowTime(isRTL), status: 'sent' };
     setMessages(prev => [...prev, newMsg]);
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
     setTimeout(() => {
       const autoReply: Message = {
         id: `auto_${Date.now()}`,
         text: isRTL ? 'شكراً على رسالتك، سأرد عليك في أقرب وقت ممكن 🙏' : 'Thank you for your message, I will reply as soon as possible 🙏',
-        sender: 'doctor', time: nowTime(), status: 'read',
+        sender: 'doctor', time: nowTime(isRTL), status: 'read',
       };
       setMessages(prev => [...prev, autoReply]);
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
@@ -389,7 +492,7 @@ export default function DoctorChatScreen() {
         }, { merge: true });
         sendPushToUser(doctorId, isRTL ? '💬 رسالة جديدة من مريضك' : '💬 New message from your patient', msgData.text).catch(() => {});
       } else {
-        const localMsg: Message = { id: String(now), ...msgData, time: nowTime() };
+        const localMsg: Message = { id: String(now), ...msgData, time: nowTime(isRTL) };
         setMessages(prev => [...prev, localMsg]);
         setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
       }
@@ -478,11 +581,10 @@ export default function DoctorChatScreen() {
               style={{ flex: 1 }}
               contentContainerStyle={styles.listContent}
               showsVerticalScrollIndicator={false}
-              maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
-              onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+              extraData={doctorPhotoUrl}
               ListHeaderComponent={<DateDivider label={t.today} />}
               renderItem={({ item }) => (
-                  <MessageBubble msg={item} isRTL={isRTL} doctorColor={doctorColor} doctorBg={doctorBg} chatId={chatId} t={t} />
+                  <MessageBubble msg={item} isRTL={isRTL} doctorColor={doctorColor} doctorBg={doctorBg} chatId={chatId} t={t} doctorPhotoUrl={doctorPhotoUrl} />
               )}
           />
 
@@ -597,7 +699,7 @@ const styles = StyleSheet.create({
   msgRow:       { flexDirection: 'row', alignItems: 'flex-end', gap: 7, marginBottom: 8 },
   msgRowRight:  { justifyContent: 'flex-end' },
   msgRowLeft:   { justifyContent: 'flex-start' },
-  docAvatar:    { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: 'transparent' },
+  docAvatar:    { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: 'transparent', overflow: 'hidden' },
   bubble:        { maxWidth: '75%', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 },
   bubblePatient: { borderBottomRightRadius: 4, shadowColor: Colors.primary, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 3 },
   bubbleDoctor:  { borderBottomLeftRadius: 4, borderWidth: 1.5, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 1 },

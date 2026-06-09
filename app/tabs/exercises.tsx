@@ -857,6 +857,9 @@ export default function ExercisesScreen() {
 
   // ── Merge doctor exercises into section list ───────────
   const SECTION_EXERCISES = (() => {
+    const docInSection = doctorExercises.filter(e => e.type === activeSection);
+    // When doctor has assigned exercises, show only doctor exercises
+    if (doctorExercises.length > 0) return docInSection;
     const base = (() => {
       switch (activeSection) {
         case 'therapy':      return therapyList;
@@ -867,8 +870,6 @@ export default function ExercisesScreen() {
         case 'coordination': return coordinationList;
       }
     })();
-    // Doctor exercises for this section come first
-    const docInSection = doctorExercises.filter(e => e.type === activeSection);
     return [...docInSection, ...base];
   })();
 
