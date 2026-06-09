@@ -1,17 +1,18 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Modal, TextInput, KeyboardAvoidingView, Platform,
   Keyboard, StatusBar, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { collection, doc, setDoc, deleteDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { db } from '../../utils/firebaseConfig';
+import { useAuth } from '../../context/AuthContext';
 import { Chip } from '../../components/UI';
 import { useLang } from '../../context/Languagecontext';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
-import { notify, suppressTaskListNotifOnce } from './notificationService';
+import { notify } from './notificationService';
 
 type TaskType = 'core' | 'extra';
 type Task = {
@@ -19,9 +20,6 @@ type Task = {
   color: string; bg: string; time: string; done: boolean;
   name?: string; date?: string; type: TaskType;
 };
-
-const CORE_TASKS_KEY  = 'core_tasks';
-const EXTRA_TASKS_KEY = 'extra_tasks';
 
 const CAT_COLORS: Record<string, { color: string; bg: string }> = {
   work:  { color: '#5B9BD5', bg: '#E8F1FB' },
@@ -36,7 +34,9 @@ function todayKey() {
 
 export default function TasksScreen() {
   const { t, isRTL } = useLang();
-  const TODAY = todayKey();
+  const { user }     = useAuth();
+  const uid          = user?.uid ?? '';
+  const TODAY        = todayKey();
 
   const FILTERS = [
     { k: 'all',   l: t.all    },
@@ -68,22 +68,30 @@ export default function TasksScreen() {
 
   const longPressTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  useFocusEffect(useCallback(() => { loadAllTasks(); }, []));
+  // Real-time Firestore listener — scoped to the signed-in user
+  useEffect(() => {
+    if (!uid) return;
+    const unsub = onSnapshot(collection(db, 'tasks', uid, 'items'), (snap) => {
+      const today = todayKey();
+      const all: Task[] = snap.docs.map(d => d.data() as Task);
 
-  async function loadAllTasks() {
-    const storedCore = await AsyncStorage.getItem(CORE_TASKS_KEY);
-    if (storedCore) { setCoreTasks(JSON.parse(storedCore)); }
-    else { await AsyncStorage.setItem(CORE_TASKS_KEY, JSON.stringify([])); setCoreTasks([]); }
+      const core  = all.filter(tk => tk.type === 'core');
+      // drop extra tasks that belong to a past date
+      const extra = all.filter(tk => tk.type === 'extra' && (!tk.date || tk.date === today));
 
-    const storedExtra = await AsyncStorage.getItem(EXTRA_TASKS_KEY);
-    if (storedExtra) {
-      const parsed: Task[] = JSON.parse(storedExtra);
-      const today    = todayKey();
-      const filtered = parsed.filter((tk: any) => !tk.date || tk.date === today);
-      if (filtered.length !== parsed.length) await AsyncStorage.setItem(EXTRA_TASKS_KEY, JSON.stringify(filtered));
-      setExtraTasks(filtered);
-    } else { await AsyncStorage.setItem(EXTRA_TASKS_KEY, JSON.stringify([])); setExtraTasks([]); }
-  }
+      // delete stale extra tasks from Firestore silently
+      snap.docs.forEach(d => {
+        const tk = d.data() as Task;
+        if (tk.type === 'extra' && tk.date && tk.date !== today) {
+          deleteDoc(d.ref).catch(() => {});
+        }
+      });
+
+      setCoreTasks(core);
+      setExtraTasks(extra);
+    });
+    return unsub;
+  }, [uid]);
 
   const SECTION_TASKS = activeSection === 'core' ? coreTasks : extraTasks;
   const visible = filter === 'all' ? SECTION_TASKS : SECTION_TASKS.filter(tk => tk.cat === filter);
@@ -91,7 +99,7 @@ export default function TasksScreen() {
 
   function handleLongPressStart(task: Task) {
     longPressTimers.current[task.key] = setTimeout(() => {
-      const label       = getLabel(task);
+      const label        = getLabel(task);
       const convertLabel = task.type === 'core' ? t.moveToExtra : t.moveToCore;
       Alert.alert(
         t.taskOptions, `"${label}"`,
@@ -112,53 +120,37 @@ export default function TasksScreen() {
   }
 
   async function handleConvertTask(task: Task) {
+    if (!uid) return;
     const newTaskType: TaskType = task.type === 'core' ? 'extra' : 'core';
-    const convertedTask: Task = {
-      ...task, type: newTaskType, done: false,
+    const updates: Partial<Task> = {
+      type: newTaskType, done: false,
       ...(newTaskType === 'extra' ? { date: TODAY } : { date: undefined }),
     };
-    if (task.type === 'core') {
-      const updatedCore  = coreTasks.filter(tk => tk.key !== task.key);
-      const updatedExtra = [...extraTasks, convertedTask];
-      setCoreTasks(updatedCore); setExtraTasks(updatedExtra);
-      await AsyncStorage.setItem(CORE_TASKS_KEY,  JSON.stringify(updatedCore));
-      await AsyncStorage.setItem(EXTRA_TASKS_KEY, JSON.stringify(updatedExtra));
-    } else {
-      const updatedExtra = extraTasks.filter(tk => tk.key !== task.key);
-      const updatedCore  = [...coreTasks, convertedTask];
-      setExtraTasks(updatedExtra); setCoreTasks(updatedCore);
-      await AsyncStorage.setItem(EXTRA_TASKS_KEY, JSON.stringify(updatedExtra));
-      await AsyncStorage.setItem(CORE_TASKS_KEY,  JSON.stringify(updatedCore));
-    }
-    await AsyncStorage.setItem('data_changed_at', Date.now().toString());
-    setActiveSection(newTaskType); setFilter('all');
-    await notify({
-      title: t.taskMoved,
-      body: isRTL
-        ? `"${getLabel(task)}" اتحولت لـ${newTaskType === 'core' ? t.taskMovedToCore : t.taskMovedToExtra}`
-        : `"${getLabel(task)}" moved to ${newTaskType === 'core' ? t.taskMovedToCore : t.taskMovedToExtra}`,
-      emoji: task.icon, type: 'add',
-      dedupKey: `task_convert_${task.key}_${newTaskType}_${todayKey()}`,
-    });
+    try {
+      await updateDoc(doc(db, 'tasks', uid, 'items', task.key), updates);
+      setActiveSection(newTaskType); setFilter('all');
+      await notify({
+        title: t.taskMoved,
+        body: isRTL
+          ? `"${getLabel(task)}" اتحولت لـ${newTaskType === 'core' ? t.taskMovedToCore : t.taskMovedToExtra}`
+          : `"${getLabel(task)}" moved to ${newTaskType === 'core' ? t.taskMovedToCore : t.taskMovedToExtra}`,
+        emoji: task.icon, type: 'add',
+        dedupKey: `task_convert_${task.key}_${newTaskType}_${todayKey()}`,
+      });
+    } catch (e) { console.warn('handleConvertTask error:', e); }
   }
 
   async function handleDeleteTask(task: Task) {
-    if (task.type === 'core') {
-      const updated = coreTasks.filter(tk => tk.key !== task.key);
-      setCoreTasks(updated);
-      await AsyncStorage.setItem(CORE_TASKS_KEY, JSON.stringify(updated));
-    } else {
-      const updated = extraTasks.filter(tk => tk.key !== task.key);
-      setExtraTasks(updated);
-      await AsyncStorage.setItem(EXTRA_TASKS_KEY, JSON.stringify(updated));
-    }
-    await AsyncStorage.setItem('data_changed_at', Date.now().toString());
-    await notify({
-      title: t.taskDeleted,
-      body:  isRTL ? `"${getLabel(task)}" تم حذفها` : `"${getLabel(task)}" has been deleted`,
-      emoji: task.icon, type: 'delete',
-      dedupKey: `task_deleted_${task.key}_${Date.now()}`,
-    });
+    if (!uid) return;
+    try {
+      await deleteDoc(doc(db, 'tasks', uid, 'items', task.key));
+      await notify({
+        title: t.taskDeleted,
+        body:  isRTL ? `"${getLabel(task)}" تم حذفها` : `"${getLabel(task)}" has been deleted`,
+        emoji: task.icon, type: 'delete',
+        dedupKey: `task_deleted_${task.key}_${Date.now()}`,
+      });
+    } catch (e) { console.warn('handleDeleteTask error:', e); }
   }
 
   const openModal = () => {
@@ -175,7 +167,7 @@ export default function TasksScreen() {
 
   const addTask = async () => {
     if (!newName.trim()) { setNameError(true); return; }
-    if (saving) return;
+    if (!uid || saving) return;
     setSaving(true);
     try {
       const catColors = CAT_COLORS[newCat] ?? CAT_COLORS.work;
@@ -183,23 +175,15 @@ export default function TasksScreen() {
         ? `${newTimeStart.trim()} - ${newTimeEnd.trim()}`
         : newTimeStart.trim() || '--:--';
       const energy = Math.min(100, Math.max(5, parseInt(newEnergy) || 20));
+      const key = `task_${Date.now()}`;
       const newTask: Task = {
-        key: `task_${Date.now()}`, icon: newIcon.trim() || '📌',
+        key, icon: newIcon.trim() || '📌',
         cat: newCat, energy, color: catColors.color, bg: catColors.bg,
         time: timeStr, done: false, name: newName.trim(), type: newType,
         ...(newType === 'extra' ? { date: TODAY } : {}),
       };
       closeModal();
-      if (newType === 'core') {
-        const updated = [...coreTasks, newTask];
-        setCoreTasks(updated);
-        await AsyncStorage.setItem(CORE_TASKS_KEY, JSON.stringify(updated));
-      } else {
-        const updated = [...extraTasks, newTask];
-        setExtraTasks(updated);
-        await AsyncStorage.setItem(EXTRA_TASKS_KEY, JSON.stringify(updated));
-      }
-      await AsyncStorage.setItem('data_changed_at', Date.now().toString());
+      await setDoc(doc(db, 'tasks', uid, 'items', key), newTask);
       setActiveSection(newType);
       await notify({
         title: t.taskAddedNotif,
@@ -207,7 +191,7 @@ export default function TasksScreen() {
           ? `${newTask.icon} "${newTask.name}" ${newType === 'extra' ? 'اتضافت لليوم ده' : 'اتضافت للمهام الأساسية'}`
           : `${newTask.icon} "${newTask.name}" added to ${newType === 'extra' ? 'today' : 'core tasks'}`,
         emoji: '✅', type: 'add',
-        dedupKey: `task_added_${newTask.key}`,
+        dedupKey: `task_added_${key}`,
       });
     } catch (e) { console.warn('addTask error:', e); setSaving(false); }
   };

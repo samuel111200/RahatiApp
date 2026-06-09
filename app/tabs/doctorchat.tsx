@@ -4,7 +4,7 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   StatusBar, TextInput, ScrollView, Modal,
   Platform, Animated, Alert, Image, Keyboard,
-  KeyboardAvoidingView, ActivityIndicator,
+  KeyboardAvoidingView, ActivityIndicator, Linking,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -181,7 +181,7 @@ function MessageBubble({ msg, isRTL, doctorColor, doctorBg, chatId, t, doctorPho
   const openFile = async () => {
     if (!msg.fileUrl) return;
     try {
-      await WebBrowser.openBrowserAsync(msg.fileUrl);
+      await Linking.openURL(msg.fileUrl);
     } catch {
       Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'تعذر فتح الملف' : 'Could not open file');
     }

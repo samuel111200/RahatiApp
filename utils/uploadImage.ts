@@ -1,9 +1,30 @@
 const CLOUD_NAME    = 'dyrf3eqtn';
 const UPLOAD_PRESET = 'Haraka_App';
 
+function fixMimeType(fileName: string, mimeType: string): string {
+  const n = fileName.toLowerCase();
+  if (n.endsWith('.pdf'))  return 'application/pdf';
+  if (n.endsWith('.doc'))  return 'application/msword';
+  if (n.endsWith('.docx')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  if (n.endsWith('.xls'))  return 'application/vnd.ms-excel';
+  if (n.endsWith('.xlsx')) return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  if (n.endsWith('.ppt'))  return 'application/vnd.ms-powerpoint';
+  if (n.endsWith('.pptx')) return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+  if (n.endsWith('.jpg') || n.endsWith('.jpeg')) return 'image/jpeg';
+  if (n.endsWith('.png'))  return 'image/png';
+  if (n.endsWith('.gif'))  return 'image/gif';
+  if (n.endsWith('.webp')) return 'image/webp';
+  if (n.endsWith('.mp4'))  return 'video/mp4';
+  if (n.endsWith('.mp3'))  return 'audio/mpeg';
+  if (n.endsWith('.txt'))  return 'text/plain';
+  return mimeType && mimeType !== 'application/octet-stream' ? mimeType : 'application/octet-stream';
+}
+
 async function cloudinaryUpload(localUri: string, mimeType: string, fileName: string): Promise<string> {
+  const resolvedMime = fixMimeType(fileName, mimeType);
+
   const formData = new FormData();
-  formData.append('file', { uri: localUri, type: mimeType, name: fileName } as any);
+  formData.append('file', { uri: localUri, type: resolvedMime, name: fileName } as any);
   formData.append('upload_preset', UPLOAD_PRESET);
 
   const res = await fetch(
@@ -11,12 +32,13 @@ async function cloudinaryUpload(localUri: string, mimeType: string, fileName: st
     { method: 'POST', body: formData },
   );
 
+  const data = await res.json();
+  console.log('[Cloudinary] status:', res.status, 'body:', JSON.stringify(data).slice(0, 500));
+
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.error?.message ?? 'Upload failed');
+    throw new Error(data?.error?.message ?? `Upload failed (${res.status})`);
   }
 
-  const data = await res.json();
   return data.secure_url as string;
 }
 

@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   StatusBar, TextInput, KeyboardAvoidingView, Keyboard,
   Platform, Animated, Modal, ScrollView, Alert,
-  ActivityIndicator, Image,
+  ActivityIndicator, Image, Linking,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -285,14 +285,10 @@ function MessageBubble({ msg, isRTL, t, patientPhotoUrl }: { msg: Message; isRTL
   };
 
   const openFile = async () => {
-    const uri = msg.fileUri || msg.fileUrl;
-    if (!uri) return;
+    const url = msg.fileUrl ?? msg.fileUri;
+    if (!url) return;
     try {
-      if (uri.startsWith('http')) {
-        await WebBrowser.openBrowserAsync(uri);
-      } else {
-        await Sharing.shareAsync(uri, { mimeType: msg.mimeType, dialogTitle: msg.fileName || 'File' });
-      }
+      await Linking.openURL(url);
     } catch (e) {
       Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'تعذر فتح الملف' : 'Could not open file');
     }
