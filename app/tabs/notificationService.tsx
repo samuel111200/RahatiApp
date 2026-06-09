@@ -13,6 +13,16 @@ export interface AppNotification {
   read: boolean;
 }
 
+// ─── Lang helper ─────────────────────────────────────────
+async function getLang(): Promise<"ar" | "en"> {
+  try {
+    const saved = await AsyncStorage.getItem("app_language");
+    return saved === "en" ? "en" : "ar";
+  } catch {
+    return "ar";
+  }
+}
+
 // ─── Lazy imports ────────────────────────────────────────
 type NotificationsModule = typeof import("expo-notifications");
 let _N: NotificationsModule | null = null;
@@ -144,14 +154,12 @@ export async function sendPushNotification(
 }
 
 // ─── Main notify ──────────────────────────────────────────
-// بيبعت push بس — مفيش حفظ in-app
 export async function notify(
   params: Omit<AppNotification, "id" | "timestamp" | "read"> & {
     dedupKey?: string;
   },
   channelId: string = "tasks"
 ) {
-  // لو في dedupKey — تحقق منه أولاً
   if (params.dedupKey) {
     try {
       const already = await AsyncStorage.getItem(params.dedupKey);
@@ -162,7 +170,6 @@ export async function notify(
     }
   }
 
-  // ابعت push بس
   await sendPushNotification(
     `${params.emoji} ${params.title}`,
     params.body,
@@ -268,22 +275,32 @@ async function getTodayPlanItems(): Promise<Array<{
 
 // ─── Timing watcher cycle (10 / 5 / الآن) ────────────────
 export async function runWatcherCycle() {
-  const todayKey  = getTodayDateKey();
-  const nowMin    = nowInMinutes();
+  const lang     = await getLang();
+  const isAr     = lang === "ar";
+  const todayKey = getTodayDateKey();
+  const nowMin   = nowInMinutes();
   const planItems = await getTodayPlanItems();
 
   for (const item of planItems) {
     if (item.timeFromMin < 0) continue;
     const diffMin = item.timeFromMin - nowMin;
-    const label   = item.isExercise ? "تمرين" : "مهمة";
-    const ch      = item.isExercise ? "exercises" : "tasks";
+
+    // labels
+    const taskLabel    = isAr ? "مهمة"    : "task";
+    const exerciseLabel = isAr ? "تمرين"  : "exercise";
+    const label        = item.isExercise ? exerciseLabel : taskLabel;
+    const ch           = item.isExercise ? "exercises"   : "tasks";
 
     // 10 دقايق قبل
     if (diffMin > 9 && diffMin <= 11) {
       await notify(
         {
-          title:    `موعد ${label} قريب ⏰`,
-          body:     `${item.emoji} "${item.title}" هيبدأ بعد 10 دقايق`,
+          title: isAr
+            ? `موعد ${label} قريب ⏰`
+            : `Upcoming ${label} ⏰`,
+          body: isAr
+            ? `${item.emoji} "${item.title}" هيبدأ بعد 10 دقايق`
+            : `${item.emoji} "${item.title}" starts in 10 minutes`,
           emoji:    "⏰",
           type:     item.isExercise ? "break" : "task",
           dedupKey: `notified_10min_${item.id}_${todayKey}`,
@@ -296,8 +313,12 @@ export async function runWatcherCycle() {
     if (diffMin > 4 && diffMin <= 6) {
       await notify(
         {
-          title:    `${label} قريب${item.isExercise ? "" : "ة"} ⏰`,
-          body:     `${item.emoji} "${item.title}" هيبدأ بعد 5 دقايق، استعد!`,
+          title: isAr
+            ? `${label} قريب${item.isExercise ? "" : "ة"} ⏰`
+            : `${label} coming up ⏰`,
+          body: isAr
+            ? `${item.emoji} "${item.title}" هيبدأ بعد 5 دقايق، استعد!`
+            : `${item.emoji} "${item.title}" starts in 5 minutes, get ready!`,
           emoji:    "⏰",
           type:     item.isExercise ? "break" : "task",
           dedupKey: `notified_5min_${item.id}_${todayKey}`,
@@ -310,8 +331,12 @@ export async function runWatcherCycle() {
     if (diffMin >= 0 && diffMin <= 1) {
       await notify(
         {
-          title:    `وقت ${item.isExercise ? "التمرين" : "المهمة"} دلوقتي! 🚀`,
-          body:     `${item.emoji} ابدأ "${item.title}" دلوقتي`,
+          title: isAr
+            ? `وقت ${item.isExercise ? "التمرين" : "المهمة"} دلوقتي! 🚀`
+            : `Time for your ${label} now! 🚀`,
+          body: isAr
+            ? `${item.emoji} ابدأ "${item.title}" دلوقتي`
+            : `${item.emoji} Start "${item.title}" now`,
           emoji:    "🚀",
           type:     item.isExercise ? "break" : "task",
           dedupKey: `notified_now_${item.id}_${todayKey}`,
@@ -414,10 +439,13 @@ export async function notifyTaskAdded(
   taskEmoji: string = "📌",
   taskType: "core" | "extra" = "core"
 ) {
+  const isAr = (await getLang()) === "ar";
   await notify(
     {
-      title: "تمت إضافة مهمة جديدة ✅",
-      body:  `${taskEmoji} "${taskName}" اتضافت${taskType === "extra" ? " لليوم ده" : " للمهام الأساسية"}`,
+      title: isAr ? "تمت إضافة مهمة جديدة ✅" : "New task added ✅",
+      body: isAr
+        ? `${taskEmoji} "${taskName}" اتضافت${taskType === "extra" ? " لليوم ده" : " للمهام الأساسية"}`
+        : `${taskEmoji} "${taskName}" added to ${taskType === "extra" ? "today" : "core tasks"}`,
       emoji: "✅",
       type:  "add",
     },
@@ -429,10 +457,11 @@ export async function notifyTaskDeleted(
   taskName: string,
   taskEmoji: string = "📌"
 ) {
+  const isAr = (await getLang()) === "ar";
   await notify(
     {
-      title: "تم حذف المهمة 🗑️",
-      body:  `${taskEmoji} "${taskName}" تم حذفها`,
+      title: isAr ? "تم حذف المهمة 🗑️" : "Task deleted 🗑️",
+      body:  isAr ? `${taskEmoji} "${taskName}" تم حذفها` : `${taskEmoji} "${taskName}" has been deleted`,
       emoji: "🗑️",
       type:  "delete",
     },
@@ -445,10 +474,11 @@ export async function notifyTaskUpdated(
   taskEmoji: string = "📌",
   detail?: string
 ) {
+  const isAr = (await getLang()) === "ar";
   await notify(
     {
-      title: "تم تحديث المهمة ✏️",
-      body:  detail ?? `${taskEmoji} "${taskName}" اتعدلت`,
+      title: isAr ? "تم تحديث المهمة ✏️" : "Task updated ✏️",
+      body:  detail ?? (isAr ? `${taskEmoji} "${taskName}" اتعدلت` : `${taskEmoji} "${taskName}" has been updated`),
       emoji: "✏️",
       type:  "update",
     },
@@ -460,10 +490,13 @@ export async function notifyExerciseAdded(
   exerciseName: string,
   exerciseEmoji: string = "🏋️"
 ) {
+  const isAr = (await getLang()) === "ar";
   await notify(
     {
-      title: "تمت إضافة تمرين ✅",
-      body:  `${exerciseEmoji} "${exerciseName}" اتضاف للتمارين`,
+      title: isAr ? "تمت إضافة تمرين ✅" : "Exercise added ✅",
+      body:  isAr
+        ? `${exerciseEmoji} "${exerciseName}" اتضاف للتمارين`
+        : `${exerciseEmoji} "${exerciseName}" added to exercises`,
       emoji: "✅",
       type:  "add",
     },
@@ -475,10 +508,13 @@ export async function notifyExerciseDeleted(
   exerciseName: string,
   exerciseEmoji: string = "🏋️"
 ) {
+  const isAr = (await getLang()) === "ar";
   await notify(
     {
-      title: "تم حذف التمرين 🗑️",
-      body:  `${exerciseEmoji} "${exerciseName}" تم حذفه`,
+      title: isAr ? "تم حذف التمرين 🗑️" : "Exercise deleted 🗑️",
+      body:  isAr
+        ? `${exerciseEmoji} "${exerciseName}" تم حذفه`
+        : `${exerciseEmoji} "${exerciseName}" has been deleted`,
       emoji: "🗑️",
       type:  "delete",
     },
@@ -491,10 +527,13 @@ export async function notifyExerciseUpdated(
   exerciseEmoji: string = "🏋️",
   detail?: string
 ) {
+  const isAr = (await getLang()) === "ar";
   await notify(
     {
-      title: "تم تحديث التمرين ✏️",
-      body:  detail ?? `${exerciseEmoji} "${exerciseName}" اتعدل`,
+      title: isAr ? "تم تحديث التمرين ✏️" : "Exercise updated ✏️",
+      body:  detail ?? (isAr
+        ? `${exerciseEmoji} "${exerciseName}" اتعدل`
+        : `${exerciseEmoji} "${exerciseName}" has been updated`),
       emoji: "✏️",
       type:  "update",
     },
@@ -506,10 +545,16 @@ export async function notifyTaskCompleted(
   taskName: string,
   taskEmoji: string = "📌"
 ) {
+  // ⚠️ لا تنادي الفانكشن دي من home.tsx —
+  // الـ completionWatcher هو المسؤول الوحيد عن إشعار الإتمام
+  // استخدمها بس لو عندك سبب خاص خارج الـ watcher
+  const isAr = (await getLang()) === "ar";
   await notify(
     {
-      title: "أحسنت! مهمة منجزة 🎉",
-      body:  `لقد أتممت "${taskEmoji} ${taskName}" بنجاح! استمر في التقدم 💪`,
+      title: isAr ? "أحسنت! مهمة منجزة 🎉" : "Well done! Task completed 🎉",
+      body:  isAr
+        ? `لقد أتممت "${taskEmoji} ${taskName}" بنجاح! استمر في التقدم 💪`
+        : `You completed "${taskEmoji} ${taskName}" successfully! Keep going 💪`,
       emoji: "🎉",
       type:  "task",
     },
@@ -521,10 +566,16 @@ export async function notifyExerciseCompleted(
   exerciseName: string,
   exerciseEmoji: string = "🏋️"
 ) {
+  // ⚠️ لا تنادي الفانكشن دي من home.tsx —
+  // الـ completionWatcher هو المسؤول الوحيد عن إشعار الإتمام
+  // استخدمها بس لو عندك سبب خاص خارج الـ watcher
+  const isAr = (await getLang()) === "ar";
   await notify(
     {
-      title: "تمرين ناجح! 💪",
-      body:  `أنجزت "${exerciseEmoji} ${exerciseName}" بنجاح! جسمك بيشكرك 🌟`,
+      title: isAr ? "تمرين ناجح! 💪" : "Exercise complete! 💪",
+      body:  isAr
+        ? `أنجزت "${exerciseEmoji} ${exerciseName}" بنجاح! جسمك بيشكرك 🌟`
+        : `You completed "${exerciseEmoji} ${exerciseName}" successfully! Your body thanks you 🌟`,
       emoji: "💪",
       type:  "break",
     },
@@ -532,7 +583,7 @@ export async function notifyExerciseCompleted(
   );
 }
 
-// ─── Misc (backward compat — no-ops since no in-app storage) ──
+// ─── Misc (backward compat) ───────────────────────────────
 export async function markAllRead() {}
 export async function clearAllNotifications() {}
 export async function getUnreadCount(): Promise<number> { return 0; }
@@ -565,10 +616,12 @@ export function startMissedWatcher() {
 
   missedWatcherInterval = setInterval(async () => {
     try {
-      const todayKey  = getTodayDateKey();
-      const nowMin    = nowInMinutes();
-      const doneRaw   = await AsyncStorage.getItem(`plan_done_${todayKey}`);
-      const doneIds   = new Set<string>(doneRaw ? JSON.parse(doneRaw) : []);
+      const lang     = await getLang();
+      const isAr     = lang === "ar";
+      const todayKey = getTodayDateKey();
+      const nowMin   = nowInMinutes();
+      const doneRaw  = await AsyncStorage.getItem(`plan_done_${todayKey}`);
+      const doneIds  = new Set<string>(doneRaw ? JSON.parse(doneRaw) : []);
       const planItems = await getTodayPlanItems();
 
       for (const item of planItems) {
@@ -576,11 +629,18 @@ export function startMissedWatcher() {
         if (doneIds.has(item.id))     continue;
         if (nowMin <= item.timeToMin) continue;
 
-        const label = item.isExercise ? "تمرين" : "مهمة";
+        const label = item.isExercise
+          ? (isAr ? "تمرين" : "exercise")
+          : (isAr ? "مهمة"  : "task");
+
         await notify(
           {
-            title:    `${label} فاتتك! 😔`,
-            body:     `${item.emoji} "${item.title}" فاتت ومعلمتهاش كمنجزة`,
+            title: isAr
+              ? `${label} فاتتك! 😔`
+              : `Missed ${label}! 😔`,
+            body: isAr
+              ? `${item.emoji} "${item.title}" فاتت ومعلمتهاش كمنجزة`
+              : `${item.emoji} "${item.title}" passed and wasn't marked as done`,
             emoji:    "😔",
             type:     item.isExercise ? "break" : "task",
             dedupKey: `notified_missed_${item.id}_${todayKey}`,
@@ -598,37 +658,75 @@ export function stopMissedWatcher() {
 
 // ── Completion watcher ──
 let completionWatcherInterval: ReturnType<typeof setInterval> | null = null;
-let lastDoneSnapshot = "";
+let lastDoneSnapshot: string | null = null;
+// ✅ lock يمنع التنفيذ المتوازي لو الـ interval اتشغل قبل ما السابق يخلص
+let isCompletionRunning = false;
 
 export function startCompletionWatcher() {
   if (completionWatcherInterval) return;
 
   completionWatcherInterval = setInterval(async () => {
-    try {
-      const todayKey    = getTodayDateKey();
-      const planDoneRaw = await AsyncStorage.getItem(`plan_done_${todayKey}`);
-      if (!planDoneRaw) return;
+    // لو في cycle شغال، تجاهل الـ tick ده تماماً
+    if (isCompletionRunning) return;
+    isCompletionRunning = true;
 
-      const doneIds         = JSON.parse(planDoneRaw) as string[];
-      const currentSnapshot = [...doneIds].sort().join(",");
+    try {
+      const lang     = await getLang();
+      const isAr     = lang === "ar";
+      const todayKey = getTodayDateKey();
+      const planDoneRaw = await AsyncStorage.getItem(`plan_done_${todayKey}`);
+
+      const currentSnapshot = planDoneRaw
+        ? ([...JSON.parse(planDoneRaw)] as string[]).sort().join(",")
+        : "";
+
+      // أول مرة: حمّل الـ baseline بدون ما تبعت إشعارات
+      if (lastDoneSnapshot === null) {
+        lastDoneSnapshot = currentSnapshot;
+        return;
+      }
+
+      // مفيش تغيير — خروج سريع
       if (lastDoneSnapshot === currentSnapshot) return;
 
+      const doneIds   = planDoneRaw ? (JSON.parse(planDoneRaw) as string[]) : [];
       const prevIds   = new Set(lastDoneSnapshot.split(",").filter(Boolean));
       const newlyDone = doneIds.filter((id) => id && !prevIds.has(id));
+
+      // حدّث الـ snapshot الأول قبل أي await تاني لمنع الـ race condition
       lastDoneSnapshot = currentSnapshot;
+
       if (!newlyDone.length) return;
 
-      const [coreRaw, extraRaw, exRaw] = await Promise.all([
+      const [coreRaw, extraRaw, exRaw, fsCacheRaw] = await Promise.all([
         AsyncStorage.getItem("core_tasks"),
         AsyncStorage.getItem("extra_tasks"),
         AsyncStorage.getItem("core_exercises"),
+        AsyncStorage.getItem("fs_tasks_cache"),
       ]);
-      const coreTasks:  any[] = coreRaw  ? JSON.parse(coreRaw)  : [];
-      const extraTasks: any[] = extraRaw ? JSON.parse(extraRaw) : [];
-      const exercises:  any[] = exRaw    ? JSON.parse(exRaw)    : [];
+
+      let coreTasks:  any[] = [];
+      let extraTasks: any[] = [];
+      if (fsCacheRaw) {
+        const fsCache = JSON.parse(fsCacheRaw) as any[];
+        coreTasks  = fsCache.filter((t) => t.type === "core");
+        extraTasks = fsCache.filter((t) => t.type === "extra");
+      } else {
+        coreTasks  = coreRaw  ? JSON.parse(coreRaw)  : [];
+        extraTasks = extraRaw ? JSON.parse(extraRaw) : [];
+      }
+      const exercises: any[] = exRaw ? JSON.parse(exRaw) : [];
 
       for (const id of newlyDone) {
         if (!id) continue;
+
+        // ✅ dedupKey بدقة الثانية يمنع إرسال مزدوج في نفس اللحظة
+        const dedupKey = `completion_sent_${id}_${Math.floor(Date.now() / 1000)}`;
+        try {
+          const alreadySent = await AsyncStorage.getItem(dedupKey);
+          if (alreadySent) continue;
+          await AsyncStorage.setItem(dedupKey, "1");
+        } catch { /* تجاهل أخطاء الـ storage */ }
 
         if (id.startsWith("exercise_")) {
           const withoutPrefix = id.replace("exercise_", "");
@@ -636,17 +734,14 @@ export function startCompletionWatcher() {
           const exKey   = slotIdx >= 0 ? withoutPrefix.substring(0, slotIdx) : withoutPrefix;
           const idx     = slotIdx >= 0 ? parseInt(withoutPrefix.substring(slotIdx + 5), 10) : 0;
           const ex      = exercises.find((e: any) => String(e.key ?? e.id ?? e.title) === exKey)
-          ?? exercises[idx % Math.max(exercises.length, 1)];
+            ?? exercises[idx % Math.max(exercises.length, 1)];
 
-          await notify(
-            {
-              title:    "تمرين ناجح! 💪",
-              body:     `أنجزت "${ex?.emoji ?? "🏋️"} ${ex?.title ?? ex?.titleAr ?? "التمرين"}" بنجاح! جسمك بيشكرك 🌟`,
-              emoji:    "💪",
-              type:     "break",
-              dedupKey: `notified_completed_${id}_${todayKey}`,
-            },
-            "completion"
+          await sendPushNotification(
+            isAr ? "تمرين ناجح! 💪" : "Exercise complete! 💪",
+            isAr
+              ? `أنجزت "${ex?.emoji ?? "🏋️"} ${ex?.title ?? ex?.titleAr ?? "التمرين"}" بنجاح! جسمك بيشكرك 🌟`
+              : `You completed "${ex?.emoji ?? "🏋️"} ${ex?.titleEn ?? ex?.title ?? "the exercise"}" successfully! Your body thanks you 🌟`,
+            "completion",
           );
           continue;
         }
@@ -654,25 +749,41 @@ export function startCompletionWatcher() {
         const task = [...coreTasks, ...extraTasks].find(
           (t: any) => (t.key ?? t.id) === id
         );
-        if (!task) continue;
+        if (!task) {
+          await sendPushNotification(
+            isAr ? "أحسنت! مهمة منجزة 🎉" : "Well done! Task completed 🎉",
+            isAr
+              ? "أتممت مهمة بنجاح! استمر في التقدم 💪"
+              : "You completed a task successfully! Keep going 💪",
+            "completion",
+          );
+          continue;
+        }
 
-        await notify(
-          {
-            title:    "أحسنت! مهمة منجزة 🎉",
-            body:     `لقد أتممت "${task.emoji ?? task.icon ?? "📌"} ${task.title ?? task.name ?? "المهمة"}" بنجاح! استمر في التقدم 💪`,
-            emoji:    "🎉",
-            type:     "task",
-            dedupKey: `notified_completed_${id}_${todayKey}`,
-          },
-          "completion"
+        await sendPushNotification(
+          isAr ? "أحسنت! مهمة منجزة 🎉" : "Well done! Task completed 🎉",
+          isAr
+            ? `لقد أتممت "${task.emoji ?? task.icon ?? "📌"} ${task.title ?? task.name ?? "المهمة"}" بنجاح! استمر في التقدم 💪`
+            : `You completed "${task.emoji ?? task.icon ?? "📌"} ${task.name ?? task.title ?? "the task"}" successfully! Keep going 💪`,
+          "completion",
         );
       }
-    } catch (e) { console.warn("Completion watcher error:", e); }
-  }, 5_000);
+    } catch (e) {
+      console.warn("Completion watcher error:", e);
+    } finally {
+      // ✅ دايماً نفضي الـ lock حتى لو حصل error
+      isCompletionRunning = false;
+    }
+  }, 3_000); // ✅ من 1000ms لـ 3000ms لتقليل الضغط
 }
 
 export function stopCompletionWatcher() {
-  if (completionWatcherInterval) { clearInterval(completionWatcherInterval); completionWatcherInterval = null; }
+  if (completionWatcherInterval) {
+    clearInterval(completionWatcherInterval);
+    completionWatcherInterval = null;
+    lastDoneSnapshot  = null;
+    isCompletionRunning = false;
+  }
 }
 
 // ── Energy watcher ──
@@ -689,15 +800,23 @@ export function startEnergyWatcher() {
       const current = Number(raw);
 
       if (lastEnergy !== null && current !== lastEnergy) {
+        const lang      = await getLang();
+        const isAr      = lang === "ar";
         const todayKey  = getTodayDateKey();
         const diff      = current - lastEnergy;
-        const direction = diff > 0 ? "ارتفع" : "انخفض";
-        const emoji     = diff > 0 ? "⚡" : "😴";
+
+        const dirAr = diff > 0 ? "ارتفع" : "انخفض";
+        const dirEn = diff > 0 ? "increased" : "decreased";
+        const emoji = diff > 0 ? "⚡" : "😴";
 
         await notify(
           {
-            title:    `مستوى الطاقة ${direction}`,
-            body:     `طاقتك دلوقتي ${current}% (${diff > 0 ? "+" : ""}${diff}%)`,
+            title: isAr
+              ? `مستوى الطاقة ${dirAr}`
+              : `Energy level ${dirEn}`,
+            body: isAr
+              ? `طاقتك دلوقتي ${current}% (${diff > 0 ? "+" : ""}${diff}%)`
+              : `Your energy is now ${current}% (${diff > 0 ? "+" : ""}${diff}%)`,
             emoji,
             type:     "energy",
             dedupKey: `energy_notif_${current}_${todayKey}`,

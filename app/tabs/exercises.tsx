@@ -18,8 +18,8 @@ import { db } from '../../utils/firebaseConfig';
 import { useAuth } from '../../context/AuthContext';
 
 const { width, height } = Dimensions.get('window');
-const CARD_W = width * 0.72;
-const CARD_H = height * 0.57;
+const CARD_W = width * 0.75;
+const CARD_H = height * 0.52;
 
 // ─── Types ────────────────────────────────────────────────
 type ExerciseType = 'therapy' | 'yoga' | 'aerobic' | 'endurance' | 'strength' | 'coordination';

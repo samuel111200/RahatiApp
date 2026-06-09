@@ -36,7 +36,36 @@ interface PlanTask {
 
 type CompletionStatus = 'done' | 'pending' | 'locked';
 
-const CORE_EXERCISES_KEY  = 'core_exercises';
+// ─── Exercise Storage Keys (نفس الـ keys في exercises.tsx) ──
+const THERAPY_KEY      = 'therapy_exercises';
+const YOGA_KEY         = 'yoga_exercises';
+const AEROBIC_KEY      = 'aerobic_exercises';
+const ENDURANCE_KEY    = 'endurance_exercises';
+const STRENGTH_KEY     = 'strength_exercises';
+const COORDINATION_KEY = 'coordination_exercises';
+
+async function loadLocalExercises(): Promise<any[]> {
+  try {
+    const [therapy, yoga, aerobic, endurance, strength, coordination] = await Promise.all([
+      AsyncStorage.getItem(THERAPY_KEY),
+      AsyncStorage.getItem(YOGA_KEY),
+      AsyncStorage.getItem(AEROBIC_KEY),
+      AsyncStorage.getItem(ENDURANCE_KEY),
+      AsyncStorage.getItem(STRENGTH_KEY),
+      AsyncStorage.getItem(COORDINATION_KEY),
+    ]);
+    return [
+      ...(therapy      ? JSON.parse(therapy)      : []),
+      ...(yoga         ? JSON.parse(yoga)          : []),
+      ...(aerobic      ? JSON.parse(aerobic)       : []),
+      ...(endurance    ? JSON.parse(endurance)     : []),
+      ...(strength     ? JSON.parse(strength)      : []),
+      ...(coordination ? JSON.parse(coordination)  : []),
+    ];
+  } catch {
+    return [];
+  }
+}
 
 function formatDate(date: Date, t: any, isRTL: boolean) {
   const day   = (t.calFullDays as string[])[date.getDay()];
@@ -96,7 +125,6 @@ const CAT_TO_EFFORT: Record<string, number> = { work: 3, study: 2, home: 2 };
 function mapRawTask(raw: any, fallbackDate: string, type: 'core' | 'extra'): PlanTask {
   const timeParts = (raw.time ?? '').split(' - ');
 
-  // حساب اللون من الـ cat لو مفيش bg في الـ data
   const catBgMap: Record<string, { color: string; bg: string }> = {
     work:  { color: '#5B9BD5', bg: '#E8F1FB' },
     study: { color: '#4CAF82', bg: '#E8F5EF' },
@@ -134,12 +162,6 @@ function mapExerciseToTask(exercise: any, index: number, afterTaskDate: string):
   };
 }
 
-// ─── DEFAULT EXERCISES fallback لو مفيش exercises في Firestore ───────────────
-const DEFAULT_EXERCISES = [
-  { key: 'ex_default_1', emoji: '🧘', title: 'تمدد سريع', titleEn: 'Quick Stretch', color: '#4CAF82', bg: '#E8F5EF', desc: 'تمدد بسيط لمدة دقيقتين بين المهام', descEn: 'Simple 2-minute stretch between tasks' },
-  { key: 'ex_default_2', emoji: '🚶', title: 'مشي قصير', titleEn: 'Short Walk', color: '#4CAF82', bg: '#E8F5EF', desc: 'امشي خطوات بسيطة للتنشيط', descEn: 'Take a few steps to refresh' },
-  { key: 'ex_default_3', emoji: '💨', title: 'تنفس عميق', titleEn: 'Deep Breathing', color: '#4CAF82', bg: '#E8F5EF', desc: 'خد 5 أنفاس عميقة وببطء', descEn: 'Take 5 slow deep breaths' },
-];
 
 function buildPlanList(
   coreTasks: PlanTask[],
@@ -152,13 +174,13 @@ function buildPlanList(
   ];
   if (allTasks.length === 0) return [];
 
-  // لو مفيش exercises خالص استخدم الـ defaults
-  const exercisePool = exercises.length > 0 ? exercises : DEFAULT_EXERCISES;
+  // لو مفيش exercises خالص، متضيفش تمارين بين المهام
+  if (exercises.length === 0) return allTasks;
+  const exercisePool = exercises;
 
   const result: PlanTask[] = [];
   allTasks.forEach((task, index) => {
     result.push(task);
-    // تمرين بين كل تاسكين — مش بعد الأخيرة
     if (index < allTasks.length - 1) {
       const ex = exercisePool[index % exercisePool.length];
       result.push(mapExerciseToTask(ex, index, task.date));
@@ -501,6 +523,7 @@ export default function PlanScreen() {
   const [coreTasks,   setCoreTasks]     = useState<PlanTask[]>([]);
   const [extraTasks,  setExtraTasks]    = useState<PlanTask[]>([]);
   const [doctorExercises, setDoctorExercises] = useState<any[]>([]);
+  const [localExercises,  setLocalExercises]  = useState<any[]>([]);
   const [energy, setEnergy]             = useState(50);
   const [doneIds, setDoneIds]           = useState<Set<string>>(new Set());
 
@@ -536,9 +559,10 @@ export default function PlanScreen() {
     return unsub;
   }, [user?.uid]);
 
-  // Energy — load once on focus
+  // Energy + local exercises — load on focus
   useFocusEffect(useCallback(() => {
     loadAllData();
+    loadLocalExercises().then(setLocalExercises);
   }, [user?.uid]));
 
   async function loadAllData() {
@@ -569,24 +593,9 @@ export default function PlanScreen() {
     })();
   }, [selectedDate, user?.uid]);
 
-  useFocusEffect(useCallback(() => {
-    const checkNotifDone = async () => {
-      const raw = await AsyncStorage.getItem('last_completed_task_id');
-      if (!raw) return;
-      await AsyncStorage.removeItem('last_completed_task_id');
-      const taskId = raw.trim();
-      if (!taskId) return;
-      setDoneIds(prev => {
-        const next = new Set(prev);
-        next.add(taskId);
-        saveDoneIds(selectedDate, next, user?.uid ?? null);
-        return next;
-      });
-    };
-    checkNotifDone();
-    const interval = setInterval(checkNotifDone, 3000);
-    return () => clearInterval(interval);
-  }, [selectedDate]));
+  // ✅ تم حذف useFocusEffect الخاص بـ checkNotifDone —
+  // الـ completionWatcher في notificationService هو المسؤول الوحيد
+  // عن إشعارات الإتمام، ومحتاجش نبعتها من هنا تاني
 
   const todayKey    = getTodayKey();
   const selectedKey = toKey(selectedDate);
@@ -598,8 +607,9 @@ export default function PlanScreen() {
   const dayCoreTasks  = coreTasks.filter(t => !t.date || t.date === selectedKey);
   const dayExtraTasks = extraTasks.filter(t => t.date === selectedKey);
 
-  // doctorExercises من Firestore، لو فاضي buildPlanList هيستخدم DEFAULT_EXERCISES
-  const withExercises = buildPlanList(dayCoreTasks, dayExtraTasks, doctorExercises);
+  // لو في doctor exercises استخدمها، غير كده استخدم التمارين المحفوظة محلياً
+  const exercisePool = doctorExercises.length > 0 ? doctorExercises : localExercises;
+  const withExercises = buildPlanList(dayCoreTasks, dayExtraTasks, exercisePool);
 
   const handleToggleDone = async (taskId: string) => {
     if (isPastDay || isFutureDay) return;
@@ -615,6 +625,7 @@ export default function PlanScreen() {
       } else {
         next.add(taskId);
       }
+      // ✅ saveDoneIds هنا بس — الـ completionWatcher هيشوف التغيير ويبعت الإشعار
       saveDoneIds(selectedDate, next, user?.uid ?? null);
       return next;
     });
@@ -703,7 +714,7 @@ export default function PlanScreen() {
                 <Text style={[s.summaryText, { color: '#C97B3A' }]}>{dayExtraTasks.length} {t.extraTasksCount}</Text>
               </View>
             )}
-            {doctorExercises.length > 0 && (
+            {exercisePool.length > 0 && (
               <View style={[s.summaryPill, { backgroundColor: '#E8F5EF' }]}>
                 <Text style={s.summaryEmoji}>🏋️</Text>
                 <Text style={[s.summaryText, { color: '#4CAF82' }]}>{dayCoreTasks.length + dayExtraTasks.length} {t.exercisesCount}</Text>
