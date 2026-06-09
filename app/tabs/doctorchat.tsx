@@ -514,7 +514,7 @@ export default function DoctorChatScreen() {
         await addDoc(collection(db, 'chats', chatId, 'messages'), { text: text.trim(), sender: 'patient', timestamp: now, status: 'sent', type: 'text' });
         await setDoc(doc(db, 'chats', chatId), {
           doctorId, patientId,
-          patientName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || t.patientDefault,
+          patientName: (`${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim()) || t.patientDefault,
           lastMessage: text.trim(), lastMessageTime: now, lastMessageSender: 'patient',
           unreadCountDoctor: increment(1),
         }, { merge: true });
@@ -551,7 +551,7 @@ export default function DoctorChatScreen() {
         await addDoc(collection(db, 'chats', chatId, 'messages'), msgData);
         await setDoc(doc(db, 'chats', chatId), {
           doctorId, patientId,
-          patientName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || t.patientDefault,
+          patientName: (`${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim()) || t.patientDefault,
           lastMessage: preview, lastMessageTime: now, lastMessageSender: 'patient',
           unreadCountDoctor: increment(1),
         }, { merge: true });
@@ -576,7 +576,7 @@ export default function DoctorChatScreen() {
         <StatusBar backgroundColor="#F8F5FF" barStyle="dark-content" />
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.replace('/tabs/doctors')} style={styles.backBtn} activeOpacity={0.8}>
-            <Ionicons name="arrow-back" size={22} color={doctorColor} />
+            <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={22} color={doctorColor} />
           </TouchableOpacity>
           <View style={styles.headerInfo}>
             <View style={[styles.headerAvatar, { backgroundColor: doctorBg }]}>

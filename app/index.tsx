@@ -11,7 +11,6 @@ import { useLang } from "../context/Languagecontext";
 SplashScreen.preventAutoHideAsync();
 
 const { width } = Dimensions.get("window");
-const FIRST_LAUNCH_KEY = "hasLaunchedBefore";
 
 export default function Index() {
   const [done, setDone] = useState(false);
@@ -23,7 +22,7 @@ export default function Index() {
 
   useEffect(() => {
     async function init() {
-      await SplashScreen.hideAsync(); // ← شيل AsyncStorage.clear() تماماً
+      await SplashScreen.hideAsync();
 
       Animated.parallel([
         Animated.timing(logoOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
@@ -35,10 +34,10 @@ export default function Index() {
           .start(async () => {
             setDone(true);
 
-            const hasLaunched = await AsyncStorage.getItem(FIRST_LAUNCH_KEY);
+            const savedRole = await AsyncStorage.getItem("app_role");
 
-            if (!hasLaunched) {
-              await AsyncStorage.setItem(FIRST_LAUNCH_KEY, "true");
+            // No role = onboarding never completed → show startup
+            if (!savedRole) {
               router.replace("/startup");
               return;
             }
@@ -46,9 +45,7 @@ export default function Index() {
             const savedLang = await AsyncStorage.getItem("app_language") as "ar" | "en" | null;
             if (savedLang) setLang(savedLang);
 
-            const savedRole = await AsyncStorage.getItem("app_role");
-
-            // Check Firebase auth state once — signed-in users go straight to home
+            // Onboarding done — check Firebase auth state once
             const unsub = onAuthStateChanged(auth, (user) => {
               unsub();
               if (user) {
@@ -60,10 +57,8 @@ export default function Index() {
               } else {
                 if (savedRole === "doctor") {
                   router.replace("/Doctor/Docsignin");
-                } else if (savedRole === "patient") {
-                  router.replace("/auth/sign-in");
                 } else {
-                  router.replace("/langchoose");
+                  router.replace("/auth/sign-in");
                 }
               }
             });

@@ -205,7 +205,7 @@ export default function ChatsListScreen() {
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.8}>
-          <Ionicons name="arrow-back" size={22} color={DOC_COLOR} />
+          <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={22} color={DOC_COLOR} />
         </TouchableOpacity>
         <View style={styles.headerTitleWrap} pointerEvents="none">
           <Text style={styles.headerTitle}>{t.docChats}</Text>

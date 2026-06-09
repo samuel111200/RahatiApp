@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import {
   collection, query, where, onSnapshot,
-  addDoc, getDocs,
+  addDoc, getDocs, getDoc, doc,
 } from 'firebase/firestore';
 import { db, FSUser } from '../../utils/firebaseConfig';
 import { useAuth } from '../../context/AuthContext';
@@ -129,7 +129,15 @@ export default function DoctorsScreen() {
     setShowModal(false); setShowAllDoctorsPage(false);
     const patientUid = user?.uid;
     if (patientUid && docItem.firebaseUid) {
-      const patientName = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || t.patientDefault;
+      let patientName = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim();
+      if (!patientName) {
+        try {
+          const snap = await getDoc(doc(db, 'users', patientUid));
+          const data = snap.data();
+          patientName = `${data?.firstName ?? ''} ${data?.lastName ?? ''}`.trim();
+        } catch {}
+      }
+      if (!patientName) patientName = t.patientDefault;
       try {
         const existing = await getDocs(query(
           collection(db, 'relationships'),
@@ -144,8 +152,8 @@ export default function DoctorsScreen() {
           });
           sendPushToUser(
             docItem.firebaseUid,
-            isRTL ? '🆕 طلب انضمام جديد' : '🆕 New join request',
-            isRTL ? `${patientName} أرسل طلب انضمام` : `${patientName} sent a join request`,
+            { ar: '🆕 طلب انضمام جديد', en: '🆕 New join request' },
+            { ar: `${patientName} أرسل طلب انضمام`, en: `${patientName} sent a join request` },
           ).catch(() => {});
         }
       } catch {}

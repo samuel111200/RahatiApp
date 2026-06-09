@@ -1,6 +1,8 @@
 // context/LanguageContext.tsx
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../utils/firebaseConfig';
 
 const LANG_KEY = 'app_language';
 
@@ -706,6 +708,11 @@ const AR = {
   startupTagline3: 'أفضل 💜',
   startupBtn: 'ابدأ يومك',
   startupFooter: 'أجل رحلة بناء عاداتك اليومية وتحقيق طاقة حياتك',
+
+  // ── Notification content ──────────────────────────────────────────────────
+  taskDoneNotifTitle:     '✅ أحسنت! أكملت مهمة',
+  exerciseDoneNotifTitle: '💪 انتهى التمرين!',
+  exerciseDoneNotifBody:  'عمل رائع، واصل التميز! 🌟',
 };
 
 const EN: typeof AR = {
@@ -1408,6 +1415,11 @@ const EN: typeof AR = {
   startupTagline3: 'better life 💜',
   startupBtn: 'Start Your Day',
   startupFooter: 'Build your daily habits and achieve your energy goals',
+
+  // ── Notification content ──────────────────────────────────────────────────
+  taskDoneNotifTitle:     '✅ Great job! Task completed',
+  exerciseDoneNotifTitle: '💪 Exercise session done!',
+  exerciseDoneNotifBody:  'Keep it up, you\'re doing great! 🌟',
 };
 
 interface LangContextType {
@@ -1431,6 +1443,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const setLang = useCallback((l: Lang) => {
     setLangState(l);
     AsyncStorage.setItem(LANG_KEY, l).catch(() => {});
+    const uid = auth.currentUser?.uid;
+    if (uid) setDoc(doc(db, 'users', uid), { lang: l }, { merge: true }).catch(() => {});
   }, []);
 
   const t = lang === 'ar' ? AR : EN;

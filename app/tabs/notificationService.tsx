@@ -127,8 +127,8 @@ export async function sendPushNotification(
         body,
         ...(Platform.OS === "android" && {
           // @ts-ignore
-          icon: "logo",
-          largeIcon: "logo",
+          icon: "character",
+          largeIcon: "character",
           color: "#7C5CBF",
           channelId,
         }),

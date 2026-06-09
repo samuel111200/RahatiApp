@@ -33,24 +33,38 @@ export function startTokenRefreshListener(uid: string): () => void {
   return () => sub.remove();
 }
 
+type BilingualStr = string | { ar: string; en: string };
+
+function pickLang(val: BilingualStr, lang: string): string {
+  if (typeof val === 'string') return val;
+  return lang === 'en' ? val.en : val.ar;
+}
+
 export async function sendPushToUser(
   targetUid: string,
-  title: string,
-  body: string,
+  title: BilingualStr,
+  body: BilingualStr,
 ): Promise<void> {
   try {
     const snap = await getDoc(doc(db, 'users', targetUid));
     if (!snap.exists()) return;
-    const token = snap.data().fcmToken as string | undefined;
+    const data  = snap.data();
+    const token = data.fcmToken as string | undefined;
     if (!token) return;
+    const lang  = (data.lang as string) ?? 'ar';
     await fetch('https://exp.host/--/api/v2/push/send', {
       method: 'POST',
       headers: {
-        'Content-Type':   'application/json',
-        'Accept':         'application/json',
+        'Content-Type':    'application/json',
+        'Accept':          'application/json',
         'Accept-Encoding': 'gzip, deflate',
       },
-      body: JSON.stringify({ to: token, title, body, sound: 'default' }),
+      body: JSON.stringify({
+        to:    token,
+        title: pickLang(title, lang),
+        body:  pickLang(body,  lang),
+        sound: 'default',
+      }),
     });
   } catch (e) {
     console.warn('[pushNotifications] sendPushToUser:', e);

@@ -3,8 +3,12 @@ import { useEffect } from 'react';
 import { Stack, router, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, I18nManager } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Disable OS-level RTL so the app controls direction entirely via isRTL state.
+// Without this, Arabic system-locale devices double-reverse every flex layout.
+I18nManager.allowRTL(false);
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { LanguageProvider } from '../context/Languagecontext';
 import '../global.css';

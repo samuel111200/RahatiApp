@@ -11,6 +11,7 @@ import {
   setupNotifications,
   startAllWatchers,
   areWatchersRunning,
+  sendPushNotification,
 } from './notificationService';
 import MedicationNote from '../../components/Medicationnote';
 import { useAuth } from '../../context/AuthContext';
@@ -580,17 +581,23 @@ export default function PlanScreen() {
 
   const handleToggleDone = async (taskId: string) => {
     if (isPastDay || isFutureDay) return;
-    const task = withExercises.find(t => t.id === taskId);
+    const task = withExercises.find(tk => tk.id === taskId);
     if (!task) return;
     const status = getStatus(task);
     if (status === 'locked') return;
 
     setDoneIds(prev => {
+      const isCompleting = !prev.has(taskId);
       const next = new Set(prev);
-      if (next.has(taskId)) {
-        next.delete(taskId);
-      } else {
+      if (isCompleting) {
         next.add(taskId);
+        sendPushNotification(
+          t.taskDoneNotifTitle,
+          task.title,
+          'completion',
+        ).catch(() => {});
+      } else {
+        next.delete(taskId);
       }
       saveDoneIds(selectedDate, next, user?.uid ?? null);
       return next;

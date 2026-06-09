@@ -555,9 +555,10 @@ function ExerciseManagementModal({
         assignedAt: Date.now(), completed: false, type: ex.type,
         pendingEdit: null, source: 'doctor', systemKey: ex.key,
       });
-      sendPushToUser(patientId,
-        isRTL ? '🏋️ تمرين جديد من طبيبك' : '🏋️ New exercise from your doctor',
-        `${ex.emoji} ${title}`,
+      sendPushToUser(
+        patientId,
+        { ar: '🏋️ تمرين جديد من طبيبك', en: '🏋️ New exercise from your doctor' },
+        { ar: `${ex.emoji} ${ex.titleAr || title}`, en: `${ex.emoji} ${ex.titleEn || title}` },
       ).catch(() => {});
     } catch (e) { console.warn('[assignSysEx]', e); }
   };
@@ -582,7 +583,7 @@ function ExerciseManagementModal({
       });
       sendPushToUser(
         patientId,
-        isRTL ? '🏋️ تمرين جديد من طبيبك' : '🏋️ New exercise from your doctor',
+        { ar: '🏋️ تمرين جديد من طبيبك', en: '🏋️ New exercise from your doctor' },
         `${newEmoji.trim() || '🏋️'} ${newTitle.trim()}`,
       ).catch(() => {});
       resetForm(); setShowAddForm(false);
@@ -652,7 +653,7 @@ function ExerciseManagementModal({
         {/* ── Header ── */}
         <View style={exStyles.header}>
           <TouchableOpacity onPress={onClose} style={exStyles.backBtn} activeOpacity={0.8}>
-            <Ionicons name="arrow-back" size={22} color={DOC_COLOR} />
+            <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={22} color={DOC_COLOR} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={exStyles.headerTitle}>{exTitle}</Text>
@@ -1172,7 +1173,7 @@ export default function Docpatient() {
     }).catch(() => {});
     await updateChatMeta(text.trim(), ts);
     notifyMessageSent(patientName || t.patientDefault, patientId || '', text.trim()).catch(() => {});
-    if (patientId) sendPushToUser(patientId, isRTL ? '💬 رسالة من طبيبك' : '💬 Message from your doctor', text.trim()).catch(() => {});
+    if (patientId) sendPushToUser(patientId, { ar: '💬 رسالة من طبيبك', en: '💬 Message from your doctor' }, text.trim()).catch(() => {});
     setInputText('');
     setShowQuick(false);
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
@@ -1196,9 +1197,9 @@ export default function Docpatient() {
     }).catch(() => {});
     await updateChatMeta(preview, ts);
     notifyMessageSent(patientName || t.patientDefault, patientId || '', preview).catch(() => {});
-    if (patientId) sendPushToUser(patientId, isRTL ? '💬 رسالة من طبيبك' : '💬 Message from your doctor', preview).catch(() => {});
+    if (patientId) sendPushToUser(patientId, { ar: '💬 رسالة من طبيبك', en: '💬 Message from your doctor' }, preview).catch(() => {});
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-  }, [chatId, patientId, patientName, isRTL, updateChatMeta]);
+  }, [chatId, patientId, patientName, updateChatMeta]);
 
   const handleQuickReply = (text: string) => {
     sendMessage(text);
@@ -1238,7 +1239,7 @@ export default function Docpatient() {
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.8}>
-          <Ionicons name="arrow-back" size={22} color={DOC_COLOR} />
+          <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={22} color={DOC_COLOR} />
         </TouchableOpacity>
         <View style={styles.headerInfo}>
           <View style={[styles.headerAvatar, isOnline && styles.headerAvatarOnline]}>

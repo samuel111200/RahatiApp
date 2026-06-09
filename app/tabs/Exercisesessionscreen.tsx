@@ -17,6 +17,7 @@ import { Video, ResizeMode } from 'expo-av';
 import * as Speech from 'expo-speech';
 import { useLang } from '../../context/Languagecontext';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
+import { sendPushNotification } from './notificationService';
 
 const EXERCISE_VIDEOS: Record<string, any> = {
   wristCurls:        require("../../assets/videos/first.mp4"),
@@ -239,6 +240,7 @@ export default function ExerciseSessionScreen() {
 
   function handleDone() {
     stopSpeaking();
+    sendPushNotification(t.exerciseDoneNotifTitle, t.exerciseDoneNotifBody, 'exercises').catch(() => {});
     setShowDone(false);
     router.push('/tabs/exercises');
   }
