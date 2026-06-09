@@ -567,7 +567,7 @@ export default function MoreScreen() {
             <Text style={styles.modalBody}>{t.logoutConfirm}</Text>
             <View style={styles.modalBtns}>
               <OutlineButton title={t.cancel} onPress={close} style={{ flex: 1 }} />
-              <PrimaryButton title={t.confirm} onPress={() => { close(); logout(); router.replace('/auth/sign-in'); }} style={{ flex: 1, backgroundColor: Colors.danger }} />
+              <PrimaryButton title={t.confirm} onPress={() => { close(); logout(); }} style={{ flex: 1, backgroundColor: Colors.danger }} />
             </View>
           </View>
         </View>

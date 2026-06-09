@@ -191,9 +191,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    await signOut(auth);
     setUser(null);
     setIsAuthenticated(false);
+    await signOut(auth);
   };
 
   const updateProfile = async (data: Partial<User>) => {

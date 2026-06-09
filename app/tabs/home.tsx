@@ -139,7 +139,7 @@ function buildPlanList(
     result.push(task);
     // Insert exercise BETWEEN tasks — not after the last one
     if (index < allTasks.length - 1) {
-      const ex = coreExercises[index % coreExercises.length];
+      const ex = coreExercises[Math.floor(Math.random() * coreExercises.length)];
       result.push(mapExerciseToTask(ex, index, task.date));
     }
   });
