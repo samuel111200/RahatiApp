@@ -33,6 +33,80 @@ const DAYS_EN: Record<string, string> = {
 };
 const DAY_KEYS = ['daily', 'sat', 'sun', 'mon', 'tue', 'wed', 'thu', 'fri'];
 
+// ─── AM/PM helpers ────────────────────────────────────────
+type Period = 'AM' | 'PM';
+
+/** Convert "HH:MM" (24h) → { display: "hh:MM", period } */
+function to12h(raw: string): { display: string; period: Period } {
+  const [hStr, mStr] = raw.split(':');
+  let h = parseInt(hStr, 10);
+  const m = mStr ?? '00';
+  if (isNaN(h)) return { display: '', period: 'AM' };
+  const period: Period = h >= 12 ? 'PM' : 'AM';
+  if (h === 0) h = 12;
+  else if (h > 12) h -= 12;
+  return { display: `${String(h).padStart(2, '0')}:${m}`, period };
+}
+
+/** Convert "hh:MM" + period → "HH:MM" (24h) */
+function to24h(display: string, period: Period): string {
+  const [hStr, mStr] = display.split(':');
+  let h = parseInt(hStr, 10);
+  const m = mStr ?? '00';
+  if (isNaN(h)) return display;
+  if (period === 'AM') {
+    if (h === 12) h = 0;
+  } else {
+    if (h !== 12) h += 12;
+  }
+  return `${String(h).padStart(2, '0')}:${m}`;
+}
+
+/** Format stored 24h time for display with AM/PM label */
+function formatTimeDisplay(time24: string, isRTL: boolean): string {
+  if (!time24) return '';
+  const { display, period } = to12h(time24);
+  if (!display) return time24;
+  const label = isRTL
+    ? (period === 'AM' ? 'ص' : 'م')
+    : period;
+  return isRTL ? `${label} ${display}` : `${display} ${label}`;
+}
+
+// ─── AM/PM Toggle Component ───────────────────────────────
+function AmPmToggle({ period, onChange, isRTL }: {
+  period: Period; onChange: (p: Period) => void; isRTL: boolean;
+}) {
+  const options: { value: Period; label: string }[] = isRTL
+    ? [{ value: 'AM', label: 'ص' }, { value: 'PM', label: 'م' }]
+    : [{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }];
+
+  return (
+    <View style={ampmSt.wrap}>
+      {options.map(opt => (
+        <TouchableOpacity
+          key={opt.value}
+          onPress={() => onChange(opt.value)}
+          activeOpacity={0.8}
+          style={[ampmSt.btn, period === opt.value && ampmSt.btnActive]}
+        >
+          <Text style={[ampmSt.text, period === opt.value && ampmSt.textActive]}>
+            {opt.label}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+const ampmSt = StyleSheet.create({
+  wrap:       { borderWidth: 1.5, borderColor: '#E0D6F5', borderRadius: 12, overflow: 'hidden', flexDirection: 'column' },
+  btn:        { paddingHorizontal: 10, paddingVertical: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F8F5FF' },
+  btnActive:  { backgroundColor: '#7C5CBF' },
+  text:       { fontSize: 12, fontWeight: '800', color: '#7C5CBF' },
+  textActive: { color: '#fff' },
+});
+
 // ─── Notification helpers ────────────────────────────────
 async function cancelMedNotifs(ids: string[] = []) {
   for (const id of ids) {
@@ -62,7 +136,7 @@ async function scheduleMedNotifs(
       const id1 = await Notifications.scheduleNotificationAsync({
         content: {
           title: isRTL ? '⏰ تذكير دواء قريب' : '⏰ Medication Reminder',
-          body: `${med.name}${med.dose ? ' — ' + med.dose : ''} ${isRTL ? `بعد 5 دقائق (${med.time})` : `in 5 minutes (${med.time})`}`,
+          body: `${med.name}${med.dose ? ' — ' + med.dose : ''} ${isRTL ? `بعد 5 دقائق (${formatTimeDisplay(med.time, isRTL)})` : `in 5 minutes (${formatTimeDisplay(med.time, isRTL)})`}`,
           sound: 'default',
           ...(Platform.OS === 'android' ? { channelId: 'medications' } : {}),
         },
@@ -115,7 +189,8 @@ function AddMedModal({ visible, onClose, onAdd, t, isRTL }: {
 }) {
   const [name, setName]                 = useState('');
   const [dose, setDose]                 = useState('');
-  const [time, setTime]                 = useState('');
+  const [timeDisplay, setTimeDisplay]   = useState(''); // 12h display e.g. "09:00"
+  const [period, setPeriod]             = useState<Period>('AM');
   const [selectedDays, setSelectedDays] = useState<string[]>(['daily']);
   const [notes, setNotes]               = useState('');
   const [saving, setSaving]             = useState(false);
@@ -124,7 +199,7 @@ function AddMedModal({ visible, onClose, onAdd, t, isRTL }: {
 
   useEffect(() => {
     if (!visible) {
-      setName(''); setDose(''); setTime('');
+      setName(''); setDose(''); setTimeDisplay(''); setPeriod('AM');
       setSelectedDays(['daily']); setNotes(''); setSaving(false);
     }
   }, [visible]);
@@ -143,13 +218,15 @@ function AddMedModal({ visible, onClose, onAdd, t, isRTL }: {
 
   const handleSave = async () => {
     if (!name.trim()) { Alert.alert(isRTL ? 'تنبيه' : 'Notice', t.medicationNameRequired); return; }
-    if (!time.trim() || !/^\d{1,2}:\d{2}$/.test(time.trim())) {
+    if (!timeDisplay.trim() || !/^\d{1,2}:\d{2}$/.test(timeDisplay.trim())) {
       Alert.alert(isRTL ? 'تنبيه' : 'Notice', t.medicationTimeFormat); return;
     }
     if (saving) return;
     setSaving(true);
+    // Convert to 24h for storage
+    const time24 = to24h(timeDisplay.trim(), period);
     try {
-      await onAdd({ name: name.trim(), dose: dose.trim(), time: time.trim(), days: selectedDays, notes: notes.trim() });
+      await onAdd({ name: name.trim(), dose: dose.trim(), time: time24, days: selectedDays, notes: notes.trim() });
       onClose();
     } catch (e) {
       Alert.alert(isRTL ? 'خطأ' : 'Error', t.medicationConnError);
@@ -176,18 +253,28 @@ function AddMedModal({ visible, onClose, onAdd, t, isRTL }: {
               placeholder={isRTL ? 'مثال: باراسيتامول' : 'e.g. Paracetamol'}
               placeholderTextColor="#B0BEC5" textAlign={isRTL ? 'right' : 'left'}
             />
+
             <Text style={[addSt.label, { textAlign: isRTL ? 'right' : 'left' }]}>{t.medicationDose}</Text>
             <TextInput
               style={addSt.input} value={dose} onChangeText={setDose}
               placeholder={isRTL ? 'مثال: حبة واحدة — 500mg' : 'e.g. One tablet — 500mg'}
               placeholderTextColor="#B0BEC5" textAlign={isRTL ? 'right' : 'left'}
             />
+
             <Text style={[addSt.label, { textAlign: isRTL ? 'right' : 'left' }]}>{t.medicationTime}</Text>
-            <TextInput
-              style={addSt.input} value={time} onChangeText={setTime}
-              placeholder="09:00" placeholderTextColor="#B0BEC5"
-              keyboardType="numbers-and-punctuation" textAlign="center"
-            />
+            <View style={addSt.timeRow}>
+              <TextInput
+                style={[addSt.input, addSt.timeInput]}
+                value={timeDisplay}
+                onChangeText={setTimeDisplay}
+                placeholder="09:00"
+                placeholderTextColor="#B0BEC5"
+                keyboardType="numbers-and-punctuation"
+                textAlign="center"
+              />
+              <AmPmToggle period={period} onChange={setPeriod} isRTL={isRTL} />
+            </View>
+
             <Text style={[addSt.label, { textAlign: isRTL ? 'right' : 'left' }]}>{t.medicationDays}</Text>
             <View style={addSt.daysWrap}>
               {DAY_KEYS.map(k => {
@@ -202,6 +289,7 @@ function AddMedModal({ visible, onClose, onAdd, t, isRTL }: {
                 );
               })}
             </View>
+
             <Text style={[addSt.label, { textAlign: isRTL ? 'right' : 'left' }]}>{t.medicationNotes}</Text>
             <TextInput
               style={[addSt.input, { height: 64, textAlignVertical: 'top' }]}
@@ -209,6 +297,7 @@ function AddMedModal({ visible, onClose, onAdd, t, isRTL }: {
               placeholder={isRTL ? 'أي ملاحظات إضافية...' : 'Any additional notes...'}
               placeholderTextColor="#B0BEC5" multiline textAlign={isRTL ? 'right' : 'left'}
             />
+
             <TouchableOpacity
               style={[addSt.saveBtn, saving && { opacity: 0.6 }]}
               onPress={handleSave} disabled={saving} activeOpacity={0.85}
@@ -232,6 +321,8 @@ const addSt = StyleSheet.create({
   closeBtn:      { width: 32, height: 32, borderRadius: 16, backgroundColor: '#F0F0F0', alignItems: 'center', justifyContent: 'center' },
   label:         { fontSize: 13, color: '#888', fontWeight: '600', marginBottom: 6, marginTop: 10 },
   input:         { borderWidth: 1.5, borderColor: '#E0D6F5', borderRadius: 12, fontSize: 14, padding: 10, backgroundColor: '#FAFAFA', color: '#333' },
+  timeRow:       { flexDirection: 'row', alignItems: 'stretch', gap: 8, marginBottom: 4 },
+  timeInput:     { flex: 1, marginBottom: 0 },
   daysWrap:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
   dayBtn:        { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1.5, borderColor: '#E0D6F5', backgroundColor: '#F8F5FF' },
   dayBtnActive:  { backgroundColor: '#7C5CBF', borderColor: '#7C5CBF' },
@@ -374,9 +465,10 @@ export default function MedicationNote() {
                         <Text style={noteSt.medName}>{med.name}</Text>
                         {!!med.dose && <Text style={noteSt.medDose}>{med.dose}</Text>}
                       </View>
+                      {/* Time chip shows 12h + AM/PM label */}
                       <View style={noteSt.timeChip}>
                         <Ionicons name="time-outline" size={12} color="#7C5CBF" />
-                        <Text style={noteSt.timeText}>{med.time}</Text>
+                        <Text style={noteSt.timeText}>{formatTimeDisplay(med.time, isRTL)}</Text>
                       </View>
                       <TouchableOpacity onPress={() => handleDelete(med)} style={noteSt.deleteBtn}>
                         <Ionicons name="trash-outline" size={15} color="#E05C5C" />

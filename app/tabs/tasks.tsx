@@ -21,6 +21,8 @@ type Task = {
   name?: string; date?: string; type: TaskType;
 };
 
+type Period = 'AM' | 'PM';
+
 const CAT_COLORS: Record<string, { color: string; bg: string }> = {
   work:  { color: '#5B9BD5', bg: '#E8F1FB' },
   study: { color: '#4CAF82', bg: '#E8F5EF' },
@@ -31,6 +33,78 @@ function todayKey() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+
+// ─── AM/PM helpers ────────────────────────────────────────
+function to24h(display: string, period: Period): string {
+  const [hStr, mStr] = display.split(':');
+  let h = parseInt(hStr, 10);
+  const m = mStr ?? '00';
+  if (isNaN(h)) return display;
+  if (period === 'AM') {
+    if (h === 12) h = 0;
+  } else {
+    if (h !== 12) h += 12;
+  }
+  return `${String(h).padStart(2, '0')}:${m}`;
+}
+
+function to12h(raw: string): { display: string; period: Period } {
+  const [hStr, mStr] = raw.split(':');
+  let h = parseInt(hStr, 10);
+  const m = mStr ?? '00';
+  if (isNaN(h)) return { display: raw, period: 'AM' };
+  const period: Period = h >= 12 ? 'PM' : 'AM';
+  if (h === 0) h = 12;
+  else if (h > 12) h -= 12;
+  return { display: `${String(h).padStart(2, '0')}:${m}`, period };
+}
+
+/** Format a stored 24h time string for display with AM/PM or ص/م */
+function formatTime(time: string, isRTL: boolean): string {
+  if (!time || time === '--:--') return time;
+  // Handle range like "09:00 - 10:00"
+  if (time.includes(' - ')) {
+    const [start, end] = time.split(' - ');
+    return `${formatTime(start.trim(), isRTL)} — ${formatTime(end.trim(), isRTL)}`;
+  }
+  const { display, period } = to12h(time);
+  const label = isRTL ? (period === 'AM' ? 'ص' : 'م') : period;
+  return isRTL ? `${label} ${display}` : `${display} ${label}`;
+}
+
+// ─── AM/PM Toggle ─────────────────────────────────────────
+function AmPmToggle({ period, onChange, isRTL }: {
+  period: Period; onChange: (p: Period) => void; isRTL: boolean;
+}) {
+  const options: { value: Period; label: string }[] = isRTL
+    ? [{ value: 'AM', label: 'ص' }, { value: 'PM', label: 'م' }]
+    : [{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }];
+
+  return (
+    <View style={ampmSt.wrap}>
+      {options.map(opt => (
+        <TouchableOpacity
+          key={opt.value}
+          onPress={() => onChange(opt.value)}
+          activeOpacity={0.8}
+          style={[ampmSt.btn, period === opt.value && ampmSt.btnActive]}
+        >
+          <Text style={[ampmSt.text, period === opt.value && ampmSt.textActive]}>
+            {opt.label}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+const ampmSt = StyleSheet.create({
+  wrap:       { borderWidth: 1.5, borderColor: Colors.border, borderRadius: Radius.lg, overflow: 'hidden', flexDirection: 'column' },
+  btn:        { paddingHorizontal: 10, paddingVertical: 7, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background },
+  btnActive:  { backgroundColor: Colors.primary },
+  text:       { fontSize: 11, fontWeight: '800', color: Colors.primary },
+  textActive: { color: '#fff' },
+});
 
 export default function TasksScreen() {
   const { t, isRTL } = useLang();
@@ -59,7 +133,9 @@ export default function TasksScreen() {
   const [newName,       setNewName]       = useState('');
   const [newIcon,       setNewIcon]       = useState('');
   const [newTimeStart,  setNewTimeStart]  = useState('');
+  const [newPeriodStart, setNewPeriodStart] = useState<Period>('AM');
   const [newTimeEnd,    setNewTimeEnd]    = useState('');
+  const [newPeriodEnd,  setNewPeriodEnd]  = useState<Period>('AM');
   const [newEnergy,     setNewEnergy]     = useState('');
   const [newCat,        setNewCat]        = useState('work');
   const [newType,       setNewType]       = useState<TaskType>('core');
@@ -68,25 +144,19 @@ export default function TasksScreen() {
 
   const longPressTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  // Real-time Firestore listener — scoped to the signed-in user
   useEffect(() => {
     if (!uid) return;
     const unsub = onSnapshot(collection(db, 'tasks', uid, 'items'), (snap) => {
       const today = todayKey();
       const all: Task[] = snap.docs.map(d => d.data() as Task);
-
       const core  = all.filter(tk => tk.type === 'core');
-      // drop extra tasks that belong to a past date
       const extra = all.filter(tk => tk.type === 'extra' && (!tk.date || tk.date === today));
-
-      // delete stale extra tasks from Firestore silently
       snap.docs.forEach(d => {
         const tk = d.data() as Task;
         if (tk.type === 'extra' && tk.date && tk.date !== today) {
           deleteDoc(d.ref).catch(() => {});
         }
       });
-
       setCoreTasks(core);
       setExtraTasks(extra);
     });
@@ -154,14 +224,18 @@ export default function TasksScreen() {
   }
 
   const openModal = () => {
-    setNewName(''); setNewIcon(''); setNewTimeStart(''); setNewTimeEnd('');
+    setNewName(''); setNewIcon('');
+    setNewTimeStart(''); setNewPeriodStart('AM');
+    setNewTimeEnd('');   setNewPeriodEnd('AM');
     setNewEnergy(''); setNewCat('work'); setNewType(activeSection);
     setNameError(false); setSaving(false); setModalVisible(true);
   };
 
   const closeModal = () => {
     Keyboard.dismiss(); setModalVisible(false);
-    setNewName(''); setNewIcon(''); setNewTimeStart(''); setNewTimeEnd('');
+    setNewName(''); setNewIcon('');
+    setNewTimeStart(''); setNewPeriodStart('AM');
+    setNewTimeEnd('');   setNewPeriodEnd('AM');
     setNewEnergy(''); setNewCat('work'); setNameError(false); setSaving(false);
   };
 
@@ -171,9 +245,14 @@ export default function TasksScreen() {
     setSaving(true);
     try {
       const catColors = CAT_COLORS[newCat] ?? CAT_COLORS.work;
-      const timeStr = newTimeStart && newTimeEnd
-        ? `${newTimeStart.trim()} - ${newTimeEnd.trim()}`
-        : newTimeStart.trim() || '--:--';
+
+      // Convert 12h → 24h before building the time string
+      const start24 = newTimeStart.trim() ? to24h(newTimeStart.trim(), newPeriodStart) : '';
+      const end24   = newTimeEnd.trim()   ? to24h(newTimeEnd.trim(),   newPeriodEnd)   : '';
+      const timeStr = start24 && end24
+        ? `${start24} - ${end24}`
+        : start24 || '--:--';
+
       const energy = Math.min(100, Math.max(5, parseInt(newEnergy) || 20));
       const key = `task_${Date.now()}`;
       const newTask: Task = {
@@ -305,7 +384,8 @@ export default function TasksScreen() {
                   </View>
                   <View style={[styles.taskMetaRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                     <Ionicons name="time-outline" size={12} color={Colors.textMuted} />
-                    <Text style={styles.taskTime}> {task.time}</Text>
+                    {/* Display time with AM/PM label */}
+                    <Text style={styles.taskTime}> {formatTime(task.time, isRTL)}</Text>
                   </View>
                   <View style={[styles.energyRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
                     <View style={styles.energyTrack}>
@@ -369,22 +449,36 @@ export default function TasksScreen() {
                 value={newIcon} onChangeText={setNewIcon}
               />
 
-              {/* Time */}
+              {/* Time with AM/PM toggles */}
               <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskTime}</Text>
               <View style={[styles.timeRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <TextInput
-                  style={[styles.fieldInput, { flex: 1 }]}
-                  placeholder={t.taskTimeFromPlaceholder}
-                  placeholderTextColor={Colors.textMuted}
-                  value={newTimeStart} onChangeText={setNewTimeStart} textAlign="center"
-                />
+                {/* Start time */}
+                <View style={styles.timeSlot}>
+                  <TextInput
+                    style={styles.timeInput}
+                    placeholder={t.taskTimeFromPlaceholder}
+                    placeholderTextColor={Colors.textMuted}
+                    value={newTimeStart} onChangeText={setNewTimeStart}
+                    keyboardType="numbers-and-punctuation"
+                    textAlign="center"
+                  />
+                  <AmPmToggle period={newPeriodStart} onChange={setNewPeriodStart} isRTL={isRTL} />
+                </View>
+
                 <Text style={styles.timeSep}>—</Text>
-                <TextInput
-                  style={[styles.fieldInput, { flex: 1 }]}
-                  placeholder={t.taskTimeToPlaceholder}
-                  placeholderTextColor={Colors.textMuted}
-                  value={newTimeEnd} onChangeText={setNewTimeEnd} textAlign="center"
-                />
+
+                {/* End time */}
+                <View style={styles.timeSlot}>
+                  <TextInput
+                    style={styles.timeInput}
+                    placeholder={t.taskTimeToPlaceholder}
+                    placeholderTextColor={Colors.textMuted}
+                    value={newTimeEnd} onChangeText={setNewTimeEnd}
+                    keyboardType="numbers-and-punctuation"
+                    textAlign="center"
+                  />
+                  <AmPmToggle period={newPeriodEnd} onChange={setNewPeriodEnd} isRTL={isRTL} />
+                </View>
               </View>
 
               {/* Category */}
@@ -476,8 +570,11 @@ const styles = StyleSheet.create({
   fieldInput:     { borderWidth: 1.5, borderColor: Colors.border, borderRadius: Radius.lg, padding: 10, fontSize: FontSize.base, color: Colors.textPrimary, backgroundColor: Colors.background, marginBottom: 14 },
   fieldInputError:{ borderColor: '#E24B4A' },
   errorText:      { fontSize: FontSize.xs, color: '#E24B4A', marginTop: -10, marginBottom: 8 },
-  timeRow:     { gap: 10, marginBottom: 14, alignItems: 'center' },
-  timeSep:     { color: Colors.textMuted, fontSize: 18, marginBottom: 14 },
+  // Time row: two slots side by side with a separator
+  timeRow:     { gap: 8, marginBottom: 14, alignItems: 'center' },
+  timeSlot:    { flex: 1, flexDirection: 'row', alignItems: 'stretch', gap: 6 },
+  timeInput:   { flex: 1, borderWidth: 1.5, borderColor: Colors.border, borderRadius: Radius.lg, padding: 10, fontSize: FontSize.base, color: Colors.textPrimary, backgroundColor: Colors.background, textAlign: 'center' },
+  timeSep:     { color: Colors.textMuted, fontSize: 18 },
   catRow:      { gap: 10, marginBottom: 14 },
   catBtn:      { flex: 1, paddingVertical: 10, borderRadius: Radius.lg, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center', backgroundColor: Colors.background },
   catBtnActive:    { backgroundColor: Colors.primary, borderColor: Colors.primary },
