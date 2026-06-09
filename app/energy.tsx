@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth } from '../utils/firebaseConfig';
 
 const SIZE = 220;
 const RADIUS = 90;
@@ -34,10 +35,11 @@ export default function EnergyScreen() {
   const emptyLength  = CIRCUMFERENCE - filledLength;
 
   const handleSave = async () => {
-    const today = new Date().toISOString().split('T')[0]; // "2025-01-15"
-    await AsyncStorage.setItem('energy_level', String(energy));
-    await AsyncStorage.setItem('energy_date', today);
-  router.push("/tabs/home")
+    const today = new Date().toISOString().split('T')[0];
+    const uid   = auth.currentUser?.uid ?? 'guest';
+    await AsyncStorage.setItem(`energy_level_${uid}`, String(energy));
+    await AsyncStorage.setItem(`energy_date_${uid}`, today);
+    router.replace('/tabs/home');
   };
 
   return (

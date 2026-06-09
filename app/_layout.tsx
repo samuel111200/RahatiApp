@@ -36,7 +36,15 @@ function AuthGuard() {
     if (isAuthenticated && user) {
       // Logged-in user on an auth screen → push them to their home
       if (isOnPatientAuth || isOnDoctorAuth) {
-        router.replace(user.role === 'doctor' ? '/Doctor/Dochome' : '/tabs/home');
+        if (user.role === 'doctor') {
+          router.replace('/Doctor/Dochome');
+        } else {
+          const today = new Date().toISOString().split('T')[0];
+          const uid   = user.uid ?? 'guest';
+          AsyncStorage.getItem(`energy_date_${uid}`).then(savedDate => {
+            router.replace(savedDate === today ? '/tabs/home' : '/energy');
+          });
+        }
       }
     } else if (!isAuthenticated) {
       // Unauthenticated user on a home screen → push them to sign-in
@@ -62,6 +70,7 @@ export default function RootLayout() {
             <Stack.Screen name="index" />
             <Stack.Screen name="startup"    options={{ gestureEnabled: false }} />
             <Stack.Screen name="langchoose" options={{ gestureEnabled: false }} />
+            <Stack.Screen name="energy"     options={{ gestureEnabled: false }} />
             {/* Auth screens — no swipe-back once inside the app */}
             <Stack.Screen name="auth"   options={{ gestureEnabled: false }} />
             <Stack.Screen name="tabs"   options={{ gestureEnabled: false }} />
