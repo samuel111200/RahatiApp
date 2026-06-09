@@ -312,7 +312,11 @@ export default function DocHome() {
   const handleOpenChat = (patient: Patient) => {
     router.push({
       pathname: '/Doctor/Docpatient',
-      params: { patientId: patient.id, patientName: `${patient.firstName} ${patient.lastName}` },
+      params: {
+        patientId:       patient.id,
+        patientName:     `${patient.firstName} ${patient.lastName}`,
+        patientPhotoUrl: patient.avatar ?? '',
+      },
     });
   };
 

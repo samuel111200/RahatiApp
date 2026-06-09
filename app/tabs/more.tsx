@@ -49,7 +49,7 @@ function MenuRow({ icon, label, value, color, onPress, isLast, isRTL }: {
       style={[styles.menuRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }, !isLast && styles.menuRowBorder]}>
       <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color={Colors.primary + '80'} />
       {value ? <Text style={styles.menuValue}>{value}</Text> : null}
-      <Text style={styles.menuLabel}>{label}</Text>
+      <Text style={[styles.menuLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{label}</Text>
       <View style={[styles.menuIcon, { backgroundColor: color + '18' }]}>
         <Ionicons name={icon as any} size={20} color={color} />
       </View>
@@ -453,7 +453,7 @@ export default function MoreScreen() {
       <StatusBar backgroundColor={Colors.background} barStyle="dark-content" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
-        <View style={styles.topBar}>
+        <View style={[styles.topBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <View style={{ width: 40 }} />
           <Text style={styles.pageTitle}>{t.profile}</Text>
           <TouchableOpacity style={styles.editBtn} onPress={() => open('editProfile')}>
@@ -479,7 +479,7 @@ export default function MoreScreen() {
 
         {/* Energy Card */}
         <TouchableOpacity onPress={() => open('energy')} activeOpacity={0.85}
-          style={[styles.energyCard, { backgroundColor: eBg, borderColor: eColor + '33' }]}>
+          style={[styles.energyCard, { backgroundColor: eBg, borderColor: eColor + '33', flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <Text style={{ fontSize: 20 }}>{energy >= 70 ? '⚡' : energy >= 40 ? '🔋' : '🪫'}</Text>
           <View style={{ flex: 1 }}>
             <Text style={[styles.energyLabel, { color: eColor }]}>{energyLabel}</Text>
@@ -507,7 +507,7 @@ export default function MoreScreen() {
         </View>
 
         <Text style={[styles.sectionLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.quickLinks}</Text>
-        <View style={styles.quickLinksRow}>
+        <View style={[styles.quickLinksRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           {[
             { label: t.myPlanLink,    icon: 'calendar-outline',  color: '#7C5CBF', bg: '#F0EBFA', route: '/tabs/home'      },
             { label: t.exercisesLink, icon: 'fitness-outline',   color: '#4CAF82', bg: '#E8F5EF', route: '/tabs/exercises' },

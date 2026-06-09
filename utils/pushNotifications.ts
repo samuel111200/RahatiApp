@@ -44,6 +44,8 @@ export async function sendPushToUser(
   targetUid: string,
   title: BilingualStr,
   body: BilingualStr,
+  chatId?: string,
+  navData?: Record<string, string>,
 ): Promise<void> {
   try {
     const snap = await getDoc(doc(db, 'users', targetUid));
@@ -52,6 +54,13 @@ export async function sendPushToUser(
     const token = data.fcmToken as string | undefined;
     if (!token) return;
     const lang  = (data.lang as string) ?? 'ar';
+    const payload: Record<string, unknown> = {
+      to:    token,
+      title: pickLang(title, lang),
+      body:  pickLang(body,  lang),
+      sound: 'default',
+      data:  { ...(chatId ? { chatId } : {}), ...(navData ?? {}) },
+    };
     await fetch('https://exp.host/--/api/v2/push/send', {
       method: 'POST',
       headers: {
@@ -59,12 +68,7 @@ export async function sendPushToUser(
         'Accept':          'application/json',
         'Accept-Encoding': 'gzip, deflate',
       },
-      body: JSON.stringify({
-        to:    token,
-        title: pickLang(title, lang),
-        body:  pickLang(body,  lang),
-        sound: 'default',
-      }),
+      body: JSON.stringify(payload),
     });
   } catch (e) {
     console.warn('[pushNotifications] sendPushToUser:', e);

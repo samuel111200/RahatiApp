@@ -23,6 +23,8 @@ import * as WebBrowser from 'expo-web-browser';
 import { uploadFileToCloudinary } from '../../utils/uploadImage';
 import { sendPushToUser } from '../../utils/pushNotifications';
 import { subscribeToPresence } from '../../utils/presence';
+import { activeChatRef } from '../../utils/activeChatRef';
+import { useFocusEffect } from 'expo-router';
 
 type MessageStatus = 'sent' | 'delivered' | 'read';
 type Message = {
@@ -460,6 +462,11 @@ export default function DoctorChatScreen() {
     return () => { show.remove(); hide.remove(); };
   }, []);
 
+  useFocusEffect(useCallback(() => {
+    if (isFirebase && chatId) activeChatRef.chatId = chatId;
+    return () => { activeChatRef.chatId = ''; };
+  }, [isFirebase, chatId]));
+
   useEffect(() => {
     if (!isFirebase || !doctorId) return;
     return subscribeToPresence(doctorId, (online) => setDoctorOnline(online));
@@ -510,15 +517,22 @@ export default function DoctorChatScreen() {
     setInputText(''); setShowQuick(false);
     if (isFirebase && chatId && patientId) {
       try {
-        const now = Date.now();
+        const now         = Date.now();
+        const senderName  = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || t.patientDefault;
         await addDoc(collection(db, 'chats', chatId, 'messages'), { text: text.trim(), sender: 'patient', timestamp: now, status: 'sent', type: 'text' });
         await setDoc(doc(db, 'chats', chatId), {
           doctorId, patientId,
-          patientName: (`${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim()) || t.patientDefault,
+          patientName: senderName,
           lastMessage: text.trim(), lastMessageTime: now, lastMessageSender: 'patient',
           unreadCountDoctor: increment(1),
         }, { merge: true });
-        sendPushToUser(doctorId, isRTL ? '💬 رسالة جديدة من مريضك' : '💬 New message from your patient', text.trim()).catch(() => {});
+        sendPushToUser(
+          doctorId,
+          senderName,
+          text.trim(),
+          chatId,
+          { screen: 'Docpatient', patientId, patientName: senderName },
+        ).catch(() => {});
       } catch { Alert.alert(t.error, t.sendFailed); }
       return;
     }
@@ -548,14 +562,21 @@ export default function DoctorChatScreen() {
         fileUrl: cloudUrl, fileName: a.name, fileSize: a.size ?? undefined, mimeType: a.mimeType,
       };
       if (isFirebase && chatId && patientId) {
+        const senderName = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || t.patientDefault;
         await addDoc(collection(db, 'chats', chatId, 'messages'), msgData);
         await setDoc(doc(db, 'chats', chatId), {
           doctorId, patientId,
-          patientName: (`${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim()) || t.patientDefault,
+          patientName: senderName,
           lastMessage: preview, lastMessageTime: now, lastMessageSender: 'patient',
           unreadCountDoctor: increment(1),
         }, { merge: true });
-        sendPushToUser(doctorId, isRTL ? '💬 رسالة جديدة من مريضك' : '💬 New message from your patient', preview).catch(() => {});
+        sendPushToUser(
+          doctorId,
+          senderName,
+          preview,
+          chatId,
+          { screen: 'Docpatient', patientId, patientName: senderName },
+        ).catch(() => {});
       } else {
         const localMsg: Message = { id: String(now), ...msgData, time: nowTime(isRTL) };
         setMessages(prev => [...prev, localMsg]);

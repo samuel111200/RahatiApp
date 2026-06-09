@@ -1,6 +1,7 @@
 // app/tabs/notificationService.tsx
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
+import { activeChatRef } from "../../utils/activeChatRef";
 
 // ─── Types ───────────────────────────────────────────────
 export interface AppNotification {
@@ -353,12 +354,13 @@ export async function setupNotifications() {
   if (!mod) return;
 
   mod.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowBanner: true,
-      shouldShowList:   true,
-      shouldPlaySound:  true,
-      shouldSetBadge:   true,
-    }),
+    handleNotification: async (notification) => {
+      const notifChatId = notification.request.content.data?.chatId as string | undefined;
+      if (notifChatId && activeChatRef.chatId && notifChatId === activeChatRef.chatId) {
+        return { shouldShowBanner: false, shouldShowList: false, shouldPlaySound: false, shouldSetBadge: false };
+      }
+      return { shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: true };
+    },
   });
 
   if (Platform.OS === "web") return;

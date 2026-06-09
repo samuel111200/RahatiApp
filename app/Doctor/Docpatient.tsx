@@ -13,13 +13,14 @@ import {
   orderBy, query, setDoc, getDoc,
 } from 'firebase/firestore';
 import { auth, db } from '../../utils/firebaseConfig';
+import { useAuth } from '../../context/AuthContext';
 import { uploadFileToCloudinary } from '../../utils/uploadImage';
 import { Colors, Spacing, FontSize } from '../../constants/Theme';
 import { useLang } from '../../context/Languagecontext';
 import { useChats } from '../../context/Chatscontext';
-import { notifyMessageSent } from './DocNotifService';
 import { sendPushToUser } from '../../utils/pushNotifications';
 import { subscribeToPresence } from '../../utils/presence';
+import { activeChatRef } from '../../utils/activeChatRef';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -1075,16 +1076,19 @@ export function useDoctorEditRequests(isRTL: boolean, t: any) {
 
 // ─── Main Screen ──────────────────────────────────────────
 export default function Docpatient() {
-  const { patientId, patientName, isOnline: isOnlineParam } =
-    useLocalSearchParams<{ patientId: string; patientName: string; isOnline: string }>();
+  const { patientId, patientName, isOnline: isOnlineParam, patientPhotoUrl: photoParam } =
+    useLocalSearchParams<{ patientId: string; patientName: string; isOnline: string; patientPhotoUrl?: string }>();
 
   const { isRTL, t }   = useLang();
   const { markAsRead } = useChats();
+  const { user: docUser } = useAuth();
   const insets         = useSafeAreaInsets();
   const [isOnline, setIsOnline] = useState(isOnlineParam === '1');
 
-  const doctorId = auth.currentUser?.uid ?? '';
-  const chatId   = doctorId && patientId ? `${doctorId}_${patientId}` : '';
+  const doctorId      = auth.currentUser?.uid ?? '';
+  const chatId        = doctorId && patientId ? `${doctorId}_${patientId}` : '';
+  const doctorFullName = `${docUser?.firstName ?? ''} ${docUser?.lastName ?? ''}`.trim();
+  const doctorSpecialty = docUser?.specialty ?? '';
 
   const [messages,        setMessages]        = useState<Message[]>([]);
   const [exerciseAccess,  setExerciseAccess]  = useState(false);
@@ -1092,14 +1096,18 @@ export default function Docpatient() {
   const [inputText,       setInputText]       = useState('');
   const [showQuick,       setShowQuick]       = useState(false);
   const [showAttach,      setShowAttach]      = useState(false);
-  const [patientPhotoUrl, setPatientPhotoUrl] = useState<string | null>(null);
+  const [patientPhotoUrl, setPatientPhotoUrl] = useState<string | null>(photoParam || null);
   const [kbHeight,        setKbHeight]        = useState(0);
 
   const listRef          = useRef<any>(null);
   const quickAnim        = useRef(new Animated.Value(0)).current;
   const initialScrollDone = useRef(false);
 
-  useFocusEffect(useCallback(() => { if (patientId) markAsRead(patientId); }, [patientId]));
+  useFocusEffect(useCallback(() => {
+    if (patientId) markAsRead(patientId);
+    if (chatId) activeChatRef.chatId = chatId;
+    return () => { activeChatRef.chatId = ''; };
+  }, [patientId, chatId]));
 
   useEffect(() => {
     if (!patientId) return;
@@ -1172,8 +1180,13 @@ export default function Docpatient() {
       text: text.trim(), sender: 'doctor', timestamp: ts, status: 'sent', type: 'text',
     }).catch(() => {});
     await updateChatMeta(text.trim(), ts);
-    notifyMessageSent(patientName || t.patientDefault, patientId || '', text.trim()).catch(() => {});
-    if (patientId) sendPushToUser(patientId, { ar: '💬 رسالة من طبيبك', en: '💬 Message from your doctor' }, text.trim()).catch(() => {});
+    if (patientId) sendPushToUser(
+      patientId,
+      { ar: `د. ${doctorFullName}`, en: `Dr. ${doctorFullName}` },
+      text.trim(),
+      chatId,
+      { screen: 'doctorchat', doctorId, doctorName: doctorFullName, doctorEmoji: '🩺', doctorColor: '#7C5CBF', doctorBg: '#F0EBFA', specialty: doctorSpecialty },
+    ).catch(() => {});
     setInputText('');
     setShowQuick(false);
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
@@ -1196,8 +1209,13 @@ export default function Docpatient() {
       fileUrl, fileName: a.name, fileSize: a.size ?? null, mimeType: a.mimeType,
     }).catch(() => {});
     await updateChatMeta(preview, ts);
-    notifyMessageSent(patientName || t.patientDefault, patientId || '', preview).catch(() => {});
-    if (patientId) sendPushToUser(patientId, { ar: '💬 رسالة من طبيبك', en: '💬 Message from your doctor' }, preview).catch(() => {});
+    if (patientId) sendPushToUser(
+      patientId,
+      { ar: `د. ${doctorFullName}`, en: `Dr. ${doctorFullName}` },
+      preview,
+      chatId,
+      { screen: 'doctorchat', doctorId, doctorName: doctorFullName, doctorEmoji: '🩺', doctorColor: '#7C5CBF', doctorBg: '#F0EBFA', specialty: doctorSpecialty },
+    ).catch(() => {});
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   }, [chatId, patientId, patientName, updateChatMeta]);
 

@@ -12,8 +12,8 @@ export default function DoctorLayout() {
   return (
     <ChatsProvider>
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="RoleChoose" />
-        <Stack.Screen name="Docsignin"  />
+        <Stack.Screen name="RoleChoose" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="Docsignin" />
         <Stack.Screen name="DocsignUp1" />
         <Stack.Screen name="Docsignup2" />
         <Stack.Screen name="Dochome"    />

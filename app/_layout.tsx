@@ -1,10 +1,11 @@
 // app/_layout.tsx
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Stack, router, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StyleSheet, I18nManager } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 
 // Disable OS-level RTL so the app controls direction entirely via isRTL state.
 // Without this, Arabic system-locale devices double-reverse every flex layout.
@@ -63,8 +64,49 @@ function AuthGuard() {
   return null;
 }
 
+function openChatFromNotification(data: Record<string, string> | null | undefined) {
+  if (!data?.screen) return;
+  if (data.screen === 'Docpatient') {
+    router.push({
+      pathname: '/Doctor/Docpatient',
+      params: { patientId: data.patientId, patientName: data.patientName, isOnline: '0' },
+    });
+  } else if (data.screen === 'doctorchat') {
+    router.push({
+      pathname: '/tabs/doctorchat',
+      params: {
+        doctorId:    data.doctorId,
+        doctorName:  data.doctorName,
+        doctorEmoji: data.doctorEmoji  || '🩺',
+        doctorColor: data.doctorColor  || '#7C5CBF',
+        doctorBg:    data.doctorBg     || '#F0EBFA',
+        specialty:   data.specialty    || '',
+        isFirebase:  '1',
+      },
+    });
+  }
+}
+
 // ─── Root Layout ───────────────────────────────────────────
 export default function RootLayout() {
+  const notifSub = useRef<Notifications.Subscription | null>(null);
+
+  useEffect(() => {
+    // Notification tapped while app is in background / foreground
+    notifSub.current = Notifications.addNotificationResponseReceivedListener(response => {
+      openChatFromNotification(response.notification.request.content.data as any);
+    });
+
+    // Notification tapped when app was fully closed (cold start)
+    Notifications.getLastNotificationResponseAsync().then(response => {
+      if (response?.notification.request.content.data) {
+        setTimeout(() => openChatFromNotification(response.notification.request.content.data as any), 800);
+      }
+    });
+
+    return () => { notifSub.current?.remove(); };
+  }, []);
+
   return (
     <GestureHandlerRootView style={styles.root}>
       <LanguageProvider>
@@ -75,8 +117,8 @@ export default function RootLayout() {
             <Stack.Screen name="startup"    options={{ gestureEnabled: false }} />
             <Stack.Screen name="langchoose" options={{ gestureEnabled: false }} />
             <Stack.Screen name="energy"     options={{ gestureEnabled: false }} />
-            {/* Auth screens — no swipe-back once inside the app */}
-            <Stack.Screen name="auth"   options={{ gestureEnabled: false }} />
+            {/* auth: gesture allowed so sign-in can swipe back to RoleChoose */}
+            <Stack.Screen name="auth" />
             <Stack.Screen name="tabs"   options={{ gestureEnabled: false }} />
             <Stack.Screen name="Doctor" options={{ gestureEnabled: false }} />
           </Stack>

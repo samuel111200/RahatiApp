@@ -35,7 +35,7 @@ type TabItem = { label: string; icon: keyof typeof Ionicons.glyphMap; iconActive
 function DocTabBar() {
   const pathname  = usePathname();
   const insets    = useSafeAreaInsets();
-  const { t }     = useLang();
+  const { t, isRTL } = useLang();
   const bottomPad = Math.max(insets.bottom, 8);
 
   const TABS: TabItem[] = [
@@ -46,7 +46,7 @@ function DocTabBar() {
 
   return (
     <View style={[tabStyles.wrapper, { paddingBottom: bottomPad }]}>
-      <View style={tabStyles.container}>
+      <View style={[tabStyles.container, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         {TABS.map((tab) => {
           const isActive = pathname.startsWith(tab.route);
           return (
@@ -66,7 +66,7 @@ function DocTabBar() {
 const tabStyles = StyleSheet.create({
   wrapper:   { backgroundColor: 'transparent', paddingHorizontal: 16 },
   container: {
-    flexDirection: 'row', backgroundColor: '#fff', borderRadius: 28,
+    backgroundColor: '#fff', borderRadius: 28,
     paddingTop: 8, paddingBottom: 8, paddingHorizontal: 8,
     shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.18, shadowRadius: 24, elevation: 14,
@@ -495,9 +495,7 @@ export default function DocMoreScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
         <View style={styles.topBar}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="chevron-back" size={24} color={DOC_COLOR} />
-          </TouchableOpacity>
+          <View style={styles.backBtn} />
           <Text style={styles.pageTitle}>{t.docMyAccount}</Text>
           <TouchableOpacity style={styles.backBtn} onPress={() => open('editProfile')}>
             <Ionicons name="pencil-outline" size={20} color={DOC_COLOR} />

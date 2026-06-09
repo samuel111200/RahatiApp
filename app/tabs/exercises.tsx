@@ -685,6 +685,18 @@ const DEFAULT_COORDINATION_EXERCISES: Exercise[] = [
   },
 ];
 
+// ─── Default exercise lookup (key → Exercise) ─────────────
+const ALL_DEFAULT_EXERCISES_MAP: Record<string, Exercise> = Object.fromEntries(
+  [
+    ...DEFAULT_THERAPY_EXERCISES,
+    ...DEFAULT_YOGA_EXERCISES,
+    ...DEFAULT_AEROBIC_EXERCISES,
+    ...DEFAULT_ENDURANCE_EXERCISES,
+    ...DEFAULT_STRENGTH_EXERCISES,
+    ...DEFAULT_COORDINATION_EXERCISES,
+  ].map(e => [e.key, e]),
+);
+
 // ════════════════════════════════════════════════════════════
 // ─── Main Screen ──────────────────────────────────────────
 // ════════════════════════════════════════════════════════════
@@ -740,8 +752,8 @@ export default function ExercisesScreen() {
             accent:          '#E0D6F5',
             desc:            data.description || '',
             descEn:          data.description || '',
-            steps:           [],
-            stepsEn:         [],
+            steps:           ALL_DEFAULT_EXERCISES_MAP[data.systemKey]?.steps   ?? [],
+            stepsEn:         ALL_DEFAULT_EXERCISES_MAP[data.systemKey]?.stepsEn ?? [],
             animType:        'bounce' as const,
             type:            sectionKey,
             fromDoctor:      true,
@@ -1005,17 +1017,15 @@ export default function ExercisesScreen() {
   // ── Count for section tabs (include doctor exercises) ──
   function getSectionCount(key: SectionKey): number {
     const docCount = doctorExercises.filter(e => e.type === key).length;
-    const baseCount = (() => {
-      switch (key) {
-        case 'therapy':      return therapyList.length;
-        case 'yoga':         return yogaList.length;
-        case 'aerobic':      return aerobicList.length;
-        case 'endurance':    return enduranceList.length;
-        case 'strength':     return strengthList.length;
-        case 'coordination': return coordinationList.length;
-      }
-    })();
-    return docCount + baseCount;
+    if (doctorExercises.length > 0) return docCount;
+    switch (key) {
+      case 'therapy':      return therapyList.length;
+      case 'yoga':         return yogaList.length;
+      case 'aerobic':      return aerobicList.length;
+      case 'endurance':    return enduranceList.length;
+      case 'strength':     return strengthList.length;
+      case 'coordination': return coordinationList.length;
+    }
   }
 
   function renderCards(list: Exercise[]) {
@@ -1119,7 +1129,7 @@ export default function ExercisesScreen() {
             {iTitle}
           </Text>
 
-          <View style={styles.durationRow}>
+          <View style={[styles.durationRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <Ionicons name="time-outline" size={13} color={item.fromDoctor ? '#7C5CBF' : item.color} />
             <Text style={[styles.durationText, { color: item.fromDoctor ? '#7C5CBF' : item.color }]}>
               {' '}{iDur}
@@ -1206,7 +1216,7 @@ export default function ExercisesScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <View style={styles.container}>
 
-        <View style={styles.navbar}>
+        <View style={[styles.navbar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <View style={{ width: 40 }} />
           <Text style={styles.navTitle}>{t.dailyExercises}</Text>
           <TouchableOpacity onPress={openAddModal} style={styles.navBtn}>

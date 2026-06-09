@@ -21,7 +21,7 @@ type TabItem = { label: string; icon: keyof typeof Ionicons.glyphMap; iconActive
 function DocTabBar() {
   const pathname  = usePathname();
   const insets    = useSafeAreaInsets();
-  const { t }     = useLang();
+  const { t, isRTL } = useLang();
   const bottomPad = Math.max(insets.bottom, 8);
 
   const TABS: TabItem[] = [
@@ -32,7 +32,7 @@ function DocTabBar() {
 
   return (
     <View style={[tabStyles.wrapper, { paddingBottom: bottomPad }]}>
-      <View style={tabStyles.container}>
+      <View style={[tabStyles.container, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         {TABS.map((tab) => {
           const isActive = pathname.startsWith(tab.route);
           return (
@@ -52,7 +52,7 @@ function DocTabBar() {
 const tabStyles = StyleSheet.create({
   wrapper:   { backgroundColor: 'transparent', paddingHorizontal: 16 },
   container: {
-    flexDirection: 'row', backgroundColor: '#fff', borderRadius: 28,
+    backgroundColor: '#fff', borderRadius: 28,
     paddingTop: 8, paddingBottom: 8, paddingHorizontal: 8,
     shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.18, shadowRadius: 24, elevation: 14,
@@ -186,9 +186,10 @@ export default function ChatsListScreen() {
     router.push({
       pathname: '/Doctor/Docpatient',
       params: {
-        patientId:   item.patientId,
-        patientName: item.patientName,
-        isOnline:    '0',
+        patientId:       item.patientId,
+        patientName:     item.patientName,
+        isOnline:        '0',
+        patientPhotoUrl: item.patientPhotoUrl ?? '',
       },
     });
   };
@@ -204,9 +205,6 @@ export default function ChatsListScreen() {
       <StatusBar backgroundColor="#F8F5FF" barStyle="dark-content" translucent />
 
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.8}>
-          <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={22} color={DOC_COLOR} />
-        </TouchableOpacity>
         <View style={styles.headerTitleWrap} pointerEvents="none">
           <Text style={styles.headerTitle}>{t.docChats}</Text>
           {totalUnread > 0 && (
@@ -215,7 +213,6 @@ export default function ChatsListScreen() {
             </Text>
           )}
         </View>
-        <View style={{ width: 40 }} />
       </View>
 
       <View style={styles.searchWrap}>
@@ -264,7 +261,7 @@ const styles = StyleSheet.create({
     shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 3,
   },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: DOC_COLOR_LIGHT, alignItems: 'center', justifyContent: 'center' },
-  headerTitleWrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center', justifyContent: 'center' },
+  headerTitleWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 22, fontWeight: '800', color: Colors.textPrimary, textAlign: 'center' },
   headerSub:   { fontSize: 12, color: DOC_COLOR, fontWeight: '600', marginTop: 2, textAlign: 'center' },
   searchWrap: {
