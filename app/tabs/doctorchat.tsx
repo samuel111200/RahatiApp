@@ -4,7 +4,7 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   StatusBar, TextInput, ScrollView, Modal,
   Platform, Animated, Alert, Image, Keyboard,
-  KeyboardAvoidingView,
+  KeyboardAvoidingView, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -164,33 +164,45 @@ function AccessRequestCard({ isRTL, doctorColor, doctorBg, chatId, t }: {
 function MessageBubble({ msg, isRTL, doctorColor, doctorBg, chatId, t, doctorPhotoUrl }: {
   msg: Message; isRTL: boolean; doctorColor: string; doctorBg: string; chatId: string; t: any; doctorPhotoUrl?: string | null;
 }) {
-  const isAccessRequest = msg.type === 'request_access';
-  const isFile          = msg.type === 'file';
-  const isImage         = msg.type === 'image';
-  const isPatient       = msg.sender === 'patient';
-  const fadeAnim        = useRef(new Animated.Value(0)).current;
-  const slideAnim       = useRef(new Animated.Value(isPatient ? 20 : -20)).current;
-  const [viewingFull,   setViewingFull] = useState(false);
+  const isPatient   = msg.sender === 'patient';
+  const fadeAnim    = useRef(new Animated.Value(0)).current;
+  const slideAnim   = useRef(new Animated.Value(isPatient ? 20 : -20)).current;
+  const [viewingFull, setViewingFull] = useState(false);
+  const [saving,      setSaving]      = useState(false);
+
+  const handleSave = async () => {
+    if (!msg.fileUrl || saving) return;
+    setSaving(true);
+    await downloadFile(msg.fileUrl, msg.fileName ?? 'file', msg.mimeType, isRTL);
+    setSaving(false);
+  };
 
   const openFile = async () => {
-    const uri = msg.fileUrl;
-    if (!uri) return;
+    if (!msg.fileUrl) return;
     try {
-      await WebBrowser.openBrowserAsync(uri);
-    } catch (e) {
+      await WebBrowser.openBrowserAsync(msg.fileUrl);
+    } catch {
       Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'تعذر فتح الملف' : 'Could not open file');
     }
   };
 
   useEffect(() => {
-    if (isAccessRequest) return;
+    if (msg.type === 'request_access') return;
     Animated.parallel([
       Animated.timing(fadeAnim,  { toValue: 1, duration: 220, useNativeDriver: true }),
       Animated.spring(slideAnim, { toValue: 0, tension: 120, friction: 8, useNativeDriver: true }),
     ]).start();
   }, []);
 
-  if (isAccessRequest) {
+  const DoctorAvatar = () => (
+    <View style={[styles.docAvatar, { backgroundColor: doctorBg }]}>
+      {doctorPhotoUrl
+        ? <Image source={{ uri: doctorPhotoUrl }} style={{ width: 28, height: 28, borderRadius: 14 }} />
+        : <Ionicons name="person" size={13} color={doctorColor} />}
+    </View>
+  );
+
+  if (msg.type === 'request_access') {
     return (
         <View style={styles.accessCardWrap}>
           <AccessRequestCard isRTL={isRTL} doctorColor={doctorColor} doctorBg={doctorBg} chatId={chatId} t={t} />
@@ -198,62 +210,51 @@ function MessageBubble({ msg, isRTL, doctorColor, doctorBg, chatId, t, doctorPho
     );
   }
 
-  if (isFile || isImage) {
-    if (isImage) {
-      const imgUri = msg.fileUrl;
-      return (
-          <Animated.View style={[styles.msgRow, isPatient ? styles.msgRowRight : styles.msgRowLeft, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
-            {!isPatient && (
-                <View style={[styles.docAvatar, { backgroundColor: doctorBg }]}>
-                  {doctorPhotoUrl
-                    ? <Image source={{ uri: doctorPhotoUrl }} style={{ width: 28, height: 28, borderRadius: 14 }} />
-                    : <Ionicons name="person" size={13} color={doctorColor} />}
-                </View>
-            )}
-            <View style={[styles.fileBubble, isPatient ? { backgroundColor: Colors.primary, padding: 4 } : { backgroundColor: '#fff', borderColor: doctorColor + '30', borderWidth: 1.5, padding: 4 }]}>
-              <TouchableOpacity onPress={() => imgUri && setViewingFull(true)} activeOpacity={0.9}>
-                {imgUri
-                  ? <Image source={{ uri: imgUri }} style={{ width: 200, height: 160, borderRadius: 12 }} resizeMode="cover" />
-                  : <View style={{ width: 200, height: 160, borderRadius: 12, backgroundColor: '#eee', alignItems: 'center', justifyContent: 'center' }}><Ionicons name="image-outline" size={32} color="#bbb" /></View>}
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={{ position: 'absolute', top: 10, right: 10, width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' }}
-                onPress={() => { if (msg.fileUrl) downloadFile(msg.fileUrl, msg.fileName ?? 'image.jpg', msg.mimeType, isRTL); }}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="download-outline" size={17} color="#fff" />
-              </TouchableOpacity>
-              <View style={[styles.bubbleMeta, { paddingHorizontal: 6, paddingBottom: 4 }]}>
-                <Text style={[styles.timeText, isPatient && { color: 'rgba(255,255,255,0.7)' }]}>{msg.time}</Text>
-                {isPatient && <Ionicons name={msg.status === 'read' ? 'checkmark-done' : 'checkmark-done-outline'} size={12} color={msg.status === 'read' ? '#93E0FF' : 'rgba(255,255,255,0.6)'} />}
-              </View>
-            </View>
-            {viewingFull && imgUri && (
-              <Modal visible transparent animationType="fade" onRequestClose={() => setViewingFull(false)}>
-                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', alignItems: 'center', justifyContent: 'center' }}>
-                  <TouchableOpacity
-                    style={{ position: 'absolute', top: 50, right: 20, zIndex: 10, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}
-                    onPress={() => setViewingFull(false)}
-                  >
-                    <Ionicons name="close" size={22} color="#fff" />
-                  </TouchableOpacity>
-                  <Image source={{ uri: imgUri }} style={{ width: '100%', height: '80%' }} resizeMode="contain" />
-                </View>
-              </Modal>
-            )}
-          </Animated.View>
-      );
-    }
-
+  if (msg.type === 'image') {
+    const imgUri = msg.fileUrl;
     return (
         <Animated.View style={[styles.msgRow, isPatient ? styles.msgRowRight : styles.msgRowLeft, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
-          {!isPatient && (
-              <View style={[styles.docAvatar, { backgroundColor: doctorBg }]}>
-                {doctorPhotoUrl
-                  ? <Image source={{ uri: doctorPhotoUrl }} style={{ width: 28, height: 28, borderRadius: 14 }} />
-                  : <Ionicons name="person" size={13} color={doctorColor} />}
+          {!isPatient && <DoctorAvatar />}
+          <View style={[styles.fileBubble, isPatient ? { backgroundColor: Colors.primary, padding: 4 } : { backgroundColor: '#fff', borderColor: doctorColor + '30', borderWidth: 1.5, padding: 4 }]}>
+            <TouchableOpacity onPress={() => imgUri && setViewingFull(true)} activeOpacity={0.9}>
+              {imgUri
+                ? <Image source={{ uri: imgUri }} style={{ width: 200, height: 160, borderRadius: 12 }} resizeMode="cover" />
+                : <View style={{ width: 200, height: 160, borderRadius: 12, backgroundColor: '#eee', alignItems: 'center', justifyContent: 'center' }}><Ionicons name="image-outline" size={32} color="#bbb" /></View>}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ position: 'absolute', top: 10, right: 10, width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' }}
+              onPress={handleSave} activeOpacity={0.8}
+            >
+              {saving
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Ionicons name="download" size={17} color="#fff" />}
+            </TouchableOpacity>
+            <View style={[styles.bubbleMeta, { paddingHorizontal: 6, paddingBottom: 4 }]}>
+              <Text style={[styles.timeText, isPatient && { color: 'rgba(255,255,255,0.7)' }]}>{msg.time}</Text>
+              {isPatient && <Ionicons name={msg.status === 'read' ? 'checkmark-done' : 'checkmark-done-outline'} size={12} color={msg.status === 'read' ? '#93E0FF' : 'rgba(255,255,255,0.6)'} />}
+            </View>
+          </View>
+          {viewingFull && imgUri && (
+            <Modal visible transparent animationType="fade" onRequestClose={() => setViewingFull(false)}>
+              <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', alignItems: 'center', justifyContent: 'center' }}>
+                <TouchableOpacity
+                  style={{ position: 'absolute', top: 50, right: 20, zIndex: 10, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}
+                  onPress={() => setViewingFull(false)}
+                >
+                  <Ionicons name="close" size={22} color="#fff" />
+                </TouchableOpacity>
+                <Image source={{ uri: imgUri }} style={{ width: '100%', height: '80%' }} resizeMode="contain" />
               </View>
+            </Modal>
           )}
+        </Animated.View>
+    );
+  }
+
+  if (msg.type === 'file') {
+    return (
+        <Animated.View style={[styles.msgRow, isPatient ? styles.msgRowRight : styles.msgRowLeft, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
+          {!isPatient && <DoctorAvatar />}
           <View style={[styles.fileBubble, isPatient ? { backgroundColor: Colors.primary } : { backgroundColor: '#fff', borderColor: doctorColor + '30', borderWidth: 1.5 }]}>
             <View style={styles.fileBubbleInner}>
               <TouchableOpacity style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }} onPress={openFile} activeOpacity={0.8}>
@@ -271,18 +272,16 @@ function MessageBubble({ msg, isRTL, doctorColor, doctorBg, chatId, t, doctorPho
                   )}
                 </View>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => { if (msg.fileUrl) downloadFile(msg.fileUrl, msg.fileName ?? 'file', msg.mimeType, isRTL); }} activeOpacity={0.8} style={{ paddingLeft: 8 }}>
-                <Ionicons name="download-outline" size={18} color={isPatient ? '#fff' : doctorColor} />
+              <TouchableOpacity onPress={handleSave} activeOpacity={0.8} style={{ paddingLeft: 8 }}>
+                {saving
+                  ? <ActivityIndicator size="small" color={isPatient ? '#fff' : doctorColor} />
+                  : <Ionicons name="download-outline" size={18} color={isPatient ? '#fff' : doctorColor} />}
               </TouchableOpacity>
             </View>
             <View style={styles.bubbleMeta}>
               <Text style={[styles.timeText, isPatient && { color: 'rgba(255,255,255,0.7)' }]}>{msg.time}</Text>
               {isPatient && (
-                  <Ionicons
-                      name={msg.status === 'read' ? 'checkmark-done' : 'checkmark-done-outline'}
-                      size={12}
-                      color={msg.status === 'read' ? '#93E0FF' : 'rgba(255,255,255,0.6)'}
-                  />
+                  <Ionicons name={msg.status === 'read' ? 'checkmark-done' : 'checkmark-done-outline'} size={12} color={msg.status === 'read' ? '#93E0FF' : 'rgba(255,255,255,0.6)'} />
               )}
             </View>
           </View>
@@ -292,13 +291,7 @@ function MessageBubble({ msg, isRTL, doctorColor, doctorBg, chatId, t, doctorPho
 
   return (
       <Animated.View style={[styles.msgRow, isPatient ? styles.msgRowRight : styles.msgRowLeft, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
-        {!isPatient && (
-            <View style={[styles.docAvatar, { backgroundColor: doctorBg }]}>
-              {doctorPhotoUrl
-                ? <Image source={{ uri: doctorPhotoUrl }} style={{ width: 28, height: 28, borderRadius: 14 }} />
-                : <Ionicons name="person" size={13} color={doctorColor} />}
-            </View>
-        )}
+        {!isPatient && <DoctorAvatar />}
         <View style={[
           styles.bubble,
           isPatient ? [styles.bubblePatient, { backgroundColor: Colors.primary }] : [styles.bubbleDoctor, { backgroundColor: '#fff', borderColor: doctorColor + '30' }],
@@ -309,11 +302,7 @@ function MessageBubble({ msg, isRTL, doctorColor, doctorBg, chatId, t, doctorPho
           <View style={styles.bubbleMeta}>
             <Text style={[styles.timeText, isPatient && { color: 'rgba(255,255,255,0.7)' }]}>{msg.time}</Text>
             {isPatient && (
-                <Ionicons
-                    name={msg.status === 'read' ? 'checkmark-done' : 'checkmark-done-outline'}
-                    size={12}
-                    color={msg.status === 'read' ? '#93E0FF' : 'rgba(255,255,255,0.6)'}
-                />
+                <Ionicons name={msg.status === 'read' ? 'checkmark-done' : 'checkmark-done-outline'} size={12} color={msg.status === 'read' ? '#93E0FF' : 'rgba(255,255,255,0.6)'} />
             )}
           </View>
         </View>
