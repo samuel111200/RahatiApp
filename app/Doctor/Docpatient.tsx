@@ -261,7 +261,7 @@ const sheetStyles = StyleSheet.create({
 });
 
 // ─── Message Bubble ──────────────────────────────────────
-function MessageBubble({ msg, isRTL, t, patientPhotoUrl }: { msg: Message; isRTL: boolean; t: any; patientPhotoUrl?: string | null }) {
+function MessageBubble({ msg, isRTL, t, patientPhotoUrl, exerciseAccess }: { msg: Message; isRTL: boolean; t: any; patientPhotoUrl?: string | null; exerciseAccess?: boolean }) {
   const isDoc     = msg.sender === 'doctor';
   const fadeAnim  = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(isDoc ? 20 : -20)).current;
@@ -295,15 +295,18 @@ function MessageBubble({ msg, isRTL, t, patientPhotoUrl }: { msg: Message; isRTL
   };
 
   if (msg.type === 'request_access') {
+    const approved = !!exerciseAccess;
     return (
       <Animated.View style={[msgStyles.row, msgStyles.rowRight, { opacity: fadeAnim }]}>
-        <View style={msgStyles.requestCard}>
-          <Ionicons name="barbell-outline" size={22} color={DOC_COLOR} />
-          <Text style={msgStyles.requestTitle}>{t.docAccessRequestTitle}</Text>
+        <View style={[msgStyles.requestCard, approved && { borderColor: '#4CAF8240' }]}>
+          <Ionicons name={approved ? 'checkmark-circle' : 'barbell-outline'} size={22} color={approved ? '#4CAF82' : DOC_COLOR} />
+          <Text style={[msgStyles.requestTitle, approved && { color: '#4CAF82' }]}>{t.docAccessRequestTitle}</Text>
           <Text style={msgStyles.requestSub}>{t.docAccessRequestBody}</Text>
-          <View style={msgStyles.requestBadge}>
-            <Ionicons name="time-outline" size={13} color="#F4A32B" />
-            <Text style={msgStyles.requestBadgeText}>{t.docAccessPending}</Text>
+          <View style={[msgStyles.requestBadge, approved && { backgroundColor: '#E8F5EF' }]}>
+            <Ionicons name={approved ? 'checkmark-done' : 'time-outline'} size={13} color={approved ? '#4CAF82' : '#F4A32B'} />
+            <Text style={[msgStyles.requestBadgeText, approved && { color: '#4CAF82' }]}>
+              {approved ? t.docAccessApproved : t.docAccessPending}
+            </Text>
           </View>
         </View>
       </Animated.View>
@@ -1280,7 +1283,7 @@ export default function Docpatient() {
           showsVerticalScrollIndicator={false}
           extraData={patientPhotoUrl}
           ListHeaderComponent={<DateDivider label={t.docToday} />}
-          renderItem={({ item }) => <MessageBubble msg={item} isRTL={isRTL} t={t} patientPhotoUrl={patientPhotoUrl} />}
+          renderItem={({ item }) => <MessageBubble msg={item} isRTL={isRTL} t={t} patientPhotoUrl={patientPhotoUrl} exerciseAccess={exerciseAccess} />}
         />
 
         {showQuick && (
