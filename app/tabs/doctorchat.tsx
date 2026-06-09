@@ -30,6 +30,7 @@ type Message = {
   status?: MessageStatus; type?: 'text' | 'request_access' | 'file' | 'image';
   fileUrl?: string; fileName?: string; fileSize?: number; mimeType?: string;
 };
+type PickedAttachment = { uri: string; name: string; mimeType: string; size?: number; type: 'image' | 'file'; };
 
 const AR_DIGITS = '٠١٢٣٤٥٦٧٨٩';
 function fmtTime(ts: number, isRTL: boolean): string {
@@ -310,6 +311,88 @@ function MessageBubble({ msg, isRTL, doctorColor, doctorBg, chatId, t, doctorPho
   );
 }
 
+// ─── Attachment Sheet ─────────────────────────────────────
+function AttachmentSheet({ visible, onClose, onPick, isRTL, t }: {
+  visible: boolean; onClose: () => void; onPick: (a: PickedAttachment) => void; isRTL: boolean; t: any;
+}) {
+  const slideAnim = useRef(new Animated.Value(300)).current;
+  useEffect(() => {
+    Animated.spring(slideAnim, { toValue: visible ? 0 : 300, tension: 100, friction: 10, useNativeDriver: true }).start();
+  }, [visible]);
+
+  const pickCamera = async () => {
+    onClose();
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') { Alert.alert(isRTL ? 'خطأ' : 'Error', t.cameraPerm); return; }
+    const res = await ImagePicker.launchCameraAsync({ quality: 0.85 });
+    if (!res.canceled && res.assets[0]) {
+      const a = res.assets[0];
+      onPick({ uri: a.uri, name: `photo_${Date.now()}.jpg`, mimeType: 'image/jpeg', size: a.fileSize, type: 'image' });
+    }
+  };
+  const pickGallery = async () => {
+    onClose();
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') { Alert.alert(isRTL ? 'خطأ' : 'Error', t.galleryPerm); return; }
+    const res = await ImagePicker.launchImageLibraryAsync({ quality: 0.85 });
+    if (!res.canceled && res.assets[0]) {
+      const a = res.assets[0];
+      const ext = a.uri.split('.').pop() || 'jpg';
+      onPick({ uri: a.uri, name: `img_${Date.now()}.${ext}`, mimeType: a.mimeType || `image/${ext}`, size: a.fileSize, type: 'image' });
+    }
+  };
+  const pickFile = async () => {
+    onClose();
+    const res = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
+    if (!res.canceled && res.assets[0]) {
+      const a = res.assets[0];
+      onPick({ uri: a.uri, name: a.name, mimeType: a.mimeType || 'application/octet-stream', size: a.size, type: 'file' });
+    }
+  };
+
+  if (!visible) return null;
+  return (
+    <Modal transparent animationType="none" visible={visible} onRequestClose={onClose}>
+      <TouchableOpacity style={sheetStyles.overlay} activeOpacity={1} onPress={onClose} />
+      <Animated.View style={[sheetStyles.sheet, { transform: [{ translateY: slideAnim }] }]}>
+        <View style={sheetStyles.handle} />
+        <Text style={sheetStyles.title}>{isRTL ? 'إرسال مرفق' : 'Send Attachment'}</Text>
+        <View style={sheetStyles.options}>
+          <TouchableOpacity style={sheetStyles.option} onPress={pickCamera} activeOpacity={0.8}>
+            <View style={[sheetStyles.optionIcon, { backgroundColor: '#E8F5FF' }]}>
+              <Ionicons name="camera" size={28} color="#2196F3" />
+            </View>
+            <Text style={sheetStyles.optionLabel}>{t.camera}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={sheetStyles.option} onPress={pickGallery} activeOpacity={0.8}>
+            <View style={[sheetStyles.optionIcon, { backgroundColor: Colors.primaryUltraLight }]}>
+              <Ionicons name="image" size={28} color={Colors.primary} />
+            </View>
+            <Text style={sheetStyles.optionLabel}>{t.gallery}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={sheetStyles.option} onPress={pickFile} activeOpacity={0.8}>
+            <View style={[sheetStyles.optionIcon, { backgroundColor: '#FFF3E2' }]}>
+              <Ionicons name="document-attach" size={28} color="#F4A32B" />
+            </View>
+            <Text style={sheetStyles.optionLabel}>{t.file}</Text>
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+    </Modal>
+  );
+}
+
+const sheetStyles = StyleSheet.create({
+  overlay:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)' },
+  sheet:       { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 40, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 12 },
+  handle:      { width: 44, height: 4, backgroundColor: Colors.border, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
+  title:       { fontSize: 16, fontWeight: '700', color: Colors.textPrimary, textAlign: 'center', marginBottom: 22 },
+  options:     { flexDirection: 'row', justifyContent: 'space-around' },
+  option:      { alignItems: 'center', gap: 8 },
+  optionIcon:  { width: 68, height: 68, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  optionLabel: { fontSize: 13, fontWeight: '600', color: '#555' },
+});
+
 function DateDivider({ label }: { label: string }) {
   return (
       <View style={styles.dividerRow}>
@@ -356,7 +439,6 @@ export default function DoctorChatScreen() {
   const [doctorPhotoUrl,  setDoctorPhotoUrl]  = useState<string | null>(null);
   const listRef           = useRef<FlatList>(null);
   const quickAnim         = useRef(new Animated.Value(0)).current;
-  const attachAnim        = useRef(new Animated.Value(0)).current;
   const initialScrollDone = useRef(false);
 
   const quickReplies: string[] = t.docQuickReplies;
@@ -418,15 +500,13 @@ export default function DoctorChatScreen() {
   const toggleQuick = () => {
     const toVal = showQuick ? 0 : 1;
     setShowQuick(!showQuick);
-    if (showAttach) { setShowAttach(false); Animated.timing(attachAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start(); }
+    if (showAttach) setShowAttach(false);
     Animated.spring(quickAnim, { toValue: toVal, tension: 120, friction: 8, useNativeDriver: true }).start();
   };
 
-  const toggleAttach = () => {
-    const toVal = showAttach ? 0 : 1;
-    setShowAttach(!showAttach);
+  const openAttach = () => {
     if (showQuick) { setShowQuick(false); Animated.timing(quickAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start(); }
-    Animated.spring(attachAnim, { toValue: toVal, tension: 120, friction: 8, useNativeDriver: true }).start();
+    setShowAttach(true);
   };
 
   const sendMessage = useCallback(async (text: string) => {
@@ -460,26 +540,26 @@ export default function DoctorChatScreen() {
     }, 2000);
   }, [isRTL, isFirebase, chatId, patientId]);
 
-  const sendFileMessage = async (fileUri: string, fileName: string, fileSize: number | undefined, type: 'file' | 'image', mimeType = 'application/octet-stream') => {
-    setUploading(true); setShowAttach(false);
-    Animated.timing(attachAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start();
+  const handleSendAttachment = async (a: PickedAttachment) => {
+    setUploading(true);
     try {
-      const cloudUrl = await uploadFileToCloudinary(fileUri, mimeType, fileName);
-      const now = Date.now();
-      const status: MessageStatus = 'sent';
+      const cloudUrl = await uploadFileToCloudinary(a.uri, a.mimeType, a.name);
+      const now    = Date.now();
+      const preview = a.type === 'image' ? (isRTL ? '📷 صورة' : '📷 Image') : `📎 ${a.name}`;
       const msgData = {
-        text: type === 'image' ? (isRTL ? '📷 صورة' : '📷 Image') : `📎 ${fileName}`,
-        sender: 'patient' as const, timestamp: now, status, type, fileUrl: cloudUrl, fileName, fileSize,
+        text: preview, sender: 'patient' as const, timestamp: now,
+        status: 'sent' as MessageStatus, type: a.type,
+        fileUrl: cloudUrl, fileName: a.name, fileSize: a.size ?? undefined, mimeType: a.mimeType,
       };
       if (isFirebase && chatId && patientId) {
         await addDoc(collection(db, 'chats', chatId, 'messages'), msgData);
         await setDoc(doc(db, 'chats', chatId), {
           doctorId, patientId,
           patientName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || (isRTL ? 'مريض' : 'Patient'),
-          lastMessage: msgData.text, lastMessageTime: now, lastMessageSender: 'patient',
+          lastMessage: preview, lastMessageTime: now, lastMessageSender: 'patient',
           unreadCountDoctor: increment(1),
         }, { merge: true });
-        sendPushToUser(doctorId, isRTL ? '💬 رسالة جديدة من مريضك' : '💬 New message from your patient', msgData.text).catch(() => {});
+        sendPushToUser(doctorId, isRTL ? '💬 رسالة جديدة من مريضك' : '💬 New message from your patient', preview).catch(() => {});
       } else {
         const localMsg: Message = { id: String(now), ...msgData, time: nowTime(isRTL) };
         setMessages(prev => [...prev, localMsg]);
@@ -487,33 +567,6 @@ export default function DoctorChatScreen() {
       }
     } catch { Alert.alert(isRTL ? 'خطأ' : 'Error', t.sendFileFailed); }
     finally { setUploading(false); }
-  };
-
-  const handlePickDocument = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
-      if (result.canceled) return;
-      const asset = result.assets[0];
-      await sendFileMessage(asset.uri, asset.name, asset.size, 'file', asset.mimeType ?? 'application/octet-stream');
-    } catch { Alert.alert(isRTL ? 'خطأ' : 'Error', t.sendFileFailed); }
-  };
-
-  const handlePickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') { Alert.alert(isRTL ? 'خطأ' : 'Error', t.galleryPerm); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
-    if (result.canceled) return;
-    const asset = result.assets[0];
-    const ext = asset.uri.split('.').pop() ?? 'jpg';
-    await sendFileMessage(asset.uri, asset.uri.split('/').pop() ?? 'image.jpg', undefined, 'image', asset.mimeType ?? `image/${ext}`);
-  };
-
-  const handleTakePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') { Alert.alert(isRTL ? 'خطأ' : 'Error', t.cameraPerm); return; }
-    const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
-    if (result.canceled) return;
-    await sendFileMessage(result.assets[0].uri, `photo_${Date.now()}.jpg`, undefined, 'image', 'image/jpeg');
   };
 
   const handleQuickReply = (text: string) => {
@@ -598,33 +651,10 @@ export default function DoctorChatScreen() {
               </View>
           )}
 
-          {showAttach && (
-              <Animated.View style={[styles.attachMenu, { opacity: attachAnim, transform: [{ translateY: attachAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
-                <TouchableOpacity style={styles.attachItem} onPress={handlePickDocument} activeOpacity={0.8}>
-                  <View style={[styles.attachIcon, { backgroundColor: '#E8F1FB' }]}>
-                    <Ionicons name="document-outline" size={22} color="#5B9BD5" />
-                  </View>
-                  <Text style={styles.attachLabel}>{t.file}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.attachItem} onPress={handlePickImage} activeOpacity={0.8}>
-                  <View style={[styles.attachIcon, { backgroundColor: '#E8F5EF' }]}>
-                    <Ionicons name="image-outline" size={22} color="#4CAF82" />
-                  </View>
-                  <Text style={styles.attachLabel}>{t.gallery}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.attachItem} onPress={handleTakePhoto} activeOpacity={0.8}>
-                  <View style={[styles.attachIcon, { backgroundColor: '#FEF3E2' }]}>
-                    <Ionicons name="camera-outline" size={22} color="#F4A32B" />
-                  </View>
-                  <Text style={styles.attachLabel}>{t.camera}</Text>
-                </TouchableOpacity>
-              </Animated.View>
-          )}
-
           <View style={[styles.inputBarWrap, { paddingBottom: insets.bottom || 8 }]}>
             {uploading && (
                 <View style={styles.uploadingBar}>
-                  <Ionicons name="cloud-upload-outline" size={14} color={doctorColor} />
+                  <ActivityIndicator size="small" color={doctorColor} style={{ marginRight: 6 }} />
                   <Text style={[styles.uploadingText, { color: doctorColor }]}>{t.sending}</Text>
                 </View>
             )}
@@ -637,11 +667,11 @@ export default function DoctorChatScreen() {
                 <Ionicons name={showQuick ? 'close' : 'flash'} size={18} color={showQuick ? '#fff' : doctorColor} />
               </TouchableOpacity>
               <TouchableOpacity
-                  onPress={toggleAttach}
-                  style={[styles.iconBtn, { backgroundColor: showAttach ? doctorColor : doctorBg }]}
+                  onPress={openAttach}
+                  style={[styles.iconBtn, { backgroundColor: doctorBg }]}
                   activeOpacity={0.8}
               >
-                <Ionicons name={showAttach ? 'close' : 'attach'} size={18} color={showAttach ? '#fff' : doctorColor} />
+                <Ionicons name="attach" size={18} color={doctorColor} />
               </TouchableOpacity>
               <View style={[styles.inputWrap, { borderColor: doctorColor + '40' }]}>
                 <TextInput
@@ -663,6 +693,13 @@ export default function DoctorChatScreen() {
             </View>
           </View>
         </KeyboardAvoidingView>
+
+        <AttachmentSheet
+          visible={showAttach}
+          onClose={() => setShowAttach(false)}
+          onPick={(a) => { setShowAttach(false); handleSendAttachment(a); }}
+          isRTL={isRTL} t={t}
+        />
       </SafeAreaView>
   );
 }
@@ -707,10 +744,6 @@ const styles = StyleSheet.create({
   quickContent: { paddingHorizontal: Spacing.base, gap: 8, alignItems: 'center', flexDirection: 'row' },
   quickChip:     { backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1.5, shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 1 },
   quickChipText: { fontSize: 12, fontWeight: '600', lineHeight: 18 },
-  attachMenu:  { flexDirection: 'row', gap: 16, paddingHorizontal: Spacing.base, paddingVertical: 10, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: Colors.border },
-  attachItem:  { alignItems: 'center', gap: 6 },
-  attachIcon:  { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
-  attachLabel: { fontSize: 11, fontWeight: '600', color: Colors.textSecondary },
   inputBarWrap:  { backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: Colors.border, shadowColor: Colors.shadow, shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 4 },
   uploadingBar:  { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: Spacing.base, paddingTop: 6 },
   uploadingText: { fontSize: 11, fontWeight: '600' },
