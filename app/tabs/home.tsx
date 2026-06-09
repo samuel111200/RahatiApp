@@ -35,8 +35,6 @@ interface PlanTask {
 
 type CompletionStatus = 'done' | 'pending' | 'locked';
 
-const CORE_TASKS_KEY      = 'core_tasks';
-const EXTRA_TASKS_KEY     = 'extra_tasks';
 const CORE_EXERCISES_KEY  = 'core_exercises';
 
 const DAYS_AR   = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
@@ -503,6 +501,19 @@ export default function PlanScreen() {
     })();
   }, []);
 
+  // Tasks — real-time from Firestore
+  useEffect(() => {
+    if (!user?.uid) { setCoreTasks([]); setExtraTasks([]); return; }
+    const unsub = onSnapshot(collection(db, 'tasks', user.uid, 'items'), (snap) => {
+      const today = toKey(new Date());
+      const all   = snap.docs.map(d => d.data() as any);
+      setCoreTasks(all.filter(t => t.type === 'core').map((t: any) => mapRawTask(t, today, 'core')));
+      setExtraTasks(all.filter(t => t.type === 'extra' && (!t.date || t.date === today)).map((t: any) => mapRawTask(t, today, 'extra')));
+    });
+    return unsub;
+  }, [user?.uid]);
+
+  // Doctor exercises — real-time from Firestore
   useEffect(() => {
     if (!user?.uid) return;
     const unsub = onSnapshot(collection(db, 'exercises', user.uid, 'items'), (snap) => {
@@ -511,6 +522,7 @@ export default function PlanScreen() {
     return unsub;
   }, [user?.uid]);
 
+  // Energy + local exercises — load once on focus
   useFocusEffect(useCallback(() => {
     loadAllData();
   }, [user?.uid]));
@@ -535,45 +547,9 @@ export default function PlanScreen() {
       if (storedEnergy) setEnergy(Number(storedEnergy));
     }
 
-    const today = toKey(new Date());
-
-    const coreRaw = await AsyncStorage.getItem(CORE_TASKS_KEY);
-    if (coreRaw) {
-      const parsed = JSON.parse(coreRaw);
-      setCoreTasks(parsed.map((t: any) => mapRawTask(t, today, 'core')));
-    } else {
-      setCoreTasks([]);
-    }
-
-    const extraRaw = await AsyncStorage.getItem(EXTRA_TASKS_KEY);
-    if (extraRaw) {
-      const parsed = JSON.parse(extraRaw);
-      const todayExtras = parsed.filter((t: any) => !t.date || t.date === today);
-      setExtraTasks(todayExtras.map((t: any) => mapRawTask(t, today, 'extra')));
-    } else {
-      setExtraTasks([]);
-    }
-
     const exRaw = await AsyncStorage.getItem(CORE_EXERCISES_KEY);
-    if (exRaw) {
-      setCoreExercises(JSON.parse(exRaw));
-    } else {
-      setCoreExercises([]);
-    }
+    setCoreExercises(exRaw ? JSON.parse(exRaw) : []);
   }
-
-  useFocusEffect(useCallback(() => {
-    let lastChanged = '';
-    const checkChanges = async () => {
-      const changed = await AsyncStorage.getItem('data_changed_at');
-      if (changed && changed !== lastChanged) {
-        lastChanged = changed;
-        await loadAllData();
-      }
-    };
-    const interval = setInterval(checkChanges, 2000);
-    return () => clearInterval(interval);
-  }, []));
 
   useEffect(() => {
     (async () => {
