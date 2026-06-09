@@ -21,7 +21,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const tabConfig: Record<string, { icon: keyof typeof Ionicons.glyphMap; iconActive: keyof typeof Ionicons.glyphMap; label: string }> = {
     home:      { icon: 'home-outline',             iconActive: 'home',             label: t.home },
     tasks:     { icon: 'checkmark-circle-outline', iconActive: 'checkmark-circle', label: t.tasks },
-    doctors:   { icon: 'medical-outline',          iconActive: 'medical',          label: isRTL ? 'دكتوري' : 'Doctor' },
+    doctors:   { icon: 'medical-outline',          iconActive: 'medical',          label: t.myDoctors },
     exercises: { icon: 'fitness-outline',          iconActive: 'fitness',          label: t.exercisesTab },
     more:      { icon: 'grid-outline',             iconActive: 'grid',             label: t.more },
   };

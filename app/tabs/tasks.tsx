@@ -353,7 +353,7 @@ export default function TasksScreen() {
               </Text>
               <TouchableOpacity style={styles.emptyAddBtn} onPress={openModal}>
                 <Ionicons name="add" size={16} color="#7C5CBF" />
-                <Text style={styles.emptyAddText}>{isRTL ? 'أضف مهمة' : 'Add Task'}</Text>
+                <Text style={styles.emptyAddText}>{t.addTask}</Text>
               </TouchableOpacity>
             </View>
           ) : visible.length === 0 ? (

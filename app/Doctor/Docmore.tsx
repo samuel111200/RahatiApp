@@ -455,7 +455,7 @@ export default function DocMoreScreen() {
       setAvatarUri(url);
       await notifyAvatarUpdated('added');
     } catch {
-      Alert.alert(t.docError, isRTL ? 'فشل رفع الصورة، حاول مرة أخرى' : 'Image upload failed, try again');
+      Alert.alert(t.docError, t.imageUploadFailed);
     } finally {
       setUploadingAvatar(false);
     }
@@ -483,7 +483,7 @@ export default function DocMoreScreen() {
     ? `${(user.firstName || '?')[0]}${(user.lastName || '?')[0]}`.toUpperCase()
     : '?';
 
-  const docTitle = isRTL ? 'د.' : 'Dr.';
+  const docTitle = t.docTitlePrefix;
 
   const combinedUser = { ...user, specialty, licenseNumber };
 

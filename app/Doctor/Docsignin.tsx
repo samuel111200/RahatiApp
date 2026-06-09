@@ -38,22 +38,14 @@ export default function DocSignInScreen() {
     setLoading(false);
 
     if (!ok) {
-      Alert.alert(
-        isRTL ? 'خطأ في تسجيل الدخول' : 'Sign In Error',
-        error ?? (isRTL ? 'فشل تسجيل الدخول' : 'Sign in failed'),
-      );
+      Alert.alert(t.error, error ?? t.signInFailed);
       return;
     }
 
     if (role !== 'doctor') {
       // Patient account used on doctor screen → reject
       await logout();
-      Alert.alert(
-        isRTL ? 'حساب مريض' : 'Patient Account',
-        isRTL
-          ? 'هذا الحساب خاص بالمرضى. اختر "مريض" من صفحة اختيار الدور.'
-          : 'This is a patient account. Please select "Patient" from the role screen.',
-      );
+      Alert.alert(t.patientAccount, t.docRolePatientSub);
       return;
     }
 
@@ -73,9 +65,7 @@ export default function DocSignInScreen() {
           <View style={styles.roleBadgeRow}>
             <View style={styles.roleBadge}>
               <Text style={styles.roleBadgeEmoji}>🩺</Text>
-              <Text style={styles.roleBadgeText}>
-                {isRTL ? 'دخول الدكتور' : 'Doctor Login'}
-              </Text>
+              <Text style={styles.roleBadgeText}>{t.doctorLogin}</Text>
             </View>
           </View>
 
@@ -134,9 +124,7 @@ export default function DocSignInScreen() {
           >
             <View style={styles.switchRoleInner}>
               <Ionicons name="swap-horizontal-outline" size={18} color={Colors.primary} />
-              <Text style={styles.switchRoleText}>
-                {isRTL ? 'أنت مريض؟ غيّر دورك' : 'Are you a patient? Switch role'}
-              </Text>
+              <Text style={styles.switchRoleText}>{t.switchToPatientRole}</Text>
               <Ionicons
                 name={isRTL ? 'chevron-back' : 'chevron-forward'}
                 size={16}

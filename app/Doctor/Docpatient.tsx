@@ -131,7 +131,7 @@ const formatSize = (bytes?: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-async function saveAttachmentToDevice(uri: string, fileName: string, mimeType?: string, isRTL = false) {
+async function saveAttachmentToDevice(uri: string, fileName: string, mimeType?: string, isRTL = false, t: any = {}) {
   const isImage = mimeType?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
 
   const getLocalUri = async (): Promise<string> => {
@@ -144,12 +144,12 @@ async function saveAttachmentToDevice(uri: string, fileName: string, mimeType?: 
     try {
       const { status } = await MediaLibrary.requestPermissionsAsync(false, ['photo']);
       if (status !== 'granted') {
-        Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'مطلوب إذن الوصول للمعرض' : 'Gallery permission required');
+        Alert.alert(t.error, t.galleryPermissionRequired);
         return;
       }
       await MediaLibrary.saveToLibraryAsync(await getLocalUri());
-      Alert.alert(isRTL ? '✅ تم الحفظ' : '✅ Saved', isRTL ? 'تم حفظ الصورة في معرض الصور' : 'Image saved to gallery');
-    } catch (e) { console.warn('[saveToGallery]', e); Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'فشل حفظ الصورة' : 'Failed to save image'); }
+      Alert.alert(t.saved, t.imageSavedGallery);
+    } catch (e) { console.warn('[saveToGallery]', e); Alert.alert(t.error, t.imageSaveFailed); }
   };
 
   const chooseFolder = async () => {
@@ -162,20 +162,16 @@ async function saveAttachmentToDevice(uri: string, fileName: string, mimeType?: 
       );
       const base64 = await FileSystem.readAsStringAsync(localUri, { encoding: FileSystem.EncodingType.Base64 });
       await FileSystem.writeAsStringAsync(destUri, base64, { encoding: FileSystem.EncodingType.Base64 });
-      Alert.alert(isRTL ? '✅ تم الحفظ' : '✅ Saved', isRTL ? 'تم حفظ الملف بنجاح' : 'File saved successfully');
-    } catch (e) { console.warn('[chooseFolder]', e); Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'فشل حفظ الملف' : 'Failed to save file'); }
+      Alert.alert(t.saved, t.fileSavedSuccess);
+    } catch (e) { console.warn('[chooseFolder]', e); Alert.alert(t.error, t.fileSaveFailed); }
   };
 
   const buttons: any[] = [];
-  if (isImage) buttons.push({ text: isRTL ? '🖼️ حفظ في المعرض' : '🖼️ Save to Gallery', onPress: saveToGallery });
-  buttons.push({ text: isRTL ? '📁 اختر مجلد الحفظ' : '📁 Choose Folder', onPress: chooseFolder });
-  buttons.push({ text: isRTL ? 'إلغاء' : 'Cancel', style: 'cancel' });
+  if (isImage) buttons.push({ text: t.saveToGalleryBtn, onPress: saveToGallery });
+  buttons.push({ text: t.chooseFolderBtn, onPress: chooseFolder });
+  buttons.push({ text: t.cancel, style: 'cancel' });
 
-  Alert.alert(
-    isRTL ? 'تحميل' : 'Download',
-    isRTL ? 'اختر مكان الحفظ' : 'Choose where to save',
-    buttons,
-  );
+  Alert.alert(t.downloadTitle, t.downloadSubtitle, buttons);
 }
 
 // ─── Attachment Sheet ─────────────────────────────────────
@@ -190,7 +186,7 @@ function AttachmentSheet({ visible, onClose, onPick, isRTL, t }: {
   const pickCamera = async () => {
     onClose();
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') { Alert.alert(isRTL ? 'خطأ' : 'Error', t.docCameraPerm); return; }
+    if (status !== 'granted') { Alert.alert(t.error, t.docCameraPerm); return; }
     const res = await ImagePicker.launchCameraAsync({ quality: 0.85 });
     if (!res.canceled && res.assets[0]) {
       const a = res.assets[0];
@@ -200,7 +196,7 @@ function AttachmentSheet({ visible, onClose, onPick, isRTL, t }: {
   const pickGallery = async () => {
     onClose();
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') { Alert.alert(isRTL ? 'خطأ' : 'Error', t.docGalleryPerm); return; }
+    if (status !== 'granted') { Alert.alert(t.error, t.docGalleryPerm); return; }
     const res = await ImagePicker.launchImageLibraryAsync({ quality: 0.85 });
     if (!res.canceled && res.assets[0]) {
       const a = res.assets[0];
@@ -280,7 +276,7 @@ function MessageBubble({ msg, isRTL, t, patientPhotoUrl, exerciseAccess }: { msg
     const uri = msg.fileUri || msg.fileUrl;
     if (!uri || saving) return;
     setSaving(true);
-    await saveAttachmentToDevice(uri, msg.fileName || 'file', msg.mimeType, isRTL);
+    await saveAttachmentToDevice(uri, msg.fileName || 'file', msg.mimeType, isRTL, t);
     setSaving(false);
   };
 
@@ -290,7 +286,7 @@ function MessageBubble({ msg, isRTL, t, patientPhotoUrl, exerciseAccess }: { msg
     try {
       await Linking.openURL(url);
     } catch (e) {
-      Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'تعذر فتح الملف' : 'Could not open file');
+      Alert.alert(t.error, t.couldNotOpenFile);
     }
   };
 
@@ -372,7 +368,7 @@ function MessageBubble({ msg, isRTL, t, patientPhotoUrl, exerciseAccess }: { msg
                 <Ionicons name="document-attach" size={22} color={isDoc ? '#fff' : DOC_COLOR} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={[msgStyles.fileName, isDoc && { color: '#fff' }]} numberOfLines={2}>{msg.fileName || (isRTL ? 'ملف' : 'File')}</Text>
+                <Text style={[msgStyles.fileName, isDoc && { color: '#fff' }]} numberOfLines={2}>{msg.fileName || t.fileDefault}</Text>
                 {!!msg.fileSize && <Text style={[msgStyles.fileSize, isDoc && { color: 'rgba(255,255,255,0.7)' }]}>{formatSize(msg.fileSize)}</Text>}
               </View>
             </TouchableOpacity>
@@ -626,7 +622,7 @@ function ExerciseManagementModal({
       `${t.docDeleteExerciseConfirm} "${ex.title}"?`,
       [
         { text: t.docCancelBtn, style: 'cancel' },
-        { text: isRTL ? 'حذف' : 'Delete', style: 'destructive', onPress: async () => {
+        { text: t.deleteLabel, style: 'destructive', onPress: async () => {
           try { await deleteDoc(doc(db, 'exercises', patientId, 'items', ex.id)); } catch (e) { console.warn(e); }
         }},
       ],
@@ -637,13 +633,13 @@ function ExerciseManagementModal({
     const uri = ex.fileUrl || ex.fileUri;
     if (!uri || savingId === ex.id) return;
     setSavingId(ex.id);
-    await saveAttachmentToDevice(uri, ex.fileName || 'file', ex.mimeType, isRTL);
+    await saveAttachmentToDevice(uri, ex.fileName || 'file', ex.mimeType, isRTL, t);
     setSavingId(null);
   };
 
   const exTitle = patientName
     ? (isRTL ? `تمارين ${patientName}` : `${patientName}'s Exercises`)
-    : (isRTL ? 'تمارين المريض' : "Patient's Exercises");
+    : t.patientExercises;
 
   const subTitle = loadingPatient
     ? t.docExercisesLoading
@@ -674,7 +670,7 @@ function ExerciseManagementModal({
             onPress={() => { setMode('library'); setShowAddForm(false); setActiveSection('therapy'); }} activeOpacity={0.8}
           >
             <Text style={{ fontSize: 13, fontWeight: '700', color: mode === 'library' ? '#fff' : DOC_COLOR }}>
-              {isRTL ? '📚 المكتبة' : '📚 Library'}
+              {t.exerciseLibraryTab}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -682,7 +678,7 @@ function ExerciseManagementModal({
             onPress={() => { setMode('assigned'); setShowAddForm(false); setActiveSection('all'); }} activeOpacity={0.8}
           >
             <Text style={{ fontSize: 13, fontWeight: '700', color: mode === 'assigned' ? '#fff' : DOC_COLOR }}>
-              {isRTL ? `✅ المُعيَّنة (${doctorExercises.length})` : `✅ Assigned (${doctorExercises.length})`}
+              {`${t.assignedExercisesTab} (${doctorExercises.length})`}
             </Text>
           </TouchableOpacity>
         </View>
@@ -701,7 +697,7 @@ function ExerciseManagementModal({
               >
                 <Text style={{ fontSize: 13 }}>📋</Text>
                 <Text style={[exStyles.tabLabel, { color: isAct ? '#fff' : DOC_COLOR }]}>
-                  {isRTL ? 'الكل' : 'All'}
+                  {t.all}
                 </Text>
                 {total > 0 && (
                   <View style={[exStyles.tabBadge, { backgroundColor: isAct ? 'rgba(255,255,255,0.3)' : DOC_COLOR + '22' }]}>
@@ -746,7 +742,7 @@ function ExerciseManagementModal({
               <View style={{ alignItems: 'center', paddingVertical: 40 }}>
                 <Text style={{ fontSize: 36, marginBottom: 8 }}>{libCfg.emoji}</Text>
                 <Text style={{ fontSize: 14, color: Colors.textMuted, textAlign: 'center' }}>
-                  {isRTL ? 'لا توجد تمارين في هذه الفئة' : 'No exercises in this category'}
+                  {t.noExercisesCategory}
                 </Text>
               </View>
             );
@@ -761,7 +757,7 @@ function ExerciseManagementModal({
                     </Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
                       <Ionicons name="time-outline" size={11} color={libCfg.color} />
-                      <Text style={[exStyles.patientCardMeta, { color: libCfg.color }]}>{ex.durationMin} {isRTL ? 'دقيقة' : 'min'}</Text>
+                      <Text style={[exStyles.patientCardMeta, { color: libCfg.color }]}>{ex.durationMin} {t.exerciseMinute}</Text>
                     </View>
                     <Text style={[exStyles.patientCardDesc, { marginTop: 3 }]} numberOfLines={1}>
                       {isRTL ? ex.descAr : ex.descEn}
@@ -777,7 +773,7 @@ function ExerciseManagementModal({
                     activeOpacity={alreadyAssigned ? 1 : 0.8}
                   >
                     <Text style={{ fontSize: 12, fontWeight: '700', color: '#fff' }}>
-                      {alreadyAssigned ? (isRTL ? '✓ مُضاف' : '✓ Added') : (isRTL ? '+ إضافة' : '+ Add')}
+                      {alreadyAssigned ? t.exerciseAddedBadge : t.exerciseAddBadge}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -922,7 +918,7 @@ function ExerciseManagementModal({
               <Text style={{ fontSize: 48 }}>{activeSection === 'all' ? '📋' : activeCfg.emoji}</Text>
               <Text style={exStyles.emptyText}>
                 {activeSection === 'all'
-                  ? (isRTL ? 'لا توجد تمارين مُعيَّنة بعد' : 'No exercises assigned yet')
+                  ? t.noExercisesAssigned
                   : (isRTL ? `${t.docNoExercisesSection} ${activeCfg.labelAr}` : `${t.docNoExercisesSection} ${activeCfg.labelEn}`)}
               </Text>
               <TouchableOpacity
@@ -955,7 +951,7 @@ function ExerciseManagementModal({
                 <TextInput style={[exStyles.input, { flex: 1 }]} value={newTitle} onChangeText={setNewTitle} placeholder={t.docEnterExerciseName} placeholderTextColor="#bbb" />
               </View>
               <TextInput style={exStyles.input} value={newMins} onChangeText={setNewMins} placeholder={t.docEnterValidDuration} placeholderTextColor="#bbb" keyboardType="numeric" />
-              <TextInput style={[exStyles.input, { height: 64, textAlignVertical: 'top' }]} value={newDesc} onChangeText={setNewDesc} placeholder={isRTL ? 'وصف (اختياري)' : 'Description (optional)'} placeholderTextColor="#bbb" multiline />
+              <TextInput style={[exStyles.input, { height: 64, textAlignVertical: 'top' }]} value={newDesc} onChangeText={setNewDesc} placeholder={t.descOptional} placeholderTextColor="#bbb" multiline />
               <TouchableOpacity style={exStyles.attachRow} onPress={() => setShowAttach(true)} activeOpacity={0.8}>
                 <Ionicons name="attach-outline" size={18} color={DOC_COLOR} />
                 <Text style={exStyles.attachRowText} numberOfLines={1}>
@@ -1009,7 +1005,7 @@ function ExerciseManagementModal({
                   <TextInput style={[exStyles.input, { flex: 1 }]} value={editTitle} onChangeText={setEditTitle} placeholder={t.docEnterExerciseName} placeholderTextColor="#bbb" />
                 </View>
                 <TextInput style={[exStyles.input, { marginTop: 10 }]} value={editMins} onChangeText={setEditMins} placeholder={t.docEnterValidDuration} placeholderTextColor="#bbb" keyboardType="numeric" />
-                <TextInput style={[exStyles.input, { height: 64, textAlignVertical: 'top', marginTop: 10 }]} value={editDesc} onChangeText={setEditDesc} placeholder={isRTL ? 'وصف (اختياري)' : 'Description (optional)'} placeholderTextColor="#bbb" multiline />
+                <TextInput style={[exStyles.input, { height: 64, textAlignVertical: 'top', marginTop: 10 }]} value={editDesc} onChangeText={setEditDesc} placeholder={t.descOptional} placeholderTextColor="#bbb" multiline />
                 <View style={{ flexDirection: 'row', marginTop: 10 }}>
                   <TouchableOpacity style={[exStyles.formBtn, { flex: 1, backgroundColor: '#F5F5F5', borderColor: '#E0D6F5', marginRight: 8 }]} onPress={() => setEditingEx(null)} activeOpacity={0.8}>
                     <Text style={{ fontSize: 14, color: '#888', fontWeight: '600' }}>{t.docCancelBtn}</Text>
@@ -1043,13 +1039,13 @@ export function useDoctorEditRequests(isRTL: boolean, t: any) {
         if ((data.pendingEdit as any)?.status !== 'pending') return;
         const pe = data.pendingEdit!;
         Alert.alert(
-          isRTL ? '🩺 طلب تعديل من الدكتور' : '🩺 Doctor Edit Request',
+          t.doctorEditRequest,
           isRTL
-            ? `يريد دكتورك تعديل تمرين "${data.title}"${pe.title !== data.title ? `\n➡️ الاسم الجديد: ${pe.title}` : ''}${pe.durationMin !== data.durationMin ? `\n⏱ المدة الجديدة: ${pe.durationMin} دقيقة` : ''}`
-            : `Your doctor wants to edit "${data.title}"${pe.title !== data.title ? `\n➡️ New name: ${pe.title}` : ''}${pe.durationMin !== data.durationMin ? `\n⏱ New duration: ${pe.durationMin} min` : ''}`,
+            ? `يريد دكتورك تعديل تمرين "${data.title}"${pe.title !== data.title ? `\n➡️ الاسم الجديد: ${pe.title}` : ''}${pe.durationMin !== data.durationMin ? `\n⏱ المدة الجديدة: ${pe.durationMin} ${t.exerciseMinute}` : ''}`
+            : `Your doctor wants to edit "${data.title}"${pe.title !== data.title ? `\n➡️ New name: ${pe.title}` : ''}${pe.durationMin !== data.durationMin ? `\n⏱ New duration: ${pe.durationMin} ${t.exerciseMinute}` : ''}`,
           [
             {
-              text: isRTL ? '✅ قبول' : '✅ Accept',
+              text: t.acceptRequest,
               onPress: async () => {
                 try {
                   await updateDoc(doc(db, 'exercises', uid, 'items', change.doc.id), {
@@ -1061,7 +1057,7 @@ export function useDoctorEditRequests(isRTL: boolean, t: any) {
               },
             },
             {
-              text: isRTL ? '❌ رفض' : '❌ Reject', style: 'destructive',
+              text: t.rejectRequest, style: 'destructive',
               onPress: async () => {
                 try { await updateDoc(doc(db, 'exercises', uid, 'items', change.doc.id), { pendingEdit: { ...pe, status: 'rejected' } }); }
                 catch (e) { console.warn(e); }
@@ -1175,7 +1171,7 @@ export default function Docpatient() {
       text: text.trim(), sender: 'doctor', timestamp: ts, status: 'sent', type: 'text',
     }).catch(() => {});
     await updateChatMeta(text.trim(), ts);
-    notifyMessageSent(patientName || (isRTL ? 'مريض' : 'Patient'), patientId || '', text.trim()).catch(() => {});
+    notifyMessageSent(patientName || t.patientDefault, patientId || '', text.trim()).catch(() => {});
     if (patientId) sendPushToUser(patientId, isRTL ? '💬 رسالة من طبيبك' : '💬 Message from your doctor', text.trim()).catch(() => {});
     setInputText('');
     setShowQuick(false);
@@ -1188,7 +1184,7 @@ export default function Docpatient() {
     try {
       fileUrl = await uploadFileToCloudinary(a.uri, a.mimeType, a.name);
     } catch {
-      Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'فشل رفع الملف، حاول مرة أخرى' : 'File upload failed, try again');
+      Alert.alert(t.error, t.fileUploadFailed2);
       return;
     }
     const ts      = Date.now();
@@ -1199,7 +1195,7 @@ export default function Docpatient() {
       fileUrl, fileName: a.name, fileSize: a.size ?? null, mimeType: a.mimeType,
     }).catch(() => {});
     await updateChatMeta(preview, ts);
-    notifyMessageSent(patientName || (isRTL ? 'مريض' : 'Patient'), patientId || '', preview).catch(() => {});
+    notifyMessageSent(patientName || t.patientDefault, patientId || '', preview).catch(() => {});
     if (patientId) sendPushToUser(patientId, isRTL ? '💬 رسالة من طبيبك' : '💬 Message from your doctor', preview).catch(() => {});
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   }, [chatId, patientId, patientName, isRTL, updateChatMeta]);
@@ -1251,7 +1247,7 @@ export default function Docpatient() {
               : <Text style={styles.headerInitials}>{initials}</Text>}
           </View>
           <View>
-            <Text style={styles.headerName} numberOfLines={1}>{patientName || (isRTL ? 'مريض' : 'Patient')}</Text>
+            <Text style={styles.headerName} numberOfLines={1}>{patientName || t.patientDefault}</Text>
             <View style={styles.onlineRow}>
               <View style={[styles.onlineDot, !isOnline && styles.offlineDot]} />
               <Text style={[styles.onlineText, !isOnline && styles.offlineText]}>

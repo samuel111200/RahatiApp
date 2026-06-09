@@ -14,6 +14,7 @@ import {
 } from './notificationService';
 import MedicationNote from '../../components/Medicationnote';
 import { useAuth } from '../../context/AuthContext';
+import { useLang } from '../../context/Languagecontext';
 import { db } from '../../utils/firebaseConfig';
 import { doc, getDoc, setDoc, collection, onSnapshot } from 'firebase/firestore';
 
@@ -37,11 +38,12 @@ type CompletionStatus = 'done' | 'pending' | 'locked';
 
 const CORE_EXERCISES_KEY  = 'core_exercises';
 
-const DAYS_AR   = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
-const MONTHS_AR = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
-
-function formatDateAr(date: Date) {
-  return `${DAYS_AR[date.getDay()]}، ${date.getDate()} ${MONTHS_AR[date.getMonth()]}`;
+function formatDate(date: Date, t: any, isRTL: boolean) {
+  const day   = (t.calFullDays as string[])[date.getDay()];
+  const month = (t.calMonths   as string[])[date.getMonth()];
+  return isRTL
+    ? `${day}، ${date.getDate()} ${month}`
+    : `${day}, ${month} ${date.getDate()}`;
 }
 
 function toKey(date: Date) {
@@ -128,31 +130,19 @@ function buildPlanList(
   extraTasks: PlanTask[],
   coreExercises: any[],
 ): PlanTask[] {
-  if (coreTasks.length === 0 && extraTasks.length === 0) return [];
+  const allTasks = [...sortTasksByTime(coreTasks), ...sortTasksByTime(extraTasks)];
+  if (allTasks.length === 0) return [];
+  if (coreExercises.length === 0) return allTasks;
 
   const result: PlanTask[] = [];
-  let exerciseIdx = 0;
-
-  const sortedCore = sortTasksByTime(coreTasks);
-  sortedCore.forEach((task) => {
+  allTasks.forEach((task, index) => {
     result.push(task);
-    if (coreExercises.length > 0) {
-      const ex = coreExercises[exerciseIdx % coreExercises.length];
-      result.push(mapExerciseToTask(ex, exerciseIdx, task.date));
-      exerciseIdx++;
+    // Insert exercise BETWEEN tasks — not after the last one
+    if (index < allTasks.length - 1) {
+      const ex = coreExercises[index % coreExercises.length];
+      result.push(mapExerciseToTask(ex, index, task.date));
     }
   });
-
-  const sortedExtra = sortTasksByTime(extraTasks);
-  sortedExtra.forEach((task) => {
-    result.push(task);
-    if (coreExercises.length > 0) {
-      const ex = coreExercises[exerciseIdx % coreExercises.length];
-      result.push(mapExerciseToTask(ex, exerciseIdx, task.date));
-      exerciseIdx++;
-    }
-  });
-
   return result;
 }
 
@@ -252,12 +242,14 @@ const badge = StyleSheet.create({
   },
 });
 
-function CalendarPicker({ visible, selected, onSelect, onClose, minDateKey }: {
+function CalendarPicker({ visible, selected, onSelect, onClose, minDateKey, t, isRTL }: {
   visible: boolean;
   selected: Date;
   onSelect: (d: Date) => void;
   onClose: () => void;
   minDateKey: string;
+  t: any;
+  isRTL: boolean;
 }) {
   const [viewing, setViewing] = useState(new Date(selected));
 
@@ -284,14 +276,14 @@ function CalendarPicker({ visible, selected, onSelect, onClose, minDateKey }: {
             <TouchableOpacity onPress={() => setViewing(new Date(viewing.getFullYear(), viewing.getMonth() - 1, 1))}>
               <Ionicons name="chevron-back" size={20} color="#7C5CBF" />
             </TouchableOpacity>
-            <Text style={cal.monthTitle}>{MONTHS_AR[viewing.getMonth()]} {viewing.getFullYear()}</Text>
+            <Text style={cal.monthTitle}>{(t.calMonths as string[])[viewing.getMonth()]} {viewing.getFullYear()}</Text>
             <TouchableOpacity onPress={() => setViewing(new Date(viewing.getFullYear(), viewing.getMonth() + 1, 1))}>
               <Ionicons name="chevron-forward" size={20} color="#7C5CBF" />
             </TouchableOpacity>
           </View>
 
           <View style={cal.dayNames}>
-            {['أح','اث','ث','أر','خ','ج','س'].map(d => (
+            {(t.calDays as string[]).map((d: string) => (
               <Text key={d} style={cal.dayName}>{d}</Text>
             ))}
           </View>
@@ -339,11 +331,11 @@ function CalendarPicker({ visible, selected, onSelect, onClose, minDateKey }: {
           <View style={cal.legend}>
             <View style={cal.legendItem}>
               <View style={[cal.legendDot, { backgroundColor: '#7C5CBF' }]} />
-              <Text style={cal.legendText}>اليوم</Text>
+              <Text style={cal.legendText}>{t.today}</Text>
             </View>
             <View style={cal.legendItem}>
               <View style={[cal.legendDot, { backgroundColor: '#bbb' }]} />
-              <Text style={cal.legendText}>أمس</Text>
+              <Text style={cal.legendText}>{t.yesterday}</Text>
             </View>
           </View>
         </View>
@@ -352,13 +344,14 @@ function CalendarPicker({ visible, selected, onSelect, onClose, minDateKey }: {
   );
 }
 
-function TaskCard({ task, energy, isLast, status, onToggleDone, selectedDate }: {
+function TaskCard({ task, energy, isLast, status, onToggleDone, selectedDate, t }: {
   task: PlanTask;
   energy: number;
   isLast: boolean;
   status: CompletionStatus;
   onToggleDone: (id: string) => void;
   selectedDate: Date;
+  t: any;
 }) {
   const canDo      = canDoTask(energy, task.effortScore);
   const isExercise = !!task.isExercise;
@@ -385,7 +378,7 @@ function TaskCard({ task, energy, isLast, status, onToggleDone, selectedDate }: 
           <View style={card.exerciseBadgeRow}>
             <View style={card.exerciseBadge}>
               <Ionicons name="fitness-outline" size={11} color="#4CAF82" />
-              <Text style={card.exerciseBadgeText}>تمرين سريع</Text>
+              <Text style={card.exerciseBadgeText}>{t.quickExerciseBadge}</Text>
             </View>
           </View>
         )}
@@ -420,16 +413,16 @@ function TaskCard({ task, energy, isLast, status, onToggleDone, selectedDate }: 
             {!isExercise && task.taskType && (
               <View style={[card.typePill, { backgroundColor: task.taskType === 'core' ? '#7C5CBF18' : '#F4A32B18' }]}>
                 <Text style={[card.typePillText, { color: task.taskType === 'core' ? '#7C5CBF' : '#C97B3A' }]}>
-                  {task.taskType === 'core' ? '⭐ أساسي' : '⚡ إضافي'}
+                  {task.taskType === 'core' ? t.basicTask : t.extraTaskBadge}
                 </Text>
               </View>
             )}
 
             {status === 'locked' && (
-              <Text style={card.lockedLabel}>⏳ لسه وقته ماجاش</Text>
+              <Text style={card.lockedLabel}>{t.lockedLabel}</Text>
             )}
             {status === 'done' && (
-              <Text style={card.doneLabel}>✅ تم الإنجاز</Text>
+              <Text style={card.doneLabel}>{t.doneLabel}</Text>
             )}
           </View>
 
@@ -440,14 +433,14 @@ function TaskCard({ task, energy, isLast, status, onToggleDone, selectedDate }: 
         </View>
 
         {!isExercise && !canDo && !isDone && (
-          <Text style={card.warning}>طاقتك قد لا تكفي لهذه المهمة</Text>
+          <Text style={card.warning}>{t.energyWarning}</Text>
         )}
       </View>
     </View>
   );
 }
 
-function ProgressBar({ total, done }: { total: number; done: number }) {
+function ProgressBar({ total, done, t }: { total: number; done: number; t: any }) {
   if (total === 0) return null;
   const pct = Math.round((done / total) * 100);
   const color = pct === 100 ? '#4CAF82' : pct >= 50 ? '#F4A32B' : '#7C5CBF';
@@ -456,13 +449,13 @@ function ProgressBar({ total, done }: { total: number; done: number }) {
     <View style={prog.wrap}>
       <View style={prog.labelRow}>
         <Text style={[prog.pct, { color }]}>{pct}%</Text>
-        <Text style={prog.label}>{done} / {total} مكتملة</Text>
+        <Text style={prog.label}>{done} / {total} {t.completedCount}</Text>
       </View>
       <View style={prog.barBg}>
         <Animated.View style={[prog.barFill, { width: `${pct}%` as any, backgroundColor: color }]} />
       </View>
       {pct === 100 && (
-        <Text style={prog.congrats}>🎉 أنهيت كل مهام اليوم! عظيم!</Text>
+        <Text style={prog.congrats}>{t.allDone}</Text>
       )}
     </View>
   );
@@ -480,6 +473,7 @@ const prog = StyleSheet.create({
 
 export default function PlanScreen() {
   const { user } = useAuth();
+  const { t, isRTL } = useLang();
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showCal, setShowCal]           = useState(false);
@@ -639,7 +633,7 @@ export default function PlanScreen() {
           <Ionicons name="today-outline" size={20} color="#7C5CBF" />
         </TouchableOpacity>
         <Text style={s.navTitle}>
-          {isToday ? 'خطتي اليوم' : selectedKey === yesterday ? 'أمس' : formatDateAr(selectedDate)}
+          {isToday ? t.planToday : selectedKey === yesterday ? t.yesterday : formatDate(selectedDate, t, isRTL)}
         </Text>
         <View style={s.calBtnWrapper}>
           <TouchableOpacity onPress={() => setShowCal(true)} style={s.navIconBtn}>
@@ -652,50 +646,50 @@ export default function PlanScreen() {
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
 
         <View style={s.datePill}>
-          <Text style={s.dateText}>{formatDateAr(selectedDate)}</Text>
+          <Text style={s.dateText}>{formatDate(selectedDate, t, isRTL)}</Text>
         </View>
 
         {isPastDay && (
           <View style={s.modeBanner}>
             <Ionicons name="eye-outline" size={15} color="#888" />
-            <Text style={s.modeBannerText}>عرض سجل الأمس — لا يمكن التعديل</Text>
+            <Text style={s.modeBannerText}>{t.pastDayViewMode}</Text>
           </View>
         )}
 
         {isFutureDay && (
           <View style={s.modeBanner}>
             <Ionicons name="calendar-outline" size={15} color="#7C5CBF" />
-            <Text style={[s.modeBannerText, { color: '#7C5CBF' }]}>تخطيط مسبق — المهام لا تُحسب حتى يحين يومها</Text>
+            <Text style={[s.modeBannerText, { color: '#7C5CBF' }]}>{t.futureDayPlanMode}</Text>
           </View>
         )}
 
         <View style={s.placeholderCard}>
           <Text style={s.placeholderEmoji}>🌿</Text>
           <Text style={s.placeholderText}>
-            تم تنظيم يومك بناءً{"\n"}على طاقتك البالغة {energy}%
+            {t.organizedByEnergy} {energy}%
           </Text>
         </View>
 
         {hasTasks && (
-          <ProgressBar total={realTasks.length} done={doneCount} />
+          <ProgressBar total={realTasks.length} done={doneCount} t={t} />
         )}
 
         {hasTasks && (
           <View style={s.summaryRow}>
             <View style={s.summaryPill}>
               <Text style={s.summaryEmoji}>⭐</Text>
-              <Text style={s.summaryText}>{dayCoreTasks.length} أساسي</Text>
+              <Text style={s.summaryText}>{dayCoreTasks.length} {t.coreTasksCount}</Text>
             </View>
             {dayExtraTasks.length > 0 && (
               <View style={[s.summaryPill, { backgroundColor: '#FEF3E2' }]}>
                 <Text style={s.summaryEmoji}>⚡</Text>
-                <Text style={[s.summaryText, { color: '#C97B3A' }]}>{dayExtraTasks.length} إضافي</Text>
+                <Text style={[s.summaryText, { color: '#C97B3A' }]}>{dayExtraTasks.length} {t.extraTasksCount}</Text>
               </View>
             )}
             {allExercises.length > 0 && (
               <View style={[s.summaryPill, { backgroundColor: '#E8F5EF' }]}>
                 <Text style={s.summaryEmoji}>🏋️</Text>
-                <Text style={[s.summaryText, { color: '#4CAF82' }]}>{dayCoreTasks.length + dayExtraTasks.length} تمرين</Text>
+                <Text style={[s.summaryText, { color: '#4CAF82' }]}>{dayCoreTasks.length + dayExtraTasks.length} {t.exercisesCount}</Text>
               </View>
             )}
           </View>
@@ -706,8 +700,8 @@ export default function PlanScreen() {
             <Text style={{ fontSize: 16 }}>{energyOk ? "⚡" : "⚠️"}</Text>
             <Text style={[s.energyText, { color: energyOk ? "#4CAF82" : "#E05C5C" }]}>
               {energyOk
-                ? `طاقتك كافية لمهام اليوم (${energy}%)`
-                : `طاقتك (${energy}%) قد لا تكفي لكل المهام`}
+                ? `${t.energySufficient} (${energy}%)`
+                : `${t.energyInsufficient} (${energy}%)`}
             </Text>
           </View>
         </View>
@@ -716,19 +710,19 @@ export default function PlanScreen() {
           <View style={s.legend}>
             <View style={s.legendItem}>
               <View style={[s.legendDot, { backgroundColor: '#4CAF82' }]} />
-              <Text style={s.legendText}>منجز</Text>
+              <Text style={s.legendText}>{t.done}</Text>
             </View>
             <View style={s.legendItem}>
               <View style={[s.legendDot, { backgroundColor: '#ddd' }]} />
-              <Text style={s.legendText}>لم يتم بعد</Text>
+              <Text style={s.legendText}>{t.notDoneYet}</Text>
             </View>
             <View style={s.legendItem}>
               <Ionicons name="time-outline" size={12} color="#bbb" />
-              <Text style={s.legendText}>لسه وقته ماجاش</Text>
+              <Text style={s.legendText}>{t.notTimeYet}</Text>
             </View>
             <View style={s.legendItem}>
               <Ionicons name="fitness-outline" size={12} color="#4CAF82" />
-              <Text style={s.legendText}>تمرين</Text>
+              <Text style={s.legendText}>{t.exercise}</Text>
             </View>
           </View>
         )}
@@ -737,7 +731,7 @@ export default function PlanScreen() {
           <View style={s.emptyState}>
             <Text style={{ fontSize: 40 }}>{isPastDay ? '📋' : '📭'}</Text>
             <Text style={s.emptyText}>
-              {isPastDay ? 'لا توجد مهام مسجلة لهذا اليوم' : 'لا توجد مهام في هذا اليوم'}
+              {isPastDay ? t.noTasksPastDay : t.noTasksToday}
             </Text>
             {!isPastDay && (
               <TouchableOpacity
@@ -747,7 +741,7 @@ export default function PlanScreen() {
               >
                 <Ionicons name="add-circle-outline" size={18} color="#7C5CBF" />
                 <Text style={s.goToTasksText}>
-                  {isFutureDay ? 'خطط مهام لهذا اليوم' : 'أضف مهام من صفحة المهام'}
+                  {isFutureDay ? t.planForDay : t.addTasksFromTasksPage}
                 </Text>
               </TouchableOpacity>
             )}
@@ -763,6 +757,7 @@ export default function PlanScreen() {
                 status={getStatus(task)}
                 onToggleDone={handleToggleDone}
                 selectedDate={selectedDate}
+                t={t}
               />
             ))}
           </View>
@@ -775,6 +770,8 @@ export default function PlanScreen() {
         onSelect={setSelectedDate}
         onClose={() => setShowCal(false)}
         minDateKey={yesterday}
+        t={t}
+        isRTL={isRTL}
       />
       <MedicationNote />
     </View>

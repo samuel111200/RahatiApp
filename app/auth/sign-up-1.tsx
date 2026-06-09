@@ -53,9 +53,7 @@ export default function PatientSignUp1Screen() {
           <View style={styles.roleBadgeRow}>
             <View style={styles.roleBadge}>
               <Text style={styles.roleBadgeEmoji}>🧑‍⚕️</Text>
-              <Text style={styles.roleBadgeText}>
-                {isRTL ? 'تسجيل مريض' : 'Patient Sign Up'}
-              </Text>
+              <Text style={styles.roleBadgeText}>{t.patientSignUpBadge}</Text>
             </View>
           </View>
 

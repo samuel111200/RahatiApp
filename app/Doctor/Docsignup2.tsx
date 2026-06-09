@@ -30,7 +30,7 @@ export default function DoctorSignUp2Screen() {
     const e: Record<string, string> = {};
     if (!email.trim())               e.email     = t.required;
     else if (!/\S+@\S+\.\S+/.test(email)) e.email = t.invalidEmail;
-    if (!specialty.trim())           e.specialty = isRTL ? 'التخصص مطلوب' : 'Specialty is required';
+    if (!specialty.trim())           e.specialty = t.specialtyRequired;
     if (!password.trim())            e.password  = t.required;
     else if (password.length < 6)    e.password  = t.shortPassword;
     if (!confirm.trim())             e.confirm   = t.required;
@@ -57,10 +57,7 @@ export default function DoctorSignUp2Screen() {
     if (ok) {
       router.replace('/Doctor/Dochome');
     } else {
-      Alert.alert(
-        isRTL ? 'خطأ في إنشاء الحساب' : 'Sign Up Error',
-        error ?? (isRTL ? 'فشل إنشاء الحساب، حاول مجدداً' : 'Sign up failed, please try again'),
-      );
+      Alert.alert(t.error, error ?? t.saveFailed);
     }
   };
 
@@ -105,8 +102,8 @@ export default function DoctorSignUp2Screen() {
               keyboardType="email-address" error={errors.email} rtl={isRTL}
             />
             <InputField
-              label={isRTL ? 'التخصص' : 'Specialty'}
-              placeholder={isRTL ? 'مثال: طب نفسي، أطفال، قلب...' : 'e.g. Psychiatry, Cardiology...'}
+              label={t.docSpecialty}
+              placeholder={t.specialtyPlaceholder}
               value={specialty} onChangeText={setSpecialty}
               error={errors.specialty} rtl={isRTL}
             />

@@ -256,7 +256,7 @@ export default function DocHome() {
           return {
             id:          rel.patientId,
             relId:       relDoc.id,
-            firstName:   parts[0] ?? (isRTL ? 'مريض' : 'Patient'),
+            firstName:   parts[0] ?? t.patientDefault,
             lastName:    parts.slice(1).join(' ') || '',
             avatar,
             status:      rel.status === 'accepted' ? 'accepted' : 'pending' as PatientStatus,

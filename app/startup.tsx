@@ -12,6 +12,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useLang } from '../context/Languagecontext';
 
 const { width, height } = Dimensions.get("window");
 
@@ -29,6 +30,7 @@ function Butterfly({ style, opacity = 1 }: { style?: any; opacity?: number }) {
 
 export default function StartupScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useLang();
 
   const fadeIn     = useRef(new Animated.Value(0)).current;
   const butterflyX = useRef(new Animated.Value(0)).current;
@@ -72,11 +74,11 @@ export default function StartupScreen() {
       <Animated.View style={[styles.content, { opacity: fadeIn, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
 
         <View style={{ alignItems: "center" }}>
-          <Text style={styles.greetSmall}>مرحباً بك في</Text>
-          <Text style={styles.appName}>راحتي</Text>
-          <Text style={styles.tagline}>رفيقك في إدارة طاقتك</Text>
-          <Text style={styles.tagline2}>كل يوم خطوة نحو حياة</Text>
-          <Text style={styles.tagline3}>افضل 💜</Text>
+          <Text style={styles.greetSmall}>{t.startupGreet}</Text>
+          <Text style={styles.appName}>{t.appName}</Text>
+          <Text style={styles.tagline}>{t.startupTagline}</Text>
+          <Text style={styles.tagline2}>{t.startupTagline2}</Text>
+          <Text style={styles.tagline3}>{t.startupTagline3}</Text>
         </View>
 
         <View style={{ flex: 1 }} />
@@ -96,13 +98,11 @@ export default function StartupScreen() {
               end={{ x: 1, y: 0 }}
               style={styles.ctaGradient}
             >
-              <Text style={styles.ctaText}>ابدأ يومك</Text>
+              <Text style={styles.ctaText}>{t.startupBtn}</Text>
             </LinearGradient>
           </TouchableOpacity>
 
-          <Text style={styles.footerNote}>
-            أجل رحلة بناء عاداتك اليومية وتحقيق طاقة حياتك
-          </Text>
+          <Text style={styles.footerNote}>{t.startupFooter}</Text>
         </View>
 
       </Animated.View>

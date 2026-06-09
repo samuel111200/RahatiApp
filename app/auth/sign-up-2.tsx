@@ -55,14 +55,11 @@ export default function PatientSignUp2Screen() {
       return;
     }
     setLoading(false);
-    const isEmailError = error?.includes('مستخدم') || error?.toLowerCase().includes('already');
+    const isEmailError = error?.includes('مستخدم') || error?.toLowerCase().includes('already') || error?.toLowerCase().includes('email') || error?.toLowerCase().includes('in-use');
     if (isEmailError) {
       setErrors({ email: error! });
     } else {
-      Alert.alert(
-        isRTL ? 'خطأ في إنشاء الحساب' : 'Sign Up Error',
-        error ?? (isRTL ? 'فشل إنشاء الحساب، حاول مجدداً' : 'Sign up failed, please try again'),
-      );
+      Alert.alert(t.error, error ?? t.saveFailed);
     }
   };
 
@@ -85,7 +82,7 @@ export default function PatientSignUp2Screen() {
             <View style={styles.roleBadge}>
               <Text style={styles.roleBadgeEmoji}>🧑‍⚕️</Text>
               <Text style={styles.roleBadgeText}>
-                {isRTL ? 'تسجيل مريض' : 'Patient Sign Up'}
+                {t.patientSignUpBadge}
               </Text>
             </View>
           </View>
@@ -136,9 +133,7 @@ export default function PatientSignUp2Screen() {
               }
             />
 
-            <Text style={styles.passHint}>
-              {isRTL ? '🔒 كلمة المرور 6 أحرف على الأقل' : '🔒 At least 6 characters'}
-            </Text>
+            <Text style={styles.passHint}>🔒 {t.shortPassword}</Text>
           </View>
 
           <PrimaryButton title={t.signUp} onPress={handleSignUp} loading={loading} />

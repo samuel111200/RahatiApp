@@ -67,7 +67,7 @@ function EnergyEditModal({ visible, onClose, currentEnergy, onSave, isRTL, t }: 
 
   const levels = [
     { label: t.energyExhausted, val: 10, emoji: '🪫', color: '#E05C5C' },
-    { label: isRTL ? 'منخفضة' : 'Low',  val: 30, emoji: '😴', color: '#E07B5C' },
+    { label: t.energyLow,               val: 30, emoji: '😴', color: '#E07B5C' },
     { label: t.energyMedium,    val: 55, emoji: '🔋', color: '#F4A32B' },
     { label: t.highEnergy,      val: 75, emoji: '⚡', color: '#4CAF82' },
     { label: t.energyExcellent, val: 95, emoji: '🚀', color: '#5B9BD5' },
@@ -80,7 +80,7 @@ function EnergyEditModal({ visible, onClose, currentEnergy, onSave, isRTL, t }: 
       <View style={energyModal.sheet}>
         <View style={energyModal.handle} />
         <Text style={energyModal.title}>
-          {isRTL ? '⚡ كيف طاقتك النهارده؟' : '⚡ How is your energy today?'}
+          {t.energyTodayQ}
         </Text>
         <Text style={energyModal.sub}>
           {t.chooseEnergyLevel}
@@ -190,7 +190,7 @@ function AvatarActionSheet({ visible, onClose, onPickNew, onDelete, hasAvatar, t
           <View style={styles.actionDivider} />
           <TouchableOpacity style={[styles.actionBtn, { justifyContent: 'center' }]} onPress={onClose} activeOpacity={0.7}>
             <Text style={[styles.actionBtnText, { color: Colors.textMuted, textAlign: 'center' }]}>
-              {isRTL ? 'مش دلوقتي 😅' : 'Not now 😅'}
+              {t.notNowBtn}
             </Text>
           </TouchableOpacity>
         </Animated.View>
@@ -512,7 +512,7 @@ export default function MoreScreen() {
             { label: t.myPlanLink,    icon: 'calendar-outline',  color: '#7C5CBF', bg: '#F0EBFA', route: '/tabs/home'      },
             { label: t.exercisesLink, icon: 'fitness-outline',   color: '#4CAF82', bg: '#E8F5EF', route: '/tabs/exercises' },
             { label: t.tasksLink,     icon: 'checkbox-outline',  color: '#5B9BD5', bg: '#E8F1FB', route: '/tabs/tasks'     },
-            { label: isRTL ? 'دكاترة' : 'Doctors', icon: 'medkit-outline', color: '#C97B3A', bg: '#FEF3E2', route: '/tabs/doctors' },
+            { label: t.doctorsLink, icon: 'medkit-outline', color: '#C97B3A', bg: '#FEF3E2', route: '/tabs/doctors' },
           ].map((item, i) => (
             <TouchableOpacity key={i} style={[styles.quickLink, { backgroundColor: item.bg }]}
               onPress={() => router.push(item.route as any)} activeOpacity={0.8}>

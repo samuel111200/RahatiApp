@@ -178,7 +178,7 @@ export default function ChatsListScreen() {
       lastMessageTime: c.lastMessageTimestamp
         ? new Date(c.lastMessageTimestamp).toLocaleTimeString(isRTL ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })
         : '',
-      patientName: c.patientName || (isRTL ? 'مريض' : 'Patient'),
+      patientName: c.patientName || t.patientDefault,
     }))
   );
 

@@ -56,7 +56,7 @@ function formatFileSize(bytes?: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-async function downloadFile(url: string, fileName: string, mimeType: string | undefined, isRTL: boolean) {
+async function downloadFile(url: string, fileName: string, mimeType: string | undefined, isRTL: boolean, t: any = {}) {
   const isImage = mimeType?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
 
   const getLocalUri = async (): Promise<string> => {
@@ -68,12 +68,12 @@ async function downloadFile(url: string, fileName: string, mimeType: string | un
     try {
       const { status } = await MediaLibrary.requestPermissionsAsync(false, ['photo']);
       if (status !== 'granted') {
-        Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'مطلوب إذن الوصول للمعرض' : 'Gallery permission required');
+        Alert.alert(t.error, t.galleryPermissionRequired);
         return;
       }
       await MediaLibrary.saveToLibraryAsync(await getLocalUri());
-      Alert.alert(isRTL ? '✅ تم الحفظ' : '✅ Saved', isRTL ? 'تم حفظ الصورة في معرض الصور' : 'Image saved to gallery');
-    } catch (e) { console.warn('[downloadFile]', e); Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'فشل حفظ الصورة' : 'Failed to save image'); }
+      Alert.alert(t.saved, t.imageSavedGallery);
+    } catch (e) { console.warn('[downloadFile]', e); Alert.alert(t.error, t.imageSaveFailed); }
   };
 
   const chooseFolder = async () => {
@@ -86,20 +86,16 @@ async function downloadFile(url: string, fileName: string, mimeType: string | un
       );
       const base64 = await FileSystem.readAsStringAsync(localUri, { encoding: FileSystem.EncodingType.Base64 });
       await FileSystem.writeAsStringAsync(destUri, base64, { encoding: FileSystem.EncodingType.Base64 });
-      Alert.alert(isRTL ? '✅ تم الحفظ' : '✅ Saved', isRTL ? 'تم حفظ الملف بنجاح' : 'File saved successfully');
-    } catch (e) { console.warn('[chooseFolder]', e); Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'فشل حفظ الملف' : 'Failed to save file'); }
+      Alert.alert(t.saved, t.fileSavedSuccess);
+    } catch (e) { console.warn('[chooseFolder]', e); Alert.alert(t.error, t.fileSaveFailed); }
   };
 
   const buttons: any[] = [];
-  if (isImage) buttons.push({ text: isRTL ? '🖼️ حفظ في المعرض' : '🖼️ Save to Gallery', onPress: saveToGallery });
-  buttons.push({ text: isRTL ? '📁 اختر مجلد الحفظ' : '📁 Choose Folder', onPress: chooseFolder });
-  buttons.push({ text: isRTL ? 'إلغاء' : 'Cancel', style: 'cancel' });
+  if (isImage) buttons.push({ text: t.saveToGalleryBtn, onPress: saveToGallery });
+  buttons.push({ text: t.chooseFolderBtn, onPress: chooseFolder });
+  buttons.push({ text: t.cancel, style: 'cancel' });
 
-  Alert.alert(
-    isRTL ? 'تحميل' : 'Download',
-    isRTL ? 'اختر مكان الحفظ' : 'Choose where to save',
-    buttons,
-  );
+  Alert.alert(t.downloadTitle, t.downloadSubtitle, buttons);
 }
 
 // ─── Access Request Card ──────────────────────────────────
@@ -124,7 +120,7 @@ function AccessRequestCard({ isRTL, doctorColor, doctorBg, chatId, t }: {
       await updateDoc(doc(db, 'chats', chatId), { exerciseAccess: true });
       setAccepted(true);
     } catch {
-      Alert.alert(isRTL ? 'خطأ' : 'Error', t.failedToAccept);
+      Alert.alert(t.error, t.failedToAccept);
     }
     setLoading(false);
   };
@@ -174,7 +170,7 @@ function MessageBubble({ msg, isRTL, doctorColor, doctorBg, chatId, t, doctorPho
   const handleSave = async () => {
     if (!msg.fileUrl || saving) return;
     setSaving(true);
-    await downloadFile(msg.fileUrl, msg.fileName ?? 'file', msg.mimeType, isRTL);
+    await downloadFile(msg.fileUrl, msg.fileName ?? 'file', msg.mimeType, isRTL, t);
     setSaving(false);
   };
 
@@ -183,7 +179,7 @@ function MessageBubble({ msg, isRTL, doctorColor, doctorBg, chatId, t, doctorPho
     try {
       await Linking.openURL(msg.fileUrl);
     } catch {
-      Alert.alert(isRTL ? 'خطأ' : 'Error', isRTL ? 'تعذر فتح الملف' : 'Could not open file');
+      Alert.alert(t.error, t.couldNotOpenFile);
     }
   };
 
@@ -264,7 +260,7 @@ function MessageBubble({ msg, isRTL, doctorColor, doctorBg, chatId, t, doctorPho
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.fileName, { color: isPatient ? '#fff' : Colors.textPrimary }]} numberOfLines={1}>
-                    {msg.fileName ?? (isRTL ? 'ملف' : 'File')}
+                    {msg.fileName ?? t.fileDefault}
                   </Text>
                   {!!msg.fileSize && (
                       <Text style={[styles.fileSize, { color: isPatient ? 'rgba(255,255,255,0.7)' : Colors.textMuted }]}>
@@ -323,7 +319,7 @@ function AttachmentSheet({ visible, onClose, onPick, isRTL, t }: {
   const pickCamera = async () => {
     onClose();
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') { Alert.alert(isRTL ? 'خطأ' : 'Error', t.cameraPerm); return; }
+    if (status !== 'granted') { Alert.alert(t.error, t.cameraPerm); return; }
     const res = await ImagePicker.launchCameraAsync({ quality: 0.85 });
     if (!res.canceled && res.assets[0]) {
       const a = res.assets[0];
@@ -333,7 +329,7 @@ function AttachmentSheet({ visible, onClose, onPick, isRTL, t }: {
   const pickGallery = async () => {
     onClose();
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') { Alert.alert(isRTL ? 'خطأ' : 'Error', t.galleryPerm); return; }
+    if (status !== 'granted') { Alert.alert(t.error, t.galleryPerm); return; }
     const res = await ImagePicker.launchImageLibraryAsync({ quality: 0.85 });
     if (!res.canceled && res.assets[0]) {
       const a = res.assets[0];
@@ -356,7 +352,7 @@ function AttachmentSheet({ visible, onClose, onPick, isRTL, t }: {
       <TouchableOpacity style={sheetStyles.overlay} activeOpacity={1} onPress={onClose} />
       <Animated.View style={[sheetStyles.sheet, { transform: [{ translateY: slideAnim }] }]}>
         <View style={sheetStyles.handle} />
-        <Text style={sheetStyles.title}>{isRTL ? 'إرسال مرفق' : 'Send Attachment'}</Text>
+        <Text style={sheetStyles.title}>{t.sendAttachment}</Text>
         <View style={sheetStyles.options}>
           <TouchableOpacity style={sheetStyles.option} onPress={pickCamera} activeOpacity={0.8}>
             <View style={[sheetStyles.optionIcon, { backgroundColor: '#E8F5FF' }]}>
@@ -411,7 +407,7 @@ export default function DoctorChatScreen() {
   }>();
 
   const doctorId    = params.doctorId    ?? '1';
-  const doctorName  = params.doctorName  ?? (isRTL ? 'الدكتور' : 'Doctor');
+  const doctorName  = params.doctorName  ?? t.doctorDefault;
   const doctorEmoji = params.doctorEmoji ?? '🩺';
   const doctorColor = params.doctorColor ?? Colors.primary;
   const doctorBg    = params.doctorBg    ?? Colors.primaryUltraLight;
@@ -518,12 +514,12 @@ export default function DoctorChatScreen() {
         await addDoc(collection(db, 'chats', chatId, 'messages'), { text: text.trim(), sender: 'patient', timestamp: now, status: 'sent', type: 'text' });
         await setDoc(doc(db, 'chats', chatId), {
           doctorId, patientId,
-          patientName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || (isRTL ? 'مريض' : 'Patient'),
+          patientName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || t.patientDefault,
           lastMessage: text.trim(), lastMessageTime: now, lastMessageSender: 'patient',
           unreadCountDoctor: increment(1),
         }, { merge: true });
         sendPushToUser(doctorId, isRTL ? '💬 رسالة جديدة من مريضك' : '💬 New message from your patient', text.trim()).catch(() => {});
-      } catch { Alert.alert(isRTL ? 'خطأ' : 'Error', t.sendFailed); }
+      } catch { Alert.alert(t.error, t.sendFailed); }
       return;
     }
     const newMsg: Message = { id: Date.now().toString(), text: text.trim(), sender: 'patient', time: nowTime(isRTL), status: 'sent' };
@@ -532,7 +528,7 @@ export default function DoctorChatScreen() {
     setTimeout(() => {
       const autoReply: Message = {
         id: `auto_${Date.now()}`,
-        text: isRTL ? 'شكراً على رسالتك، سأرد عليك في أقرب وقت ممكن 🙏' : 'Thank you for your message, I will reply as soon as possible 🙏',
+        text: t.thanksAutoReply,
         sender: 'doctor', time: nowTime(isRTL), status: 'read',
       };
       setMessages(prev => [...prev, autoReply]);
@@ -545,7 +541,7 @@ export default function DoctorChatScreen() {
     try {
       const cloudUrl = await uploadFileToCloudinary(a.uri, a.mimeType, a.name);
       const now    = Date.now();
-      const preview = a.type === 'image' ? (isRTL ? '📷 صورة' : '📷 Image') : `📎 ${a.name}`;
+      const preview = a.type === 'image' ? t.imageMsgLabel : `📎 ${a.name}`;
       const msgData = {
         text: preview, sender: 'patient' as const, timestamp: now,
         status: 'sent' as MessageStatus, type: a.type,
@@ -555,7 +551,7 @@ export default function DoctorChatScreen() {
         await addDoc(collection(db, 'chats', chatId, 'messages'), msgData);
         await setDoc(doc(db, 'chats', chatId), {
           doctorId, patientId,
-          patientName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || (isRTL ? 'مريض' : 'Patient'),
+          patientName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || t.patientDefault,
           lastMessage: preview, lastMessageTime: now, lastMessageSender: 'patient',
           unreadCountDoctor: increment(1),
         }, { merge: true });
@@ -565,7 +561,7 @@ export default function DoctorChatScreen() {
         setMessages(prev => [...prev, localMsg]);
         setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
       }
-    } catch { Alert.alert(isRTL ? 'خطأ' : 'Error', t.sendFileFailed); }
+    } catch { Alert.alert(t.error, t.sendFileFailed); }
     finally { setUploading(false); }
   };
 
@@ -594,7 +590,7 @@ export default function DoctorChatScreen() {
                   <View style={styles.onlineRow}>
                     <View style={[styles.onlineDot, !doctorOnline && styles.offlineDot]} />
                     <Text style={[styles.onlineText, !doctorOnline && styles.offlineText]}>
-                      {doctorOnline ? (isRTL ? 'متصل الآن' : 'Online') : (isRTL ? 'غير متصل' : 'Offline')}
+                      {doctorOnline ? t.docActiveNow : t.docOffline}
                     </Text>
                   </View>
               ) : (

@@ -689,7 +689,7 @@ const DEFAULT_COORDINATION_EXERCISES: Exercise[] = [
 // ─── Main Screen ──────────────────────────────────────────
 // ════════════════════════════════════════════════════════════
 export default function ExercisesScreen() {
-  const { isRTL } = useLang();
+  const { isRTL, t } = useLang();
   const { user }  = useAuth();
   const router = useRouter();
 
@@ -933,7 +933,7 @@ export default function ExercisesScreen() {
     if (selected === item.key && updated.length > 0) setSelected(updated[0].key);
     await AsyncStorage.setItem('data_changed_at', Date.now().toString());
     await notify({
-      title: isRTL ? 'تم حذف التمرين 🗑️' : 'Exercise Deleted 🗑️',
+      title: t.exerciseDeleted,
       body: isRTL ? `"${item.title}" تم حذفه` : `"${item.titleEn}" has been deleted`,
       emoji: item.emoji, type: 'delete',
     });
@@ -951,16 +951,16 @@ export default function ExercisesScreen() {
 
   async function handleAddExercise() {
     if (!newName.trim()) {
-      Alert.alert(isRTL ? 'تنبيه' : 'Notice', isRTL ? 'يرجى إدخال اسم التمرين' : 'Please enter exercise name');
+      Alert.alert(t.error, t.docEnterExerciseName);
       return;
     }
     if (!newMinutes.trim()) {
-      Alert.alert(isRTL ? 'تنبيه' : 'Notice', isRTL ? 'يرجى إدخال المدة' : 'Please enter duration');
+      Alert.alert(t.error, t.docEnterValidDuration);
       return;
     }
     const mins = parseInt(newMinutes);
     if (isNaN(mins) || mins <= 0) {
-      Alert.alert(isRTL ? 'تنبيه' : 'Notice', isRTL ? 'أدخل عدداً صحيحاً للدقائق' : 'Enter a valid number of minutes');
+      Alert.alert(t.error, t.docEnterValidDuration);
       return;
     }
     if (savingEx) return;
@@ -970,10 +970,10 @@ export default function ExercisesScreen() {
       const newEx: Exercise = {
         key: `custom_${Date.now()}`, emoji: newEmoji.trim() || '🏋️',
         title: newName.trim(), titleEn: newName.trim(),
-        duration: `${mins} ${isRTL ? 'دقيقة' : 'min'}`, durationEn: `${mins} min`,
+        duration: `${mins} ${t.exerciseMinute}`, durationEn: `${mins} min`,
         durationSeconds: mins * 60, color: sectionConfig.color,
         bg: '#F8F8F8', accent: '#EEEEEE',
-        desc: newDesc.trim() || (isRTL ? 'تمرين مخصص' : 'Custom exercise'),
+        desc: newDesc.trim() || t.customExercise.replace('✨ ', ''),
         descEn: newDesc.trim() || 'Custom exercise',
         steps: [], stepsEn: [], animType: 'bounce', type: newType, custom: true,
       };
@@ -987,7 +987,7 @@ export default function ExercisesScreen() {
       setActiveSection(newType);
       suppressTaskListNotifOnce();
       await notify({
-        title: isRTL ? 'تمت إضافة تمرين ✅' : 'Exercise Added ✅',
+        title: t.exerciseAdded,
         body: isRTL
           ? `"${newEx.title}" اتضاف لـ${sectionConfig.labelAr}`
           : `"${newEx.titleEn}" added to ${sectionConfig.labelEn}`,
@@ -1040,12 +1040,12 @@ export default function ExercisesScreen() {
             if (!item.custom) return;
             const title = isRTL ? item.title : item.titleEn;
             Alert.alert(
-              isRTL ? 'خيارات التمرين' : 'Exercise Options',
+              t.exerciseOptions,
               `"${title}"`,
               [
-                { text: isRTL ? 'إلغاء' : 'Cancel', style: 'cancel' },
+                { text: t.cancel, style: 'cancel' },
                 {
-                  text: isRTL ? '🗑️ حذف' : '🗑️ Delete',
+                  text: t.deleteTask,
                   style: 'destructive',
                   onPress: () => handleDeleteExercise(item),
                 },
@@ -1088,9 +1088,7 @@ export default function ExercisesScreen() {
             {item.fromDoctor && (
               <View style={styles.doctorBadge}>
                 <Ionicons name="medical" size={10} color="#fff" />
-                <Text style={styles.doctorBadgeText}>
-                  {isRTL ? 'دكتور' : 'Dr.'}
-                </Text>
+                <Text style={styles.doctorBadgeText}>{t.doctorExercise}</Text>
               </View>
             )}
 
@@ -1098,9 +1096,7 @@ export default function ExercisesScreen() {
             {item.fromDoctor && item.completed && (
               <View style={styles.doneBadge}>
                 <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
-                <Text style={styles.doneBadgeText}>
-                  {isRTL ? 'تم' : 'Done'}
-                </Text>
+                <Text style={styles.doneBadgeText}>{t.docExercisesDone}</Text>
               </View>
             )}
 
@@ -1156,9 +1152,7 @@ export default function ExercisesScreen() {
                   styles.doctorDoneBtnText,
                   { color: item.completed ? '#4CAF50' : '#7C5CBF' },
                 ]}>
-                  {item.completed
-                    ? (isRTL ? 'تم إنجاز التمرين ✓' : 'Exercise Done ✓')
-                    : (isRTL ? 'اضغط عند الإنهاء' : 'Tap when done')}
+                  {item.completed ? t.exerciseDoneDr : t.exerciseTapWhenDone}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1197,9 +1191,7 @@ export default function ExercisesScreen() {
                     color={item.color}
                   />
                   <Text style={[styles.speakBtnText, { color: item.color }]}>
-                    {isSpeaking
-                      ? (isRTL ? 'إيقاف' : 'Stop')
-                      : (isRTL ? 'اقرأ الخطوات' : 'Read steps aloud')}
+                    {isSpeaking ? t.stopReadSteps : t.readSteps}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -1216,9 +1208,7 @@ export default function ExercisesScreen() {
 
         <View style={styles.navbar}>
           <View style={{ width: 40 }} />
-          <Text style={styles.navTitle}>
-            {isRTL ? 'تمارين اليوم' : "Today's Exercises"}
-          </Text>
+          <Text style={styles.navTitle}>{t.dailyExercises}</Text>
           <TouchableOpacity onPress={openAddModal} style={styles.navBtn}>
             <Ionicons name="add" size={24} color="#7C5CBF" />
           </TouchableOpacity>
@@ -1288,9 +1278,7 @@ export default function ExercisesScreen() {
               onPress={() => { setNewType(activeSection); openAddModal(); }}
             >
               <Ionicons name="add" size={16} color={activeSectionConfig.color} />
-              <Text style={[styles.emptyAddText, { color: activeSectionConfig.color }]}>
-                {isRTL ? 'أضف تمرين' : 'Add Exercise'}
-              </Text>
+              <Text style={[styles.emptyAddText, { color: activeSectionConfig.color }]}>{t.addExercise}</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -1322,7 +1310,7 @@ export default function ExercisesScreen() {
           >
             <Ionicons name="play-circle-outline" size={26} color={ex.color} />
             <Text style={[styles.timerBtnText, { color: ex.color }]}>
-              {isRTL ? `ابدأ التمرين · ${exDur}` : `Start · ${exDur}`}
+              {t.startDot}{exDur}
             </Text>
           </TouchableOpacity>
         </View>
@@ -1344,9 +1332,7 @@ export default function ExercisesScreen() {
           />
           <View style={modal.addBox}>
             <View style={modal.addHeader}>
-              <Text style={modal.addTitle}>
-                {isRTL ? 'إضافة تمرين جديد' : 'Add New Exercise'}
-              </Text>
+              <Text style={modal.addTitle}>{t.addNewExercise}</Text>
               <TouchableOpacity onPress={closeAddModal} style={modal.closeBtn} activeOpacity={0.7}>
                 <Ionicons name="close" size={20} color="#888" />
               </TouchableOpacity>
@@ -1356,7 +1342,7 @@ export default function ExercisesScreen() {
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              <Text style={modal.label}>{isRTL ? 'نوع التمرين' : 'Exercise Type'}</Text>
+              <Text style={modal.label}>{t.exerciseType}</Text>
               <ScrollView
                 horizontal showsHorizontalScrollIndicator={false}
                 contentContainerStyle={modal.typeRow}
@@ -1382,34 +1368,34 @@ export default function ExercisesScreen() {
                 })}
               </ScrollView>
 
-              <Text style={modal.label}>{isRTL ? 'الإيموجي' : 'Emoji'}</Text>
+              <Text style={modal.label}>{t.exerciseEmoji}</Text>
               <TextInput
                 style={modal.emojiInput}
                 value={newEmoji} onChangeText={setNewEmoji}
                 placeholder="🏋️" maxLength={4} textAlign="center"
               />
 
-              <Text style={modal.label}>{isRTL ? 'اسم التمرين *' : 'Exercise name *'}</Text>
+              <Text style={modal.label}>{t.exerciseNameLabel}</Text>
               <TextInput
                 style={[modal.input, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={newName} onChangeText={setNewName}
-                placeholder={isRTL ? 'مثال: مشي على السلم' : 'e.g. Stair walking'}
+                placeholder={t.exerciseNamePlaceholder}
                 placeholderTextColor="#bbb" returnKeyType="next"
               />
 
-              <Text style={modal.label}>{isRTL ? 'المدة بالدقائق *' : 'Duration (minutes) *'}</Text>
+              <Text style={modal.label}>{t.exerciseDurationLabel}</Text>
               <TextInput
                 style={[modal.input, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={newMinutes} onChangeText={setNewMinutes}
-                placeholder={isRTL ? 'مثال: 5' : 'e.g. 5'}
+                placeholder={t.exerciseDurationPlaceholder}
                 placeholderTextColor="#bbb" keyboardType="numeric" returnKeyType="next"
               />
 
-              <Text style={modal.label}>{isRTL ? 'وصف (اختياري)' : 'Description (optional)'}</Text>
+              <Text style={modal.label}>{t.exerciseDescLabel}</Text>
               <TextInput
                 style={[modal.input, modal.inputMulti, { textAlign: isRTL ? 'right' : 'left' }]}
                 value={newDesc} onChangeText={setNewDesc}
-                placeholder={isRTL ? 'وصف قصير للتمرين' : 'Short description'}
+                placeholder={t.exerciseDescPlaceholder}
                 placeholderTextColor="#bbb" multiline numberOfLines={2}
               />
 
@@ -1422,9 +1408,7 @@ export default function ExercisesScreen() {
                 onPress={handleAddExercise} disabled={savingEx} activeOpacity={0.85}
               >
                 <Text style={modal.saveBtnText}>
-                  {savingEx
-                    ? (isRTL ? 'جاري الحفظ...' : 'Saving...')
-                    : (isRTL ? '✅ حفظ التمرين' : '✅ Save Exercise')}
+                  {savingEx ? t.saving : t.saveExercise}
                 </Text>
               </TouchableOpacity>
             </ScrollView>

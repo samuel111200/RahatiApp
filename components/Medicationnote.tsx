@@ -117,6 +117,7 @@ async function cancelMedNotifs(ids: string[] = []) {
 async function scheduleMedNotifs(
   med: Omit<MedicationEntry, 'id' | 'notifIds' | 'createdAt'>,
   isRTL: boolean,
+  t: any = {},
 ): Promise<string[]> {
   const parts = med.time.split(':');
   const hour   = parseInt(parts[0], 10);
@@ -135,8 +136,8 @@ async function scheduleMedNotifs(
     try {
       const id1 = await Notifications.scheduleNotificationAsync({
         content: {
-          title: isRTL ? '⏰ تذكير دواء قريب' : '⏰ Medication Reminder',
-          body: `${med.name}${med.dose ? ' — ' + med.dose : ''} ${isRTL ? `بعد 5 دقائق (${formatTimeDisplay(med.time, isRTL)})` : `in 5 minutes (${formatTimeDisplay(med.time, isRTL)})`}`,
+          title: t.medReminder,
+          body: `${med.name}${med.dose ? ' — ' + med.dose : ''} ${t.medReminderSuffix} (${formatTimeDisplay(med.time, isRTL)})`,
           sound: 'default',
           ...(Platform.OS === 'android' ? { channelId: 'medications' } : {}),
         },
@@ -150,10 +151,8 @@ async function scheduleMedNotifs(
     try {
       const id2 = await Notifications.scheduleNotificationAsync({
         content: {
-          title: isRTL ? '💊 وقت الدواء الآن' : '💊 Medication Time',
-          body: isRTL
-            ? `حان وقت ${med.name}${med.dose ? ' ' + med.dose : ''}`
-            : `Time for ${med.name}${med.dose ? ' ' + med.dose : ''}`,
+          title: t.medTimeNow,
+          body: `${t.medTimePrefix} ${med.name}${med.dose ? ' ' + med.dose : ''}`,
           sound: 'default',
           ...(Platform.OS === 'android' ? { channelId: 'medications' } : {}),
         },
@@ -217,9 +216,9 @@ function AddMedModal({ visible, onClose, onAdd, t, isRTL }: {
   };
 
   const handleSave = async () => {
-    if (!name.trim()) { Alert.alert(isRTL ? 'تنبيه' : 'Notice', t.medicationNameRequired); return; }
+    if (!name.trim()) { Alert.alert(t.error, t.medicationNameRequired); return; }
     if (!timeDisplay.trim() || !/^\d{1,2}:\d{2}$/.test(timeDisplay.trim())) {
-      Alert.alert(isRTL ? 'تنبيه' : 'Notice', t.medicationTimeFormat); return;
+      Alert.alert(t.error, t.medicationTimeFormat); return;
     }
     if (saving) return;
     setSaving(true);
@@ -229,7 +228,7 @@ function AddMedModal({ visible, onClose, onAdd, t, isRTL }: {
       await onAdd({ name: name.trim(), dose: dose.trim(), time: time24, days: selectedDays, notes: notes.trim() });
       onClose();
     } catch (e) {
-      Alert.alert(isRTL ? 'خطأ' : 'Error', t.medicationConnError);
+      Alert.alert(t.error, t.medicationConnError);
       console.error('[MedNote] add error:', e);
     } finally { setSaving(false); }
   };
@@ -250,14 +249,14 @@ function AddMedModal({ visible, onClose, onAdd, t, isRTL }: {
             <Text style={[addSt.label, { textAlign: isRTL ? 'right' : 'left' }]}>{t.medicationName}</Text>
             <TextInput
               style={addSt.input} value={name} onChangeText={setName}
-              placeholder={isRTL ? 'مثال: باراسيتامول' : 'e.g. Paracetamol'}
+              placeholder={t.medNamePlaceholder}
               placeholderTextColor="#B0BEC5" textAlign={isRTL ? 'right' : 'left'}
             />
 
             <Text style={[addSt.label, { textAlign: isRTL ? 'right' : 'left' }]}>{t.medicationDose}</Text>
             <TextInput
               style={addSt.input} value={dose} onChangeText={setDose}
-              placeholder={isRTL ? 'مثال: حبة واحدة — 500mg' : 'e.g. One tablet — 500mg'}
+              placeholder={t.medDosePlaceholder}
               placeholderTextColor="#B0BEC5" textAlign={isRTL ? 'right' : 'left'}
             />
 
@@ -294,7 +293,7 @@ function AddMedModal({ visible, onClose, onAdd, t, isRTL }: {
             <TextInput
               style={[addSt.input, { height: 64, textAlignVertical: 'top' }]}
               value={notes} onChangeText={setNotes}
-              placeholder={isRTL ? 'أي ملاحظات إضافية...' : 'Any additional notes...'}
+              placeholder={t.medNotesPlaceholder}
               placeholderTextColor="#B0BEC5" multiline textAlign={isRTL ? 'right' : 'left'}
             />
 
@@ -388,10 +387,10 @@ export default function MedicationNote() {
 
   const handleAdd = useCallback(async (data: Omit<MedicationEntry, 'id' | 'notifIds' | 'createdAt'>) => {
     const uid = auth.currentUser?.uid;
-    if (!uid) { Alert.alert(isRTL ? 'خطأ' : 'Error', t.medicationNotAuthenticated); throw new Error('not authenticated'); }
+    if (!uid) { Alert.alert(t.error, t.medicationNotAuthenticated); throw new Error('not authenticated'); }
     const { status } = await Notifications.requestPermissionsAsync();
     let notifIds: string[] = [];
-    if (status === 'granted') { notifIds = await scheduleMedNotifs(data, isRTL); }
+    if (status === 'granted') { notifIds = await scheduleMedNotifs(data, isRTL, t); }
     await addDoc(collection(db, 'medications', uid, 'items'), { ...data, createdAt: Date.now(), notifIds });
   }, [isRTL, t]);
 
@@ -410,7 +409,7 @@ export default function MedicationNote() {
               await cancelMedNotifs(med.notifIds ?? []);
               await deleteDoc(doc(db, 'medications', uid, 'items', med.id));
             } catch (e) {
-              Alert.alert(isRTL ? 'خطأ' : 'Error', t.medicationDeleteFailed);
+              Alert.alert(t.error, t.medicationDeleteFailed);
               console.error('[MedNote] delete error:', e);
             }
           },
@@ -449,7 +448,7 @@ export default function MedicationNote() {
             <ScrollView style={{ maxHeight: 340 }} showsVerticalScrollIndicator={false} contentContainerStyle={noteSt.listContent}>
               {loading ? (
                 <View style={noteSt.empty}>
-                  <Text style={noteSt.emptyText}>{isRTL ? 'جاري التحميل...' : 'Loading...'}</Text>
+                  <Text style={noteSt.emptyText}>{t.loadingDots}</Text>
                 </View>
               ) : meds.length === 0 ? (
                 <View style={noteSt.empty}>
@@ -481,7 +480,7 @@ export default function MedicationNote() {
                         </View>
                       ))}
                     </View>
-                    {!!med.notes && <Text style={noteSt.medNotes} numberOfLines={2}>{med.notes}</Text>}
+                    {!!med.notes && <Text style={[noteSt.medNotes, { textAlign: isRTL ? 'right' : 'left' }]} numberOfLines={2}>{med.notes}</Text>}
                     <View style={noteSt.notifBadge}>
                       <Ionicons name="notifications-outline" size={11} color="#4CAF82" />
                       <Text style={noteSt.notifBadgeText}>{t.medicationNotif}</Text>
@@ -541,7 +540,7 @@ const noteSt = StyleSheet.create({
   daysRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
   dayChip:      { backgroundColor: '#fff', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: '#E0D6F5' },
   dayChipText:  { fontSize: 10, fontWeight: '700', color: '#7C5CBF' },
-  medNotes:     { fontSize: 11, color: '#888', lineHeight: 16, textAlign: 'right' },
+  medNotes:     { fontSize: 11, color: '#888', lineHeight: 16 },
   notifBadge:   { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#E8F5EF', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'flex-start' },
   notifBadgeText: { fontSize: 10, fontWeight: '700', color: '#4CAF82' },
 });

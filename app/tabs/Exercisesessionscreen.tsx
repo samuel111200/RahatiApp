@@ -76,7 +76,7 @@ function formatTime(seconds: number): string {
 }
 
 export default function ExerciseSessionScreen() {
-  const { isRTL } = useLang();
+  const { isRTL, t } = useLang();
   const router = useRouter();
 
   const params = useLocalSearchParams<Record<string, string>>();
@@ -255,9 +255,7 @@ export default function ExerciseSessionScreen() {
         <View style={styles.navCenter}>
           <Text style={styles.navTitle} numberOfLines={1}>{displayTitle}</Text>
           <Text style={styles.navSub}>
-            {isPaused
-              ? (isRTL ? 'متوقف مؤقتاً ⏸' : 'Paused ⏸')
-              : (isRTL ? 'جلسة التمرين جارية' : 'Exercise session running')}
+            {isPaused ? t.sessionPaused : t.sessionRunning}
           </Text>
         </View>
         {/* ── Mute Button ── */}
@@ -318,18 +316,14 @@ export default function ExerciseSessionScreen() {
         {isMuted && !isPaused && (
           <View style={styles.mutedOverlay}>
             <Ionicons name="volume-mute" size={32} color="rgba(255,255,255,0.9)" />
-            <Text style={styles.mutedText}>
-              {isRTL ? 'الصوت مكتوم 🔇' : 'Muted 🔇'}
-            </Text>
+            <Text style={styles.mutedText}>{t.muted}</Text>
           </View>
         )}
 
         {isPaused && (
           <View style={styles.pausedOverlay}>
             <Ionicons name="pause-circle" size={72} color="rgba(255,255,255,0.85)" />
-            <Text style={styles.pausedText}>
-              {isRTL ? 'متوقف مؤقتاً' : 'Paused'}
-            </Text>
+            <Text style={styles.pausedText}>{t.pause}</Text>
           </View>
         )}
       </View>
@@ -341,9 +335,7 @@ export default function ExerciseSessionScreen() {
           </View>
           <View style={styles.timerTextCol}>
             <Text style={[styles.countdown, { color }]}>{formatTime(timeLeft)}</Text>
-            <Text style={[styles.timerLabel, { color: color + '99' }]}>
-              {isRTL ? 'الوقت المتبقي' : 'Time remaining'}
-            </Text>
+            <Text style={[styles.timerLabel, { color: color + '99' }]}>{t.timeRemaining}</Text>
           </View>
           <TouchableOpacity
             style={[styles.pauseBtn, { backgroundColor: color + '18', borderColor: color + '55' }]}
@@ -352,9 +344,7 @@ export default function ExerciseSessionScreen() {
           >
             <Ionicons name={isPaused ? 'play' : 'pause'} size={22} color={color} />
             <Text style={[styles.pauseBtnText, { color }]}>
-              {isPaused
-                ? (isRTL ? 'تشغيل' : 'Resume')
-                : (isRTL ? 'إيقاف\nمؤقت' : 'Pause')}
+              {isPaused ? t.resume : t.pause}
             </Text>
           </TouchableOpacity>
         </View>
@@ -373,9 +363,7 @@ export default function ExerciseSessionScreen() {
           activeOpacity={0.85}
         >
           <Ionicons name="stop-circle-outline" size={26} color={color} />
-          <Text style={[styles.stopBtnText, { color }]}>
-            {isRTL ? 'إنهاء التمرين' : 'End Exercise'}
-          </Text>
+          <Text style={[styles.stopBtnText, { color }]}>{t.endExercise}</Text>
         </TouchableOpacity>
       </View>
 
@@ -383,9 +371,7 @@ export default function ExerciseSessionScreen() {
         <View style={modal.overlay}>
           <View style={[modal.box, { borderTopColor: color }]}>
             <Text style={modal.bigEmoji}>{emoji}</Text>
-            <Text style={[modal.doneTitle, { color }]}>
-              {isRTL ? 'أحسنت! انتهى التمرين 🎉' : 'Well done! Exercise complete 🎉'}
-            </Text>
+            <Text style={[modal.doneTitle, { color }]}>{t.wellDoneComplete}</Text>
             <Text style={modal.doneMsg}>
               {isRTL ? CONGRATS_AR[congratsIdx] : CONGRATS_EN[congratsIdx]}
             </Text>
@@ -395,7 +381,7 @@ export default function ExerciseSessionScreen() {
               activeOpacity={0.85}
             >
               <Text style={modal.doneBtnText}>
-                {isRTL ? 'شكراً، متشجع! 💪' : 'Thanks, motivated! 💪'}
+                {t.thanksMotivated}
               </Text>
             </TouchableOpacity>
           </View>

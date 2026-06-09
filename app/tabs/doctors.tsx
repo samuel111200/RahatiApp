@@ -129,7 +129,7 @@ export default function DoctorsScreen() {
     setShowModal(false); setShowAllDoctorsPage(false);
     const patientUid = user?.uid;
     if (patientUid && docItem.firebaseUid) {
-      const patientName = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || (isRTL ? 'مريض' : 'Patient');
+      const patientName = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || t.patientDefault;
       try {
         const existing = await getDocs(query(
           collection(db, 'relationships'),
@@ -312,7 +312,7 @@ export default function DoctorsScreen() {
             </TouchableOpacity>
             <View style={styles.headerCenter}>
               <Text style={styles.headerTitle}>{t.myDoctors}</Text>
-              <Text style={styles.headerSub}>{allDoctors.length} {isRTL ? 'دكتور' : 'doctors'}</Text>
+              <Text style={styles.headerSub}>{allDoctors.length} {t.doctorsWord}</Text>
             </View>
             <View style={{ width: 40 }} />
           </View>
