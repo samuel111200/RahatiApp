@@ -523,11 +523,11 @@ export default function PlanScreen() {
         if (fsEnergy != null) {
           setEnergy(Number(fsEnergy));
         } else {
-          const stored = await AsyncStorage.getItem('energy_level');
+          const stored = await AsyncStorage.getItem(`energy_level_${user.uid}`);
           if (stored) setEnergy(Number(stored));
         }
       } catch {
-        const stored = await AsyncStorage.getItem('energy_level');
+        const stored = await AsyncStorage.getItem(`energy_level_${user.uid}`);
         if (stored) setEnergy(Number(stored));
       }
     } else {

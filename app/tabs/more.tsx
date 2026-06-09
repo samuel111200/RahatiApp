@@ -572,11 +572,11 @@ export default function MoreScreen() {
               if (fsEnergy != null) {
                 setEnergy(Number(fsEnergy));
               } else {
-                const energyRaw = await AsyncStorage.getItem(STORAGE_KEYS.ENERGY);
+                const energyRaw = await AsyncStorage.getItem(`energy_level_${user.uid}`);
                 if (energyRaw !== null) setEnergy(Number(energyRaw));
               }
             } catch {
-              const energyRaw = await AsyncStorage.getItem(STORAGE_KEYS.ENERGY);
+              const energyRaw = await AsyncStorage.getItem(`energy_level_${user.uid}`);
               if (energyRaw !== null) setEnergy(Number(energyRaw));
             }
           } else {
@@ -603,7 +603,12 @@ export default function MoreScreen() {
 
   const handleSaveEnergy = async (val: number) => {
     setEnergy(val);
-    await AsyncStorage.setItem(STORAGE_KEYS.ENERGY, String(val));
+    const uid = user?.uid;
+    if (uid) {
+      await AsyncStorage.setItem(`energy_level_${uid}`, String(val));
+    } else {
+      await AsyncStorage.setItem(STORAGE_KEYS.ENERGY, String(val));
+    }
     await updateProfile({ energyLevel: val } as any);
   };
 
