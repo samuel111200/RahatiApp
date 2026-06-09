@@ -15,6 +15,8 @@ import { useLang } from '../../context/Languagecontext';
 import { PrimaryButton, OutlineButton } from '../../components/UI';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 import { notify } from './notificationService';
+import { db } from '../../utils/firebaseConfig';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 const STORAGE_KEYS = {
   CORE_TASKS:   'core_tasks',
@@ -371,12 +373,29 @@ export default function MoreScreen() {
         const coreTaskIds  = new Set(coreTasks.map((t: any)  => t.key ?? t.id));
         const extraTaskIds = new Set(extraTasks.map((t: any) => t.key ?? t.id));
         setTaskDone([...doneIds].filter(id => coreTaskIds.has(id) || extraTaskIds.has(id)).length);
-        const energyRaw = await AsyncStorage.getItem(STORAGE_KEYS.ENERGY);
-        if (energyRaw !== null) setEnergy(Number(energyRaw));
+
+        if (user?.uid) {
+          try {
+            const snap = await getDoc(doc(db, 'users', user.uid));
+            const fsEnergy = snap.exists() ? snap.data().energyLevel : undefined;
+            if (fsEnergy != null) {
+              setEnergy(Number(fsEnergy));
+            } else {
+              const energyRaw = await AsyncStorage.getItem(`energy_level_${user.uid}`);
+              if (energyRaw !== null) setEnergy(Number(energyRaw));
+            }
+          } catch {
+            const energyRaw = await AsyncStorage.getItem(`energy_level_${user.uid}`);
+            if (energyRaw !== null) setEnergy(Number(energyRaw));
+          }
+        } else {
+          const energyRaw = await AsyncStorage.getItem(STORAGE_KEYS.ENERGY);
+          if (energyRaw !== null) setEnergy(Number(energyRaw));
+        }
       } catch (e) { console.warn('[MoreScreen] Stats load error:', e); }
     };
     loadStats();
-  }, []));
+  }, [user?.uid]));
 
   const open  = (key: ModalKey) => setActiveModal(key);
   const close = ()              => setActiveModal(null);
@@ -392,7 +411,12 @@ export default function MoreScreen() {
 
   const handleSaveEnergy = async (val: number) => {
     setEnergy(val);
-    await AsyncStorage.setItem(STORAGE_KEYS.ENERGY, String(val));
+    if (user?.uid) {
+      await AsyncStorage.setItem(`energy_level_${user.uid}`, String(val));
+      setDoc(doc(db, 'users', user.uid), { energyLevel: val }, { merge: true }).catch(() => {});
+    } else {
+      await AsyncStorage.setItem(STORAGE_KEYS.ENERGY, String(val));
+    }
   };
 
   const handleAvatarPressIn  = () => { longPressTimer.current = setTimeout(() => setShowAvatarSheet(true), 500); };
