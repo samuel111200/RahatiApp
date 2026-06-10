@@ -344,7 +344,7 @@ const AR = {
   myAccount: 'حسابي',
 
   // ── Doctors Screen (Patient) ──────────────────────────────────────────────
-  myDoctors: 'دكاترتي',
+  myDoctors: 'دكاترة',
   contactDoctor: 'تواصل مع دكتور',
   loadingDots: 'جاري التحميل...',
   doctorsAvailable: 'دكاترة متاحون',
@@ -1053,10 +1053,10 @@ const EN: typeof AR = {
   resetDone: '✅ Done',
   resetMsg: 'App reset — close and reopen it',
   tapToEditEnergy: 'tap to edit',
-  myAccount: 'My Account',
+  myAccount: 'Profile',
 
   // ── Doctors Screen (Patient) ──────────────────────────────────────────────
-  myDoctors: 'My Doctors',
+  myDoctors: 'Doctors',
   contactDoctor: 'Contact a Doctor',
   loadingDots: 'Loading...',
   doctorsAvailable: 'doctors available',
@@ -1319,7 +1319,7 @@ const EN: typeof AR = {
   docExerciseRemoved: 'Exercise Removed 🗑️',
   docViewExercises: 'View Exercises',
   docOpenChat: 'Open Chat',
-  docMyAccount: 'My Account',
+  docMyAccount: 'Profile',
   docDoctor: 'Doctor',
   docSpecialty: 'Specialty',
   docLicense: 'License Number',
