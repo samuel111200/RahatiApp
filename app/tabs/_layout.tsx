@@ -6,14 +6,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../constants/Theme';
 import { useLang } from '../../context/Languagecontext';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { usePathname } from 'expo-router';
 import {
   setupNotifications,
   registerBackgroundTask,
   startAllWatchers,
   stopAllWatchers,
 } from './notificationService';
-import MedicationNote from "../../components/Medicationnote"; // ← أضف الاستيراد
+import MedicationNote from '../../components/Medicationnote';
+
 const HIDDEN_ROUTES = ['startup', 'notification', 'doctorchat', 'Exercisesessionscreen'];
+const MED_HIDDEN_SEGMENTS = ['doctorchat', 'Exercisesessionscreen'];
 
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const { t, isRTL } = useLang();
@@ -67,6 +70,13 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   );
 }
 
+function MedicationNoteGate() {
+  const pathname = usePathname();
+  const hidden = MED_HIDDEN_SEGMENTS.some(seg => pathname.includes(seg));
+  if (hidden) return null;
+  return <MedicationNote />;
+}
+
 export default function TabsLayout() {
   useEffect(() => {
     // 1. اطلب إذن الإشعارات وجهّز الـ channels
@@ -98,7 +108,7 @@ export default function TabsLayout() {
         <Tabs.Screen name="doctorchat" />
         <Tabs.Screen name="Exercisesessionscreen" />
       </Tabs>
-      <MedicationNote/> {/* ← ده هيخلي الزرار يظهر في كل صفحات المريض */}
+      <MedicationNoteGate />
     </View>
   );
 }

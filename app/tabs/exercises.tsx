@@ -16,6 +16,7 @@ import { notify, suppressTaskListNotifOnce } from './notificationService';
 import { collection, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../../utils/firebaseConfig';
 import { useAuth } from '../../context/AuthContext';
+import { ALL_DEFAULT_EXERCISES_MAP as SHARED_MAP } from '../../utils/defaultExercises';
 
 const { width, height } = Dimensions.get('window');
 const CARD_W = width * 0.75;
@@ -737,28 +738,32 @@ export default function ExercisesScreen() {
         const list: Exercise[] = snap.docs.map(d => {
           const data = d.data() as any;
           const sectionKey = (data.type ?? 'therapy') as SectionKey;
-          const sectionColor = SECTION_COLOR_MAP[sectionKey] ?? '#7C5CBF';
+          // Full data: prefer what doctor stored in Firestore, fall back to shared map
+          const shared = SHARED_MAP[data.systemKey];
           return {
             key:             `doctor_${d.id}`,
             doctorItemId:    d.id,
-            emoji:           data.emoji || '🏋️',
-            title:           data.title || '',
-            titleEn:         data.title || '',
+            systemKey:       data.systemKey ?? '',
+            emoji:           data.emoji || shared?.emoji || '🏋️',
+            title:           data.title || shared?.titleAr || '',
+            titleEn:         data.titleEn || shared?.titleEn || data.title || '',
             duration:        `${data.durationMin} دقيقة`,
             durationEn:      `${data.durationMin} min`,
             durationSeconds: (data.durationMin ?? 5) * 60,
-            color:           sectionColor,
-            bg:              '#F0EBFA',
-            accent:          '#E0D6F5',
-            desc:            data.description || '',
-            descEn:          data.description || '',
-            steps:           ALL_DEFAULT_EXERCISES_MAP[data.systemKey]?.steps   ?? [],
-            stepsEn:         ALL_DEFAULT_EXERCISES_MAP[data.systemKey]?.stepsEn ?? [],
-            animType:        'bounce' as const,
-            type:            sectionKey,
-            fromDoctor:      true,
-            completed:       data.completed ?? false,
-          };
+            color:           data.color  || shared?.color  || SECTION_COLOR_MAP[sectionKey] || '#7C5CBF',
+            bg:              data.bg     || shared?.bg     || '#F0EBFA',
+            accent:          data.accent || shared?.accent || '#E0D6F5',
+            desc:            data.description || shared?.descAr || '',
+            descEn:          data.descEn      || shared?.descEn || data.description || '',
+            // Steps: stored steps first (doctor may have customized), fall back to shared map
+            steps:   (data.steps?.length   ? data.steps   : shared?.steps)   ?? [],
+            stepsEn: (data.stepsEn?.length ? data.stepsEn : shared?.stepsEn) ?? [],
+            animType:   (data.animType || shared?.animType || 'bounce') as Exercise['animType'],
+            type:       sectionKey,
+            fromDoctor: true,
+            completed:  data.completed ?? false,
+            doctorNote: data.doctorNote || '',
+          } as Exercise & { doctorNote?: string };
         });
         setDoctorExercises(list.sort((a, b) =>
           (b as any).assignedAt - (a as any).assignedAt
@@ -921,6 +926,7 @@ export default function ExercisesScreen() {
       pathname: '/tabs/Exercisesessionscreen',
       params: {
         exerciseKey:     ex.key,
+        videoKey:        (ex as any).systemKey ?? ex.key,
         title:           ex.title,
         titleEn:         ex.titleEn,
         emoji:           ex.emoji,
@@ -1142,13 +1148,42 @@ export default function ExercisesScreen() {
             </Text>
           )}
 
-          {/* Doctor exercise: show tap-to-done hint instead of steps */}
+          {/* Doctor exercise: steps + note + done button */}
           {item.fromDoctor ? (
             <View style={styles.doctorCardFooter}>
+              {/* Doctor note */}
+              {!!(item as any).doctorNote && (
+                <View style={styles.doctorNoteBox}>
+                  <Ionicons name="information-circle-outline" size={13} color="#7C5CBF" />
+                  <Text style={styles.doctorNoteText}>{(item as any).doctorNote}</Text>
+                </View>
+              )}
+              {/* Steps — same as regular exercises */}
+              {iSteps.length > 0 && (
+                <ScrollView
+                  style={[styles.stepsScroll, { maxHeight: 140 }]}
+                  showsVerticalScrollIndicator={false}
+                  nestedScrollEnabled={true}
+                >
+                  {iSteps.map((step, i) => (
+                    <TouchableOpacity
+                      key={i}
+                      onPress={() => speakStep(step, isRTL)}
+                      style={[styles.stepRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.stepNum, { backgroundColor: '#7C5CBF99' }]}>
+                        <Text style={styles.stepNumText}>{i + 1}</Text>
+                      </View>
+                      <Text style={[styles.stepText, { textAlign: isRTL ? 'right' : 'left' }]}>{step}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
               <TouchableOpacity
                 style={[
                   styles.doctorDoneBtn,
-                  { backgroundColor: item.completed ? '#4CAF5015' : '#7C5CBF15' },
+                  { backgroundColor: item.completed ? '#4CAF5015' : '#7C5CBF15', marginTop: iSteps.length > 0 ? 8 : 0 },
                 ]}
                 onPress={() => toggleDoctorExerciseDone(item)}
                 activeOpacity={0.8}
@@ -1158,10 +1193,7 @@ export default function ExercisesScreen() {
                   size={18}
                   color={item.completed ? '#4CAF50' : '#7C5CBF'}
                 />
-                <Text style={[
-                  styles.doctorDoneBtnText,
-                  { color: item.completed ? '#4CAF50' : '#7C5CBF' },
-                ]}>
+                <Text style={[styles.doctorDoneBtnText, { color: item.completed ? '#4CAF50' : '#7C5CBF' }]}>
                   {item.completed ? t.exerciseDoneDr : t.exerciseTapWhenDone}
                 </Text>
               </TouchableOpacity>
@@ -1514,6 +1546,12 @@ const styles = StyleSheet.create({
 
   // ── Doctor card footer ──
   doctorCardFooter: { flex: 1, justifyContent: 'flex-end', marginTop: 8 },
+  doctorNoteBox: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 5,
+    backgroundColor: '#7C5CBF12', borderRadius: 10,
+    paddingHorizontal: 10, paddingVertical: 8, marginBottom: 8,
+  },
+  doctorNoteText: { flex: 1, fontSize: 12, color: '#7C5CBF', fontWeight: '600', lineHeight: 18 },
   doctorDoneBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 14,

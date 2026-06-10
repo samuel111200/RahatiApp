@@ -1,7 +1,7 @@
 // context/Chatscontext.tsx
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import {
-  collection, doc, addDoc, deleteDoc, updateDoc, query, where, onSnapshot, getDoc,
+  collection, doc, addDoc, deleteDoc, updateDoc, query, where, onSnapshot,
 } from 'firebase/firestore';
 import { db } from '../utils/firebaseConfig';
 import { useAuth } from './AuthContext';
@@ -96,25 +96,23 @@ export function ChatsProvider({ children }: { children: React.ReactNode }) {
           })
         );
 
-        // subscribe to presence + fetch photo for each patient (skip if already subscribed)
+        // subscribe to presence + photo for each patient (skip if already subscribed)
         list.forEach(({ patientId }) => {
           if (presenceSubsRef.current[patientId]) return;
-          presenceSubsRef.current[patientId] = subscribeToPresence(
+          const unsubPresence = subscribeToPresence(
             patientId,
             (online) => setChats(prev =>
               prev.map(c => c.patientId === patientId ? { ...c, isOnline: online } : c)
             ),
           );
-          // fetch photo once per patient
-          getDoc(doc(db, 'users', patientId)).then(snap => {
+          const unsubPhoto = onSnapshot(doc(db, 'users', patientId), (snap) => {
             const photoUrl = snap.exists() ? (snap.data().photoUrl as string | undefined) : undefined;
             photoUrlCacheRef.current[patientId] = photoUrl ?? '';
-            if (photoUrl) {
-              setChats(prev =>
-                prev.map(c => c.patientId === patientId ? { ...c, patientPhotoUrl: photoUrl } : c)
-              );
-            }
-          }).catch(() => {});
+            setChats(prev =>
+              prev.map(c => c.patientId === patientId ? { ...c, patientPhotoUrl: photoUrl } : c)
+            );
+          });
+          presenceSubsRef.current[patientId] = () => { unsubPresence(); unsubPhoto(); };
         });
       } catch (e) {
         console.warn('[Chats] onSnapshot error:', e);

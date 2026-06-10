@@ -17,6 +17,7 @@ import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 import { notify } from './notificationService';
 import { db } from '../../utils/firebaseConfig';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { uploadImageToCloudinary } from '../../utils/uploadImage';
 
 const STORAGE_KEYS = {
   CORE_TASKS:   'core_tasks',
@@ -425,17 +426,26 @@ export default function MoreScreen() {
   const handlePickAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) { Alert.alert(t.error, t.photoPermissionRequired); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1,1], quality: 0.7, base64: true });
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1,1], quality: 0.7 });
     if (!result.canceled && result.assets[0]) {
-      const dataUri = `data:image/jpeg;base64,${result.assets[0].base64}`;
-      await AsyncStorage.setItem('user_avatar', dataUri);
-      setAvatarUri(dataUri);
+      const localUri = result.assets[0].uri;
+      setAvatarUri(localUri);
+      await AsyncStorage.setItem('user_avatar', localUri);
+      try {
+        const cloudUrl = await uploadImageToCloudinary(localUri);
+        await updateProfile({ photoUrl: cloudUrl });
+        await AsyncStorage.setItem('user_avatar', cloudUrl);
+        setAvatarUri(cloudUrl);
+      } catch (e) {
+        console.warn('[more] avatar upload failed:', e);
+      }
     }
   };
 
   const handleDeleteAvatar = async () => {
     await AsyncStorage.removeItem('user_avatar');
     setAvatarUri(null);
+    updateProfile({ photoUrl: '' }).catch(() => {});
   };
 
   const MENU = [

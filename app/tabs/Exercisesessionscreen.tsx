@@ -20,37 +20,37 @@ import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 import { sendPushNotification } from './notificationService';
 
 const EXERCISE_VIDEOS: Record<string, any> = {
-  wristCurls:        require("../../assets/videos/first.mp4"),
-  childsPose:        require("../../assets/videos/2.mp4"),
-  warriorTwo:        require("../../assets/videos/3.mp4"),
-  jabPunches:        require("../../assets/videos/4.mp4"),
-  comboPunches:      require("../../assets/videos/5.mp4"),
-  singleLegStand:    require("../../assets/videos/6.mp4"),
-  armBottles:        require("../../assets/videos/7.mp4"),
-  seatedEndurance:   require("../../assets/videos/8.mp4"),
-  neckFlexibility:   require("../../assets/videos/9.mp4"),
-  standUpStrength:   require("../../assets/videos/10.mp4"),
-  upperBodyStretch:  require("../../assets/videos/11.mp4"),
-  marchingInPlace:      require("../../assets/videos/12.mp4"),
-  chairSquat:           require("../../assets/videos/13.mp4"),
-  hipStrength:          require("../../assets/videos/14.mp4"),
-  seatedTwistKnee:      require("../../assets/videos/15.mp4"),
-  armLegStrength:       require("../../assets/videos/16.mp4"),
-  standingArmTrunk:     require("../../assets/videos/17.mp4"),
-  lyingTwistArms:       require("../../assets/videos/18.mp4"),
-  backBridgeLying:      require("../../assets/videos/19.mp4"),
-  upperFlexArmStrength: require("../../assets/videos/20.mp4"),
-  trunkBackFlexibility: require("../../assets/videos/21.mp4"),
-  towelArmStrength:       require("../../assets/videos/22.mp4"),
-  seatedBicycle:          require("../../assets/videos/23.mp4"),
-  heelTapStanding:        require("../../assets/videos/24.mp4"),
-  kneeCircleStanding:     require("../../assets/videos/25.mp4"),
-  legSwingBalance:        require("../../assets/videos/26.mp4"),
-  pelvisTiltSeated:       require("../../assets/videos/27.mp4"),
-  trunkRotationStanding:  require("../../assets/videos/28.mp4"),
-  lateralBalanceSeated:   require("../../assets/videos/29.mp4"),
-  toeTipHeelStand:        require("../../assets/videos/30.mp4"),
-  trunkFlexibilityStanding: require("../../assets/videos/31.mp4"),
+  wristCurls:               { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048556/yue2ow9ycxxx9kmvuepn.mp4' },
+  childsPose:               { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048558/mte1cyujznme19z3w93e.mp4' },
+  warriorTwo:               { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048559/nc7dv7q3qbqae47ho3jj.mp4' },
+  jabPunches:               { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048560/pyb5tldk81qouyhuqb4z.mp4' },
+  comboPunches:             { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048562/jpapkwqzrwdzipjriyt0.mp4' },
+  singleLegStand:           { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048563/rqaabery0mv04zedk22l.mp4' },
+  armBottles:               { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048572/sns44gkpmhafqdvjduwr.mp4' },
+  seatedEndurance:          { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048579/urcysomcz4y3uvtvwjyt.mp4' },
+  neckFlexibility:          { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048586/njgyw6tj939org2xpshf.mp4' },
+  standUpStrength:          { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048590/ummlpo5hpztovm5mymql.mp4' },
+  upperBodyStretch:         { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048596/uatmlg49sagm5mlnbzou.mp4' },
+  marchingInPlace:          { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048601/t9ftlcnfodnmn5gcvu9l.mp4' },
+  chairSquat:               { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048606/agde0vt0ktmjbqjatc7t.mp4' },
+  hipStrength:              { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048611/jurf87w2kcxl9ozeopli.mp4' },
+  seatedTwistKnee:          { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048615/ivfcwhmzso3xhewrj8v5.mp4' },
+  armLegStrength:           { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048620/ayxfjccc4bfxcngpqaue.mp4' },
+  standingArmTrunk:         { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048632/jnkjateevrqv9qx5bozn.mp4' },
+  lyingTwistArms:           { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048638/awea0ceznvcxo74mfnug.mp4' },
+  backBridgeLying:          { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048645/mojixpcwyvzzkhqvbvhf.mp4' },
+  upperFlexArmStrength:     { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048652/y2i6ecfc1eqvi4lnfygg.mp4' },
+  trunkBackFlexibility:     { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048659/xhue8ykz60tpmsji8t3i.mp4' },
+  towelArmStrength:         { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048668/n6pozaq4xvctvahfefh2.mp4' },
+  seatedBicycle:            { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048671/lufbq8snzdcfqnhhqizs.mp4' },
+  heelTapStanding:          { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048678/v8c3ytzwqvc8xh5sircq.mp4' },
+  kneeCircleStanding:       { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048685/ysqv0tgto5jullc2awuk.mp4' },
+  legSwingBalance:          { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048694/perqeynqbkosky63xvln.mp4' },
+  pelvisTiltSeated:         { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048700/dhdetnfo6bdx8znoypy2.mp4' },
+  trunkRotationStanding:    { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048705/sabpvavn3aqosnii9c3l.mp4' },
+  lateralBalanceSeated:     { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048712/diujbmuft8snqh8eybgf.mp4' },
+  toeTipHeelStand:          { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048716/hka0tr7uinskbo8hsysw.mp4' },
+  trunkFlexibilityStanding: { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048728/ngmclq9t9fqzxgmn4zux.mp4' },
 };
 
 const { width } = Dimensions.get('window');
@@ -83,6 +83,7 @@ export default function ExerciseSessionScreen() {
   const params = useLocalSearchParams<Record<string, string>>();
 
   const exerciseKey     = params.exerciseKey ?? '';
+  const videoKey        = params.videoKey ?? exerciseKey;
   const title           = params.title ?? '';
   const titleEn         = params.titleEn ?? '';
   const emoji           = params.emoji ?? '🏋️';
@@ -94,19 +95,19 @@ export default function ExerciseSessionScreen() {
   const steps   = (() => { try { return JSON.parse(params.steps   ?? '[]'); } catch { return []; } })();
   const stepsEn = (() => { try { return JSON.parse(params.stepsEn ?? '[]'); } catch { return []; } })();
 
-  const videoSource = EXERCISE_VIDEOS[exerciseKey] || null;
+  const videoSource = EXERCISE_VIDEOS[videoKey] || EXERCISE_VIDEOS[exerciseKey] || null;
 
   const [timeLeft,    setTimeLeft]    = useState(durationSeconds);
   const [isPaused,    setIsPaused]    = useState(false);
   const [showDone,    setShowDone]    = useState(false);
   const [activeStep,  setActiveStep]  = useState(-1);
   const [currentText, setCurrentText] = useState('');
-  const [isMuted,     setIsMuted]     = useState(false);
+  const [isMuted,     setIsMuted]     = useState(true);
 
   const intervalRef    = useRef<ReturnType<typeof setInterval> | null>(null);
   const stepTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPausedRef    = useRef(false);
-  const isMutedRef     = useRef(false);
+  const isMutedRef     = useRef(true);
   const stepIndexRef   = useRef(0);
   const congratsIdx    = useRef(Math.floor(Math.random() * CONGRATS_AR.length)).current;
 

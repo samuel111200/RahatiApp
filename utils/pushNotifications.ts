@@ -3,7 +3,7 @@ import Constants from 'expo-constants';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 
-const PROJECT_ID = 'd715c38c-90d8-4575-9f26-7187594dcc4d';
+const PROJECT_ID = '9173fa5b-8197-45a4-ac98-581081c3b0db';
 
 export async function registerPushToken(uid: string): Promise<void> {
   try {

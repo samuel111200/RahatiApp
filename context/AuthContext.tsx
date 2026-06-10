@@ -64,6 +64,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               createdAt: data.createdAt,
             });
             setIsAuthenticated(true);
+            // Always refresh push token on app open so Firestore has a valid token
+            registerPushToken(fbUser.uid).catch(() => {});
           }
           // Doc not found yet (sign-up race condition) — signUp() already set state, leave it alone
         } catch {

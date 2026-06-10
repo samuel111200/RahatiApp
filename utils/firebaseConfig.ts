@@ -32,6 +32,8 @@ export type FSUser = {
   gender?: string;
   specialty?: string;
   photoUrl?: string;
+  isOnline?: boolean;
+  lastSeen?: number;
   createdAt: number;
 };
 

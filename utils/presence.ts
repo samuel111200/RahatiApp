@@ -13,8 +13,17 @@ async function setPresence(uid: string, isOnline: boolean): Promise<void> {
   }
 }
 
+const HEARTBEAT_INTERVAL_MS = 60_000;
+const OFFLINE_THRESHOLD_MS  = 3 * 60_000;
+
 export function startPresenceListener(uid: string): () => void {
   setPresence(uid, true);
+
+  const heartbeat = setInterval(() => {
+    if (AppState.currentState === 'active') {
+      setPresence(uid, true);
+    }
+  }, HEARTBEAT_INTERVAL_MS);
 
   const handleChange = (state: AppStateStatus) => {
     setPresence(uid, state === 'active');
@@ -23,6 +32,7 @@ export function startPresenceListener(uid: string): () => void {
   const sub = AppState.addEventListener('change', handleChange);
 
   return () => {
+    clearInterval(heartbeat);
     setPresence(uid, false);
     sub.remove();
   };
@@ -35,6 +45,8 @@ export function subscribeToPresence(
   return onSnapshot(doc(db, 'users', uid), (snap) => {
     if (!snap.exists()) return;
     const data = snap.data();
-    onChange(data.isOnline === true, data.lastSeen ?? 0);
+    const lastSeen = data.lastSeen ?? 0;
+    const stale = data.isOnline === true && (Date.now() - lastSeen) > OFFLINE_THRESHOLD_MS;
+    onChange(stale ? false : data.isOnline === true, lastSeen);
   });
 }

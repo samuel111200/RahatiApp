@@ -8,7 +8,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import {
-  collection, query, where, onSnapshot, doc, updateDoc, setDoc, getDoc,
+  collection, query, where, onSnapshot, doc, updateDoc, setDoc,
 } from 'firebase/firestore';
 import { auth, db, FSRelationship } from '../../utils/firebaseConfig';
 import { useAuth } from '../../context/AuthContext';
@@ -242,33 +242,41 @@ export default function DocHome() {
       collection(db, 'relationships'),
       where('doctorId', '==', doctorId),
     );
-    const unsub = onSnapshot(q, async (snap) => {
-      const list: Patient[] = await Promise.all(
-        snap.docs.map(async (relDoc) => {
-          const rel = relDoc.data() as FSRelationship;
-          const patientName = rel.patientName ?? '';
-          const parts = patientName.split(' ');
-          let avatar: string | undefined;
-          try {
-            const userSnap = await getDoc(doc(db, 'users', rel.patientId));
-            if (userSnap.exists()) avatar = userSnap.data().photoUrl ?? undefined;
-          } catch {}
-          return {
-            id:          rel.patientId,
-            relId:       relDoc.id,
-            firstName:   parts[0] ?? t.patientDefault,
-            lastName:    parts.slice(1).join(' ') || '',
-            avatar,
-            status:      rel.status === 'accepted' ? 'accepted' : 'pending' as PatientStatus,
-            requestedAt: new Date(rel.requestedAt).toISOString(),
-            acceptedAt:  rel.acceptedAt ? new Date(rel.acceptedAt).toISOString() : undefined,
-          };
-        }),
-      );
-      setPatients(list);
+    const photoUnsubs: Record<string, () => void> = {};
+
+    const unsub = onSnapshot(q, (snap) => {
+      const base: Patient[] = snap.docs.map((relDoc) => {
+        const rel = relDoc.data() as FSRelationship;
+        const patientName = rel.patientName ?? '';
+        const parts = patientName.split(' ');
+        return {
+          id:          rel.patientId,
+          relId:       relDoc.id,
+          firstName:   parts[0] ?? t.patientDefault,
+          lastName:    parts.slice(1).join(' ') || '',
+          avatar:      undefined as string | undefined,
+          status:      rel.status === 'accepted' ? 'accepted' : 'pending' as PatientStatus,
+          requestedAt: new Date(rel.requestedAt).toISOString(),
+          acceptedAt:  rel.acceptedAt ? new Date(rel.acceptedAt).toISOString() : undefined,
+        };
+      });
+      setPatients(base);
       setLoading(false);
+
+      // Subscribe to each patient's photo in real-time
+      base.forEach(({ id }) => {
+        if (photoUnsubs[id]) return;
+        photoUnsubs[id] = onSnapshot(doc(db, 'users', id), (uSnap) => {
+          const photoUrl = uSnap.exists() ? (uSnap.data().photoUrl as string | undefined) : undefined;
+          setPatients(prev => prev.map(p => p.id === id ? { ...p, avatar: photoUrl } : p));
+        });
+      });
     });
-    return unsub;
+
+    return () => {
+      unsub();
+      Object.values(photoUnsubs).forEach(fn => fn());
+    };
   }, [user?.uid]);
 
   // ─── Accept patient ───────────────────────────────────

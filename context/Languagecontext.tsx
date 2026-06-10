@@ -388,6 +388,11 @@ const AR = {
   cameraPerm: 'مطلوب إذن الكاميرا',
   image: 'صورة',
   open: 'فتح',
+  micPerm: 'مطلوب إذن الميكروفون',
+  holdToRecord: 'اضغط مطولاً للتسجيل',
+  voiceMessage: '🎙️ رسالة صوتية',
+  recordFailed: 'فشل التسجيل',
+  newMessageFrom: 'رسالة جديدة من',
 
   // ── Medication Note ───────────────────────────────────────────────────────
   myMedications: 'أدويتي',
@@ -1095,6 +1100,11 @@ const EN: typeof AR = {
   cameraPerm: 'Camera permission required',
   image: 'Image',
   open: 'Open',
+  micPerm: 'Microphone permission required',
+  holdToRecord: 'Hold to record',
+  voiceMessage: '🎙️ Voice message',
+  recordFailed: 'Recording failed',
+  newMessageFrom: 'New message from',
 
   // ── Medication Note ───────────────────────────────────────────────────────
   myMedications: 'My Medications',

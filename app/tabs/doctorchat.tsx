@@ -6,10 +6,11 @@ import {
   Platform, Animated, Alert, Image, Keyboard,
   KeyboardAvoidingView, ActivityIndicator, Linking,
 } from 'react-native';
+import { Audio } from 'expo-av';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { collection, onSnapshot, addDoc, updateDoc, setDoc, doc, query, orderBy, increment, getDoc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, updateDoc, setDoc, doc, query, orderBy, increment } from 'firebase/firestore';
 import { Colors, Spacing, FontSize } from '../../constants/Theme';
 import { useLang } from '../../context/Languagecontext';
 import { db } from '../../utils/firebaseConfig';
@@ -29,8 +30,9 @@ import { useFocusEffect } from 'expo-router';
 type MessageStatus = 'sent' | 'delivered' | 'read';
 type Message = {
   id: string; text: string; sender: 'patient' | 'doctor'; time: string;
-  status?: MessageStatus; type?: 'text' | 'request_access' | 'file' | 'image';
+  status?: MessageStatus; type?: 'text' | 'request_access' | 'file' | 'image' | 'audio';
   fileUrl?: string; fileName?: string; fileSize?: number; mimeType?: string;
+  audioDuration?: number;
 };
 type PickedAttachment = { uri: string; name: string; mimeType: string; size?: number; type: 'image' | 'file'; };
 
@@ -288,6 +290,21 @@ function MessageBubble({ msg, isRTL, doctorColor, doctorBg, chatId, t, doctorPho
     );
   }
 
+  if (msg.type === 'audio') {
+    return (
+      <Animated.View style={[styles.msgRow, isPatient ? styles.msgRowRight : styles.msgRowLeft, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
+        {!isPatient && <DoctorAvatar />}
+        <View>
+          <AudioBubble msg={msg} isPatient={isPatient} doctorColor={doctorColor} doctorBg={doctorBg} />
+          <View style={[styles.bubbleMeta, { paddingHorizontal: 6, marginTop: 3 }]}>
+            <Text style={[styles.timeText, isPatient && { color: Colors.textMuted }]}>{msg.time}</Text>
+            {isPatient && <Ionicons name={msg.status === 'read' ? 'checkmark-done' : 'checkmark-done-outline'} size={12} color={msg.status === 'read' ? Colors.primary : Colors.textMuted} />}
+          </View>
+        </View>
+      </Animated.View>
+    );
+  }
+
   return (
       <Animated.View style={[styles.msgRow, isPatient ? styles.msgRowRight : styles.msgRowLeft, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
         {!isPatient && <DoctorAvatar />}
@@ -401,6 +418,84 @@ function DateDivider({ label }: { label: string }) {
   );
 }
 
+// ─── Audio Bubble ─────────────────────────────────────────
+function AudioBubble({ msg, isPatient, doctorColor, doctorBg }: {
+  msg: Message; isPatient: boolean; doctorColor: string; doctorBg: string;
+}) {
+  const [sound,     setSound]     = useState<Audio.Sound | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [posMs,     setPosMs]     = useState(0);
+  const totalMs = (msg.audioDuration ?? 0) * 1000;
+
+  useEffect(() => { return () => { sound?.unloadAsync(); }; }, [sound]);
+
+  const togglePlay = async () => {
+    if (!msg.fileUrl) return;
+    await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, allowsRecordingIOS: false });
+    if (!sound) {
+      const { sound: s } = await Audio.Sound.createAsync(
+        { uri: msg.fileUrl },
+        { shouldPlay: true },
+        (status) => {
+          if (!status.isLoaded) return;
+          setPosMs(status.positionMillis ?? 0);
+          if (status.didJustFinish) { setIsPlaying(false); setPosMs(0); }
+        },
+      );
+      setSound(s);
+      setIsPlaying(true);
+    } else if (isPlaying) {
+      await sound.pauseAsync();
+      setIsPlaying(false);
+    } else {
+      await sound.playAsync();
+      setIsPlaying(true);
+    }
+  };
+
+  const fmtDur = (ms: number) => {
+    const s = Math.floor(ms / 1000);
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  };
+
+  const progress = totalMs > 0 ? Math.min(posMs / totalMs, 1) : 0;
+  const bars = [0.4, 0.7, 0.5, 1, 0.6, 0.8, 0.5, 0.9, 0.4, 0.6, 0.8, 0.5, 1, 0.7, 0.4];
+
+  return (
+    <TouchableOpacity
+      onPress={togglePlay}
+      style={[audioStyles.wrap, isPatient ? { backgroundColor: '#7C5CBF' } : { backgroundColor: '#fff', borderColor: doctorColor + '30', borderWidth: 1.5 }]}
+      activeOpacity={0.85}
+    >
+      <View style={[audioStyles.playBtn, { backgroundColor: isPatient ? 'rgba(255,255,255,0.25)' : doctorBg }]}>
+        <Ionicons name={isPlaying ? 'pause' : 'play'} size={16} color={isPatient ? '#fff' : doctorColor} />
+      </View>
+      <View style={audioStyles.waveWrap}>
+        {bars.map((h, i) => {
+          const barFilled = progress > 0 && i / bars.length < progress;
+          return (
+            <View key={i} style={[
+              audioStyles.bar,
+              { height: 6 + h * 22, backgroundColor: barFilled ? (isPatient ? '#fff' : doctorColor) : (isPatient ? 'rgba(255,255,255,0.35)' : doctorColor + '40') },
+            ]} />
+          );
+        })}
+      </View>
+      <Text style={[audioStyles.dur, { color: isPatient ? 'rgba(255,255,255,0.85)' : '#888' }]}>
+        {fmtDur(posMs > 0 ? posMs : totalMs)}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+const audioStyles = StyleSheet.create({
+  wrap:     { flexDirection: 'row', alignItems: 'center', maxWidth: '75%', borderRadius: 22, paddingHorizontal: 12, paddingVertical: 10, gap: 10 },
+  playBtn:  { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  waveWrap: { flexDirection: 'row', alignItems: 'center', gap: 2.5, flex: 1 },
+  bar:      { width: 3, borderRadius: 2, minHeight: 6 },
+  dur:      { fontSize: 11, fontWeight: '600', minWidth: 30, textAlign: 'right' },
+});
+
 export default function DoctorChatScreen() {
   const { isRTL, t } = useLang();
   const params = useLocalSearchParams<{
@@ -435,6 +530,10 @@ export default function DoctorChatScreen() {
   const [uploading,       setUploading]       = useState(false);
   const [doctorOnline,    setDoctorOnline]    = useState(false);
   const [doctorPhotoUrl,  setDoctorPhotoUrl]  = useState<string | null>(null);
+  const [isRecording,     setIsRecording]     = useState(false);
+  const [recDuration,     setRecDuration]     = useState(0);
+  const recordingRef      = useRef<Audio.Recording | null>(null);
+  const recTimerRef       = useRef<any>(null);
   const listRef           = useRef<FlatList>(null);
   const quickAnim         = useRef(new Animated.Value(0)).current;
   const initialScrollDone = useRef(false);
@@ -463,7 +562,10 @@ export default function DoctorChatScreen() {
   }, []);
 
   useFocusEffect(useCallback(() => {
-    if (isFirebase && chatId) activeChatRef.chatId = chatId;
+    if (isFirebase && chatId) {
+      activeChatRef.chatId = chatId;
+      updateDoc(doc(db, 'chats', chatId), { unreadCountPatient: 0 }).catch(() => {});
+    }
     return () => { activeChatRef.chatId = ''; };
   }, [isFirebase, chatId]));
 
@@ -474,9 +576,10 @@ export default function DoctorChatScreen() {
 
   useEffect(() => {
     if (!isFirebase || !doctorId) return;
-    getDoc(doc(db, 'users', doctorId)).then(snap => {
+    const unsub = onSnapshot(doc(db, 'users', doctorId), (snap) => {
       if (snap.exists()) setDoctorPhotoUrl(snap.data().photoUrl ?? null);
-    }).catch(() => {});
+    });
+    return unsub;
   }, [isFirebase, doctorId]);
 
   useEffect(() => {
@@ -492,6 +595,7 @@ export default function DoctorChatScreen() {
           time: tsToTime(data.timestamp ?? Date.now(), isRTL),
           status, type: data.type ?? 'text',
           fileUrl: data.fileUrl, fileName: data.fileName, fileSize: data.fileSize, mimeType: data.mimeType,
+          audioDuration: data.audioDuration,
         };
       });
       setMessages(msgs);
@@ -592,6 +696,66 @@ export default function DoctorChatScreen() {
     setShowQuick(false);
   };
 
+  const startRecording = useCallback(async () => {
+    try {
+      const { granted } = await Audio.requestPermissionsAsync();
+      if (!granted) { Alert.alert(t.error, t.micPerm); return; }
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+      const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+      recordingRef.current = recording;
+      setIsRecording(true);
+      setRecDuration(0);
+      recTimerRef.current = setInterval(() => setRecDuration(d => d + 1), 1000);
+    } catch { Alert.alert(t.error, t.recordFailed); }
+  }, [t]);
+
+  const stopAndSendAudio = useCallback(async () => {
+    if (!recordingRef.current) return;
+    clearInterval(recTimerRef.current);
+    const rec = recordingRef.current;
+    recordingRef.current = null;
+    const duration = recDuration;
+    setIsRecording(false);
+    setRecDuration(0);
+    try {
+      await rec.stopAndUnloadAsync();
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+      const uri = rec.getURI();
+      if (!uri) return;
+      setUploading(true);
+      const name = `voice_${Date.now()}.m4a`;
+      const cloudUrl = await uploadFileToCloudinary(uri, 'audio/m4a', name);
+      const now = Date.now();
+      const preview = t.voiceMessage;
+      const senderName = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || t.patientDefault;
+      if (isFirebase && chatId && patientId) {
+        await addDoc(collection(db, 'chats', chatId, 'messages'), {
+          text: preview, sender: 'patient', timestamp: now, status: 'sent', type: 'audio',
+          fileUrl: cloudUrl, fileName: name, audioDuration: duration,
+        });
+        await setDoc(doc(db, 'chats', chatId), {
+          doctorId, patientId, patientName: senderName,
+          lastMessage: preview, lastMessageTime: now, lastMessageSender: 'patient',
+          unreadCountDoctor: increment(1),
+        }, { merge: true });
+        sendPushToUser(doctorId, senderName, preview, chatId, { screen: 'Docpatient', patientId, patientName: senderName }).catch(() => {});
+      }
+    } catch { Alert.alert(t.error, t.sendFailed); }
+    finally { setUploading(false); }
+  }, [recDuration, isFirebase, chatId, patientId, doctorId, user, t]);
+
+  const cancelRecording = useCallback(async () => {
+    if (!recordingRef.current) return;
+    clearInterval(recTimerRef.current);
+    try {
+      await recordingRef.current.stopAndUnloadAsync();
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+    } catch {}
+    recordingRef.current = null;
+    setIsRecording(false);
+    setRecDuration(0);
+  }, []);
+
   return (
       <SafeAreaView style={styles.safeOuter} edges={['top', 'left', 'right']}>
         <StatusBar backgroundColor="#F8F5FF" barStyle="dark-content" />
@@ -675,6 +839,17 @@ export default function DoctorChatScreen() {
                   <Text style={[styles.uploadingText, { color: doctorColor }]}>{t.sending}</Text>
                 </View>
             )}
+            {isRecording && (
+              <View style={[styles.recordingBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={styles.recDot} />
+                <Text style={styles.recText}>
+                  {`${Math.floor(recDuration / 60)}:${String(recDuration % 60).padStart(2, '0')}`}
+                </Text>
+                <TouchableOpacity onPress={cancelRecording} style={styles.recCancelBtn}>
+                  <Ionicons name="close" size={18} color="#E05C5C" />
+                </TouchableOpacity>
+              </View>
+            )}
             <View style={[styles.inputBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <TouchableOpacity
                   onPress={toggleQuick}
@@ -694,19 +869,32 @@ export default function DoctorChatScreen() {
                 <TextInput
                     value={inputText}
                     onChangeText={setInputText}
-                    placeholder={t.writeMessage}
+                    placeholder={isRecording ? '' : t.writeMessage}
                     placeholderTextColor={Colors.textMuted}
                     style={[styles.textInput, { textAlign: isRTL ? 'right' : 'left' }]}
                     multiline maxLength={500}
+                    editable={!isRecording}
                 />
               </View>
-              <TouchableOpacity
-                  onPress={() => sendMessage(inputText)}
-                  style={[styles.sendBtn, { backgroundColor: inputText.trim() ? doctorColor : '#B0BEC5' }]}
-                  activeOpacity={0.8} disabled={!inputText.trim()}
-              >
-                <Ionicons name="send" size={16} color="#fff" />
-              </TouchableOpacity>
+              {inputText.trim() ? (
+                <TouchableOpacity
+                    onPress={() => sendMessage(inputText)}
+                    style={[styles.sendBtn, { backgroundColor: doctorColor }]}
+                    activeOpacity={0.8}
+                >
+                  <Ionicons name="send" size={16} color="#fff" />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                    onLongPress={startRecording}
+                    onPressOut={isRecording ? stopAndSendAudio : undefined}
+                    delayLongPress={300}
+                    style={[styles.sendBtn, { backgroundColor: isRecording ? '#E05C5C' : doctorColor }]}
+                    activeOpacity={0.8}
+                >
+                  <Ionicons name={isRecording ? 'stop' : 'mic'} size={18} color="#fff" />
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -764,6 +952,10 @@ const styles = StyleSheet.create({
   inputBarWrap:  { backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: Colors.border, shadowColor: Colors.shadow, shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 4 },
   uploadingBar:  { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: Spacing.base, paddingTop: 6 },
   uploadingText: { fontSize: 11, fontWeight: '600' },
+  recordingBar:  { alignItems: 'center', gap: 8, paddingHorizontal: Spacing.base, paddingTop: 6 },
+  recDot:        { width: 8, height: 8, borderRadius: 4, backgroundColor: '#E05C5C' },
+  recText:       { fontSize: 13, fontWeight: '700', color: '#E05C5C', flex: 1 },
+  recCancelBtn:  { padding: 4 },
   inputBar:  { alignItems: 'flex-end', gap: 8, paddingHorizontal: Spacing.base, paddingTop: 10, paddingBottom: 0 },
   inputWrap: { flex: 1, backgroundColor: Colors.background, borderRadius: 22, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1.5, minHeight: 44, maxHeight: 120 },
   textInput: { flex: 1, fontSize: FontSize.base, color: Colors.textPrimary, padding: 0, lineHeight: 20 },

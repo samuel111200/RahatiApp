@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
   sparkle:        { position: "absolute", bottom: 36, right: 30, fontSize: 22, color: "rgba(255,255,255,0.7)" },
   content:        { flex: 1, alignItems: "center", justifyContent: "flex-start" },
   greetSmall:     { fontSize: 28, color: "#000", marginTop: 48, fontWeight: "600", textAlign: "center" },
-  appName:        { fontSize: 60, fontWeight: "bold", color: "#52408d", textAlign: "center" },
+  appName:        { fontSize: 48, fontWeight: "bold", color: "#52408d", textAlign: "center" },
   tagline:        { fontSize: 24, color: "#000", marginTop: 32, textAlign: "center", fontWeight: "bold" },
   tagline2:       { fontSize: 16, marginTop: 30, color: "#000", textAlign: "center", fontWeight: "bold" },
   tagline3:       { fontSize: 16, marginTop: 16, color: "#000", textAlign: "center", fontWeight: "bold" },

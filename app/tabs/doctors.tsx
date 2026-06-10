@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import {
   collection, query, where, onSnapshot,
-  addDoc, getDocs, getDoc, doc,
+  addDoc, getDocs, getDoc, doc, updateDoc,
 } from 'firebase/firestore';
 import { db, FSUser } from '../../utils/firebaseConfig';
 import { useAuth } from '../../context/AuthContext';
@@ -50,6 +50,7 @@ export default function DoctorsScreen() {
   const [loadingRelations, setLoadingRelations] = useState(true);
   const [showAllDoctorsPage, setShowAllDoctorsPage] = useState(false);
   const [pageSearch,   setPageSearch]   = useState('');
+  const [chatPreviews, setChatPreviews] = useState<Record<string, { unread: number; lastMsg: string; lastTime: number }>>({});
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -65,7 +66,7 @@ export default function DoctorsScreen() {
           nameEn:      `Dr. ${data.firstName} ${data.lastName}`,
           specialty:   data.specialty ?? '',
           specialtyEn: data.specialty ?? '',
-          reviews: 0, experience: 0, available: true,
+          reviews: 0, experience: 0, available: data.isOnline === true,
           emoji: p.emoji, color: p.color, bg: p.bg,
           tags: [], tagsEn: [],
           photoUrl: data.photoUrl ?? undefined,
@@ -85,6 +86,29 @@ export default function DoctorsScreen() {
     }, () => setLoadingRelations(false));
     return unsub;
   }, [user?.uid]);
+
+  // Subscribe to each my-doctor's chat document for unread + last message
+  useEffect(() => {
+    if (!user?.uid || myDoctorIds.size === 0) return;
+    const unsubs: (() => void)[] = [];
+    myDoctorIds.forEach(doctorId => {
+      const chatId = `${doctorId}_${user.uid}`;
+      const unsub = onSnapshot(doc(db, 'chats', chatId), (snap) => {
+        if (!snap.exists()) return;
+        const data = snap.data();
+        setChatPreviews(prev => ({
+          ...prev,
+          [doctorId]: {
+            unread:   data.unreadCountPatient ?? 0,
+            lastMsg:  data.lastMessage ?? '',
+            lastTime: data.lastMessageTime ?? 0,
+          },
+        }));
+      });
+      unsubs.push(unsub);
+    });
+    return () => unsubs.forEach(fn => fn());
+  }, [user?.uid, myDoctorIds]);
 
   const loading      = loadingDocs || loadingRelations;
   const hasMyDoctors = myDoctorIds.size > 0;
@@ -127,6 +151,13 @@ export default function DoctorsScreen() {
 
   const handleInAppChat = async (docItem: DoctorCard) => {
     setShowModal(false); setShowAllDoctorsPage(false);
+    if (user?.uid && docItem.firebaseUid) {
+      const chatId = `${docItem.firebaseUid}_${user.uid}`;
+      updateDoc(doc(db, 'chats', chatId), { unreadCountPatient: 0 }).catch(() => {});
+      setChatPreviews(prev => prev[docItem.firebaseUid]
+        ? { ...prev, [docItem.firebaseUid]: { ...prev[docItem.firebaseUid], unread: 0 } }
+        : prev);
+    }
     const patientUid = user?.uid;
     if (patientUid && docItem.firebaseUid) {
       let patientName = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim();
@@ -171,80 +202,90 @@ export default function DoctorsScreen() {
     });
   };
 
-  const renderDoctorCardContent = (doc: DoctorCard, showContactBtn = true) => {
-    const hasChat = myDoctorIds.has(doc.firebaseUid);
+  const renderDoctorCardContent = (docItem: DoctorCard, showContactBtn = true) => {
+    const hasChat  = myDoctorIds.has(docItem.firebaseUid);
+    const preview  = chatPreviews[docItem.firebaseUid];
+    const unread   = preview?.unread ?? 0;
+    const lastMsg  = preview?.lastMsg ?? '';
     return (
-      <View style={[styles.card, { borderLeftColor: doc.color, borderLeftWidth: 4 }]}>
+      <View style={[styles.card, { borderLeftColor: docItem.color, borderLeftWidth: 4 }]}>
         <View style={[styles.cardTop, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <View style={[styles.avatarCircle, { backgroundColor: doc.bg }]}>
-            {doc.photoUrl
-              ? <Image source={{ uri: doc.photoUrl }} style={styles.avatarImg} />
-              : <Text style={styles.avatarEmoji}>{doc.emoji}</Text>}
+          <View style={{ position: 'relative' }}>
+            <View style={[styles.avatarCircle, { backgroundColor: docItem.bg }]}>
+              {docItem.photoUrl
+                ? <Image source={{ uri: docItem.photoUrl }} style={styles.avatarImg} />
+                : <Text style={styles.avatarEmoji}>{docItem.emoji}</Text>}
+            </View>
+            {unread > 0 && (
+              <View style={[styles.unreadDot, { backgroundColor: docItem.color }]}>
+                <Text style={styles.unreadDotText}>{unread > 9 ? '9+' : unread}</Text>
+              </View>
+            )}
           </View>
           <View style={[styles.cardInfo, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
             <View style={[styles.nameRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <Text style={styles.docName}>{isRTL ? doc.name : doc.nameEn}</Text>
-              <View style={[styles.availBadge, { backgroundColor: doc.available ? '#E8F5EF' : '#F5F5F5' }]}>
-                <View style={[styles.availDot, { backgroundColor: doc.available ? '#4CAF82' : '#ccc' }]} />
-                <Text style={[styles.availText, { color: doc.available ? '#4CAF82' : '#aaa' }]}>
-                  {doc.available ? t.available : t.busy}
+              <Text style={styles.docName}>{isRTL ? docItem.name : docItem.nameEn}</Text>
+              <View style={[styles.availBadge, { backgroundColor: docItem.available ? '#E8F5EF' : '#F5F5F5' }]}>
+                <View style={[styles.availDot, { backgroundColor: docItem.available ? '#4CAF82' : '#ccc' }]} />
+                <Text style={[styles.availText, { color: docItem.available ? '#4CAF82' : '#aaa' }]}>
+                  {docItem.available ? t.available : t.busy}
                 </Text>
               </View>
             </View>
-            <Text style={[styles.specialty, { color: doc.color }]}>
-              {isRTL ? doc.specialty : doc.specialtyEn}
+            <Text style={[styles.specialty, { color: docItem.color }]}>
+              {isRTL ? docItem.specialty : docItem.specialtyEn}
             </Text>
-            <View style={[styles.metaRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-              <View style={styles.metaItem}>
-                {doc.reviews > 0 && <Text style={styles.metaLight}>({doc.reviews})</Text>}
+            {hasChat && !!lastMsg ? (
+              <Text style={[styles.lastMsgPreview, unread > 0 && { color: Colors.textPrimary, fontWeight: '700' }]} numberOfLines={1}>
+                {lastMsg}
+              </Text>
+            ) : (
+              <View style={[styles.metaRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={styles.metaItem}>
+                  {docItem.reviews > 0 && <Text style={styles.metaLight}>({docItem.reviews})</Text>}
+                </View>
+                {docItem.experience > 0 && (
+                  <>
+                    <View style={styles.metaDot} />
+                    <View style={styles.metaItem}>
+                      <Ionicons name="briefcase-outline" size={12} color={Colors.textMuted} />
+                      <Text style={styles.metaText}>{docItem.experience} {t.yrsExperience}</Text>
+                    </View>
+                  </>
+                )}
               </View>
-              {doc.experience > 0 && (
-                <>
-                  <View style={styles.metaDot} />
-                  <View style={styles.metaItem}>
-                    <Ionicons name="briefcase-outline" size={12} color={Colors.textMuted} />
-                    <Text style={styles.metaText}>{doc.experience} {t.yrsExperience}</Text>
-                  </View>
-                </>
-              )}
-            </View>
+            )}
           </View>
         </View>
 
         {showContactBtn && !hasChat && (
           <TouchableOpacity
-            style={[styles.contactBtn, { backgroundColor: doc.available ? doc.color : '#ddd' }]}
-            onPress={() => handleContact(doc)}
-            activeOpacity={doc.available ? 0.8 : 1}
-            disabled={!doc.available}
+            style={[styles.contactBtn, { backgroundColor: docItem.available ? docItem.color : '#ddd' }]}
+            onPress={() => handleContact(docItem)}
+            activeOpacity={docItem.available ? 0.8 : 1}
+            disabled={!docItem.available}
           >
-            <Ionicons name="chatbubble-ellipses-outline" size={16} color={doc.available ? '#fff' : '#aaa'} />
-            <Text style={[styles.contactBtnText, { color: doc.available ? '#fff' : '#aaa' }]}>
-              {doc.available ? t.contactNow : t.notAvailableNow}
+            <Ionicons name="chatbubble-ellipses-outline" size={16} color={docItem.available ? '#fff' : '#aaa'} />
+            <Text style={[styles.contactBtnText, { color: docItem.available ? '#fff' : '#aaa' }]}>
+              {docItem.available ? t.contactNow : t.notAvailableNow}
             </Text>
           </TouchableOpacity>
         )}
 
-        {showContactBtn && hasChat && (
-          <View style={[styles.openChatBadge, { backgroundColor: doc.bg }]}>
-            <Ionicons name="chatbubbles" size={14} color={doc.color} />
-            <Text style={[styles.openChatText, { color: doc.color }]}>{t.tapToOpenChat}</Text>
-          </View>
-        )}
       </View>
     );
   };
 
-  const renderDoctorCard = (doc: DoctorCard, showContactBtn = true) => {
-    const hasChat = myDoctorIds.has(doc.firebaseUid);
+  const renderDoctorCard = (docItem: DoctorCard, showContactBtn = true) => {
+    const hasChat = myDoctorIds.has(docItem.firebaseUid);
     if (hasChat) {
       return (
-        <TouchableOpacity key={doc.id} activeOpacity={0.85} onPress={() => handleInAppChat(doc)}>
-          {renderDoctorCardContent(doc, showContactBtn)}
+        <TouchableOpacity key={docItem.id} activeOpacity={0.85} onPress={() => handleInAppChat(docItem)}>
+          {renderDoctorCardContent(docItem, showContactBtn)}
         </TouchableOpacity>
       );
     }
-    return <View key={doc.id}>{renderDoctorCardContent(doc, showContactBtn)}</View>;
+    return <View key={docItem.id}>{renderDoctorCardContent(docItem, showContactBtn)}</View>;
   };
 
   return (
@@ -449,6 +490,9 @@ const styles = StyleSheet.create({
   contactBtnText: { fontSize: FontSize.sm, fontWeight: '700' },
   openChatBadge:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: Radius.lg, paddingVertical: 10 },
   openChatText:   { fontSize: FontSize.sm, fontWeight: '700' },
+  unreadDot:      { position: 'absolute', top: -2, right: -2, minWidth: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderWidth: 2, borderColor: '#fff' },
+  unreadDotText:  { fontSize: 10, color: '#fff', fontWeight: '800' },
+  lastMsgPreview: { fontSize: 12, color: Colors.textMuted, marginTop: 2, maxWidth: 200 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 12, borderLeftWidth: 4 },
   sectionHeaderText: { fontSize: FontSize.base, fontWeight: '800', flex: 1 },
   sectionCount:      { fontSize: 13, fontWeight: '700', backgroundColor: 'rgba(0,0,0,0.06)', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
