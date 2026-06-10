@@ -9,7 +9,6 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, usePathname } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/Languagecontext';
@@ -26,7 +25,6 @@ import {
 } from './DocNotifService';
 
 const DOC_COLOR       = '#7C5CBF';
-const DOC_COLOR_MID   = '#E8DFFA';
 const DOC_COLOR_LIGHT = '#F0EBFA';
 
 // ─── DocTabBar ────────────────────────────────────────────
@@ -495,7 +493,7 @@ export default function DocMoreScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
         <View style={styles.topBar}>
-          <View style={styles.backBtn} />
+          <View style={{ width: 40 }} /> 
           <Text style={styles.pageTitle}>{t.docMyAccount}</Text>
           <TouchableOpacity style={styles.backBtn} onPress={() => open('editProfile')}>
             <Ionicons name="pencil-outline" size={20} color={DOC_COLOR} />
@@ -525,7 +523,6 @@ export default function DocMoreScreen() {
           <Text style={styles.avatarHint}>{t.docLongPressHint}</Text>
         </View>
 
-        {/* Stats */}
         <View style={styles.statsRow}>
           <View style={[styles.statCard, { backgroundColor: DOC_COLOR_LIGHT }]}>
             <Text style={styles.statIcon}>👥</Text>
@@ -620,7 +617,6 @@ export default function DocMoreScreen() {
 
       <HelpModal visible={activeModal === 'help'} onClose={close} t={t} isRTL={isRTL} />
 
-      {/* Logout Confirm */}
       <Modal visible={activeModal === 'logout'} transparent animationType="fade" onRequestClose={close}>
         <View style={styles.overlay}>
           <View style={styles.modalCard}>
