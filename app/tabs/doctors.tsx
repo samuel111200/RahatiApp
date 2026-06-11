@@ -292,8 +292,18 @@ export default function DoctorsScreen() {
     <SafeAreaView style={styles.safe}>
       <StatusBar backgroundColor={Colors.background} barStyle="dark-content" />
 
-      <View style={styles.header}>
-        <View style={{ width: 40 }} />
+      <View style={[styles.header, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => router.back()}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={isRTL ? 'chevron-forward' : 'chevron-back'}
+            size={24}
+            color={Colors.textPrimary}
+          />
+        </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>
             {hasMyDoctors ? t.myDoctors : t.contactDoctor}
@@ -458,7 +468,7 @@ export default function DoctorsScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.base, paddingVertical: 12 },
+  header: { alignItems: 'center', paddingHorizontal: Spacing.base, paddingVertical: 12 },
   headerCenter: { flex: 1, alignItems: 'center' },
   headerTitle: { fontSize: 22, fontWeight: 'bold', color: Colors.textPrimary },
   headerSub:   { fontSize: 12, color: Colors.textMuted, marginTop: 2 },

@@ -63,7 +63,7 @@ export function ChatsProvider({ children }: { children: React.ReactNode }) {
     const uid = user?.uid;
     if (!uid) { setChats([]); return; }
 
-    const q = query(collection(db, 'chats'), where('doctorId', '==', uid));
+    const q = query(collection(db, 'chats'), where('doctorId', '==', uid), where('accepted', '==', true));
     const unsub = onSnapshot(q, (snap) => {
       try {
         const list: ChatPreview[] = snap.docs.map(d => {

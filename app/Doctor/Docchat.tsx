@@ -10,60 +10,10 @@ import { Colors, Spacing, FontSize } from '../../constants/Theme';
 import { useLang } from '../../context/Languagecontext';
 import { useChats } from '../../context/Chatscontext';
 import type { ChatPreview } from '../../context/Chatscontext';
-import { usePathname } from 'expo-router';
+import DocTabBar from '../../components/DocTabBar';
 
 const DOC_COLOR       = '#7C5CBF';
 const DOC_COLOR_LIGHT = '#F0EBFA';
-
-// ─── DocTabBar ────────────────────────────────────────────
-type TabItem = { label: string; icon: keyof typeof Ionicons.glyphMap; iconActive: keyof typeof Ionicons.glyphMap; route: string; };
-
-function DocTabBar() {
-  const pathname  = usePathname();
-  const insets    = useSafeAreaInsets();
-  const { t, isRTL } = useLang();
-  const bottomPad = Math.max(insets.bottom, 8);
-
-  const TABS: TabItem[] = [
-    { label: t.home,     icon: 'home-outline',       iconActive: 'home',        route: '/Doctor/Dochome' },
-    { label: t.docChats, icon: 'chatbubbles-outline', iconActive: 'chatbubbles', route: '/Doctor/Docchat' },
-    { label: t.more,     icon: 'grid-outline',        iconActive: 'grid',        route: '/Doctor/Docmore' },
-  ];
-
-  return (
-    <View style={[tabStyles.wrapper, { paddingBottom: bottomPad }]}>
-      <View style={[tabStyles.container, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-        {TABS.map((tab) => {
-          const isActive = pathname.startsWith(tab.route);
-          return (
-            <TouchableOpacity key={tab.route} style={tabStyles.tab} onPress={() => router.push(tab.route as any)} activeOpacity={0.7}>
-              <View style={[tabStyles.iconWrap, isActive && tabStyles.iconWrapActive]}>
-                <Ionicons name={isActive ? tab.iconActive : tab.icon} size={22} color={isActive ? '#fff' : '#B0BEC5'} />
-              </View>
-              <Text style={[tabStyles.label, isActive && tabStyles.labelActive]}>{tab.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
-const tabStyles = StyleSheet.create({
-  wrapper:   { backgroundColor: 'transparent', paddingHorizontal: 16 },
-  container: {
-    backgroundColor: '#fff', borderRadius: 28,
-    paddingTop: 8, paddingBottom: 8, paddingHorizontal: 8,
-    shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18, shadowRadius: 24, elevation: 14,
-    borderWidth: 0.5, borderColor: '#E8DFFA', marginBottom: 8,
-  },
-  tab:      { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4 },
-  iconWrap: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: 'transparent' },
-  iconWrapActive: { backgroundColor: DOC_COLOR, shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.40, shadowRadius: 10, elevation: 6 },
-  label:       { fontSize: 11, fontWeight: '600', color: '#B0BEC5' },
-  labelActive: { color: DOC_COLOR, fontWeight: '700' },
-});
 
 function sortChats(list: ChatPreview[]): ChatPreview[] {
   return [...list].sort((a, b) => {

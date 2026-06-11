@@ -1,0 +1,13 @@
+{
+  "name": "rahati-push-backend",
+  "version": "1.0.0",
+  "description": "Push notification backend for RahatiApp",
+  "private": true,
+  "engines": {
+    "node": "20.x"
+  },
+  "dependencies": {
+    "expo-server-sdk": "^3.7.0",
+    "firebase-admin": "^12.3.0"
+  }
+}

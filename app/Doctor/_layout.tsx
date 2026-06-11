@@ -12,14 +12,17 @@ export default function DoctorLayout() {
   return (
     <ChatsProvider>
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="RoleChoose" options={{ gestureEnabled: false }} />
-        <Stack.Screen name="Docsignin" />
-        <Stack.Screen name="DocsignUp1" />
-        <Stack.Screen name="Docsignup2" />
-        <Stack.Screen name="Dochome"    />
-        <Stack.Screen name="Docchat"    />
-        <Stack.Screen name="Docpatient" options={{ gestureEnabled: true }} />
-        <Stack.Screen name="Docmore"    />
+        <Stack.Screen name="RoleChoose"    options={{ gestureEnabled: false }} />
+        <Stack.Screen name="Docsignin"     options={{ gestureEnabled: false }} />
+        <Stack.Screen name="DocsignUp1"    options={{ gestureEnabled: false }} />
+        <Stack.Screen name="Docsignup2"    options={{ gestureEnabled: false }} />
+        <Stack.Screen name="Dochome"       options={{ gestureEnabled: false }} />
+        <Stack.Screen name="Docchat"       options={{ gestureEnabled: false }} />
+        <Stack.Screen name="Docpatient"    options={{ gestureEnabled: true  }} />
+        <Stack.Screen name="Docmore"       options={{ gestureEnabled: false }} />
+        <Stack.Screen name="DocInfo"       options={{ gestureEnabled: false }} />
+        <Stack.Screen name="DocMedication" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="DocAssessment" options={{ gestureEnabled: true  }} />
       </Stack>
     </ChatsProvider>
   );

@@ -13,6 +13,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
 import { notify, suppressTaskListNotifOnce } from './notificationService';
+import PatientTabBar from '../../components/PatientTabBar';
 import { collection, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../../utils/firebaseConfig';
 import { useAuth } from '../../context/AuthContext';
@@ -705,6 +706,8 @@ export default function ExercisesScreen() {
   const { isRTL, t } = useLang();
   const { user }  = useAuth();
   const router = useRouter();
+  const eid = user?.uid ?? 'guest';
+  const ek = (base: string) => `${eid}_${base}`;
 
   const [therapyList,      setTherapyList]      = useState<Exercise[]>([]);
   const [yogaList,         setYogaList]         = useState<Exercise[]>([]);
@@ -790,12 +793,12 @@ export default function ExercisesScreen() {
 
   function getListAndSetter(type: SectionKey): [Exercise[], React.Dispatch<React.SetStateAction<Exercise[]>>, string] {
     switch (type) {
-      case 'therapy':      return [therapyList,      setTherapyList,      THERAPY_KEY];
-      case 'yoga':         return [yogaList,          setYogaList,         YOGA_KEY];
-      case 'aerobic':      return [aerobicList,       setAerobicList,      AEROBIC_KEY];
-      case 'endurance':    return [enduranceList,     setEnduranceList,    ENDURANCE_KEY];
-      case 'strength':     return [strengthList,      setStrengthList,     STRENGTH_KEY];
-      case 'coordination': return [coordinationList,  setCoordinationList, COORDINATION_KEY];
+      case 'therapy':      return [therapyList,      setTherapyList,      ek(THERAPY_KEY)];
+      case 'yoga':         return [yogaList,          setYogaList,         ek(YOGA_KEY)];
+      case 'aerobic':      return [aerobicList,       setAerobicList,      ek(AEROBIC_KEY)];
+      case 'endurance':    return [enduranceList,     setEnduranceList,    ek(ENDURANCE_KEY)];
+      case 'strength':     return [strengthList,      setStrengthList,     ek(STRENGTH_KEY)];
+      case 'coordination': return [coordinationList,  setCoordinationList, ek(COORDINATION_KEY)];
     }
   }
 
@@ -842,33 +845,33 @@ export default function ExercisesScreen() {
   }
 
   async function loadAllExercises() {
-    const migrated = await AsyncStorage.getItem('exercises_v7_migrated');
+    const migrated = await AsyncStorage.getItem(ek('exercises_v7_migrated'));
     if (!migrated) {
       await AsyncStorage.multiRemove([
-        'core_exercises', 'extra_exercises', 'therapy_exercises',
-        'yoga_exercises', 'aerobic_exercises', 'endurance_exercises',
-        'strength_exercises', 'coordination_exercises',
+        ek('core_exercises'), ek('extra_exercises'), ek('therapy_exercises'),
+        ek('yoga_exercises'), ek('aerobic_exercises'), ek('endurance_exercises'),
+        ek('strength_exercises'), ek('coordination_exercises'),
       ]);
-      await AsyncStorage.setItem('exercises_v7_migrated', '1');
+      await AsyncStorage.setItem(ek('exercises_v7_migrated'), '1');
     }
 
-    await loadSection(THERAPY_KEY, DEFAULT_THERAPY_EXERCISES, setTherapyList);
-    await loadSection(YOGA_KEY,    DEFAULT_YOGA_EXERCISES,    setYogaList);
+    await loadSection(ek(THERAPY_KEY), DEFAULT_THERAPY_EXERCISES, setTherapyList);
+    await loadSection(ek(YOGA_KEY),    DEFAULT_YOGA_EXERCISES,    setYogaList);
 
-    await AsyncStorage.removeItem(AEROBIC_KEY);
-    await AsyncStorage.setItem(AEROBIC_KEY, JSON.stringify(DEFAULT_AEROBIC_EXERCISES));
+    await AsyncStorage.removeItem(ek(AEROBIC_KEY));
+    await AsyncStorage.setItem(ek(AEROBIC_KEY), JSON.stringify(DEFAULT_AEROBIC_EXERCISES));
     setAerobicList(DEFAULT_AEROBIC_EXERCISES);
 
-    await AsyncStorage.removeItem(ENDURANCE_KEY);
-    await AsyncStorage.setItem(ENDURANCE_KEY, JSON.stringify(DEFAULT_ENDURANCE_EXERCISES));
+    await AsyncStorage.removeItem(ek(ENDURANCE_KEY));
+    await AsyncStorage.setItem(ek(ENDURANCE_KEY), JSON.stringify(DEFAULT_ENDURANCE_EXERCISES));
     setEnduranceList(DEFAULT_ENDURANCE_EXERCISES);
 
-    await AsyncStorage.removeItem(STRENGTH_KEY);
-    await AsyncStorage.setItem(STRENGTH_KEY, JSON.stringify(DEFAULT_STRENGTH_EXERCISES));
+    await AsyncStorage.removeItem(ek(STRENGTH_KEY));
+    await AsyncStorage.setItem(ek(STRENGTH_KEY), JSON.stringify(DEFAULT_STRENGTH_EXERCISES));
     setStrengthList(DEFAULT_STRENGTH_EXERCISES);
 
-    await AsyncStorage.removeItem(COORDINATION_KEY);
-    await AsyncStorage.setItem(COORDINATION_KEY, JSON.stringify(DEFAULT_COORDINATION_EXERCISES));
+    await AsyncStorage.removeItem(ek(COORDINATION_KEY));
+    await AsyncStorage.setItem(ek(COORDINATION_KEY), JSON.stringify(DEFAULT_COORDINATION_EXERCISES));
     setCoordinationList(DEFAULT_COORDINATION_EXERCISES);
   }
 
@@ -949,7 +952,7 @@ export default function ExercisesScreen() {
     setter(updated);
     await AsyncStorage.setItem(storageKey, JSON.stringify(updated));
     if (selected === item.key && updated.length > 0) setSelected(updated[0].key);
-    await AsyncStorage.setItem('data_changed_at', Date.now().toString());
+    await AsyncStorage.setItem(ek('data_changed_at'), Date.now().toString());
     await notify({
       title: t.exerciseDeleted,
       body: isRTL ? `"${item.title}" تم حذفه` : `"${item.titleEn}" has been deleted`,
@@ -1000,7 +1003,7 @@ export default function ExercisesScreen() {
       const updated = [...list, newEx];
       setter(updated);
       await AsyncStorage.setItem(storageKey, JSON.stringify(updated));
-      await AsyncStorage.setItem('data_changed_at', Date.now().toString());
+      await AsyncStorage.setItem(ek('data_changed_at'), Date.now().toString());
       setSelected(newEx.key);
       setActiveSection(newType);
       suppressTaskListNotifOnce();
@@ -1086,7 +1089,7 @@ export default function ExercisesScreen() {
             },
           ]}
         >
-          <View style={styles.cardTopRow}>
+          <View style={[styles.cardTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <View style={[
               styles.emojiCircle,
               { backgroundColor: item.fromDoctor ? '#E8DFFA' : item.accent },
@@ -1249,17 +1252,17 @@ export default function ExercisesScreen() {
       <View style={styles.container}>
 
         <View style={[styles.navbar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <View style={{ width: 40 }} />
-          <Text style={styles.navTitle}>{t.dailyExercises}</Text>
           <TouchableOpacity onPress={openAddModal} style={styles.navBtn}>
             <Ionicons name="add" size={24} color="#7C5CBF" />
           </TouchableOpacity>
+          <Text style={styles.navTitle}>{t.dailyExercises}</Text>
+          <View style={{ width: 40 }} />
         </View>
 
         {/* ── Section Tabs ── */}
         <ScrollView
           horizontal showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.sectionToggleRow}
+          contentContainerStyle={[styles.sectionToggleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
           style={styles.sectionToggleScroll}
         >
           {SECTION_CONFIGS.map((section) => {
@@ -1457,6 +1460,7 @@ export default function ExercisesScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+      <PatientTabBar />
     </SafeAreaView>
   );
 }

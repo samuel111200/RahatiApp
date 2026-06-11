@@ -3,6 +3,22 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 import { activeChatRef } from "../../utils/activeChatRef";
 
+// ─── Active-user scoping ──────────────────────────────────
+let _uid = '';
+// Declared here so setNotifUid can reset them when the user changes
+let lastDoneSnapshot: string | null = null;
+let lastEnergy: number | null = null;
+
+export function setNotifUid(uid: string) {
+  if (_uid !== uid) {
+    _uid = uid;
+    // Re-baseline both watchers under the new uid-prefixed keys
+    lastDoneSnapshot = null;
+    lastEnergy       = null;
+  }
+}
+function uk(base: string): string { return _uid ? `${_uid}_${base}` : base; }
+
 // ─── Types ───────────────────────────────────────────────
 export interface AppNotification {
   id: string;
@@ -194,9 +210,9 @@ async function getTodayPlanItems(): Promise<Array<{
   const todayKey = getTodayDateKey();
 
   const [coreRaw, extraRaw, exRaw] = await Promise.all([
-    AsyncStorage.getItem("core_tasks"),
-    AsyncStorage.getItem("extra_tasks"),
-    AsyncStorage.getItem("core_exercises"),
+    AsyncStorage.getItem(uk("core_tasks")),
+    AsyncStorage.getItem(uk("extra_tasks")),
+    AsyncStorage.getItem(uk("core_exercises")),
   ]);
 
   const coreTasks: any[]  = coreRaw  ? JSON.parse(coreRaw)  : [];
@@ -373,6 +389,7 @@ export async function setupNotifications() {
         { id: "completion", name: "إشعارات الإنجاز",    importance: mod.AndroidImportance.HIGH,    lightColor: "#4CAF82", vibrationPattern: [0, 100, 50, 100, 50, 200] as number[] },
         { id: "energy",     name: "تنبيهات الطاقة",     importance: mod.AndroidImportance.DEFAULT, lightColor: "#F5A623", vibrationPattern: [0, 200] as number[] },
         { id: "missed",     name: "مهام وتمارين فاتتك", importance: mod.AndroidImportance.HIGH,    lightColor: "#E05C5C", vibrationPattern: [0, 400, 200, 400] as number[] },
+        { id: "summary",    name: "ملخص اليوم",          importance: mod.AndroidImportance.HIGH,    lightColor: "#7C5CBF", vibrationPattern: [0, 300, 150, 300, 150, 300] as number[] },
       ];
       for (const ch of channels) {
         await mod.setNotificationChannelAsync(ch.id, {
@@ -622,14 +639,14 @@ export function startMissedWatcher() {
       const isAr     = lang === "ar";
       const todayKey = getTodayDateKey();
       const nowMin   = nowInMinutes();
-      const doneRaw  = await AsyncStorage.getItem(`plan_done_${todayKey}`);
+      const doneRaw  = await AsyncStorage.getItem(uk(`plan_done_${todayKey}`));
       const doneIds  = new Set<string>(doneRaw ? JSON.parse(doneRaw) : []);
       const planItems = await getTodayPlanItems();
 
       for (const item of planItems) {
         if (item.timeFromMin < 0)     continue;
         if (doneIds.has(item.id))     continue;
-        if (nowMin <= item.timeToMin) continue;
+        if (nowMin <= item.timeToMin + 5) continue;
 
         const label = item.isExercise
           ? (isAr ? "تمرين" : "exercise")
@@ -660,7 +677,6 @@ export function stopMissedWatcher() {
 
 // ── Completion watcher ──
 let completionWatcherInterval: ReturnType<typeof setInterval> | null = null;
-let lastDoneSnapshot: string | null = null;
 // ✅ lock يمنع التنفيذ المتوازي لو الـ interval اتشغل قبل ما السابق يخلص
 let isCompletionRunning = false;
 
@@ -676,11 +692,14 @@ export function startCompletionWatcher() {
       const lang     = await getLang();
       const isAr     = lang === "ar";
       const todayKey = getTodayDateKey();
-      const planDoneRaw = await AsyncStorage.getItem(`plan_done_${todayKey}`);
+      const planDoneRaw = await AsyncStorage.getItem(uk(`plan_done_${todayKey}`));
 
       const currentSnapshot = planDoneRaw
         ? ([...JSON.parse(planDoneRaw)] as string[]).sort().join(",")
         : "";
+
+      // لو الـ uid مش متحط بعد، استنّى — مش كوّن baseline بـ key غلط
+      if (!_uid) return;
 
       // أول مرة: حمّل الـ baseline بدون ما تبعت إشعارات
       if (lastDoneSnapshot === null) {
@@ -700,11 +719,18 @@ export function startCompletionWatcher() {
 
       if (!newlyDone.length) return;
 
+      // تأكد إن الـ IDs دي موجودة فعلاً في خطة اليوم — يمنع إشعارات وهمية
+      const planItems = await getTodayPlanItems();
+      if (!planItems.length) return;
+      const planItemIds = new Set(planItems.map(p => p.id));
+      const validNewlyDone = newlyDone.filter(id => planItemIds.has(id));
+      if (!validNewlyDone.length) return;
+
       const [coreRaw, extraRaw, exRaw, fsCacheRaw] = await Promise.all([
-        AsyncStorage.getItem("core_tasks"),
-        AsyncStorage.getItem("extra_tasks"),
-        AsyncStorage.getItem("core_exercises"),
-        AsyncStorage.getItem("fs_tasks_cache"),
+        AsyncStorage.getItem(uk("core_tasks")),
+        AsyncStorage.getItem(uk("extra_tasks")),
+        AsyncStorage.getItem(uk("core_exercises")),
+        AsyncStorage.getItem(uk("fs_tasks_cache")),
       ]);
 
       let coreTasks:  any[] = [];
@@ -719,7 +745,7 @@ export function startCompletionWatcher() {
       }
       const exercises: any[] = exRaw ? JSON.parse(exRaw) : [];
 
-      for (const id of newlyDone) {
+      for (const id of validNewlyDone) {
         if (!id) continue;
 
         // ✅ dedupKey بدقة الثانية يمنع إرسال مزدوج في نفس اللحظة
@@ -789,7 +815,6 @@ export function stopCompletionWatcher() {
 }
 
 // ── Energy watcher ──
-let lastEnergy: number | null = null;
 let energyWatcherInterval: ReturnType<typeof setInterval> | null = null;
 
 export function startEnergyWatcher() {
@@ -797,7 +822,7 @@ export function startEnergyWatcher() {
 
   energyWatcherInterval = setInterval(async () => {
     try {
-      const raw = await AsyncStorage.getItem("energy_level");
+      const raw = await AsyncStorage.getItem(uk("energy_level"));
       if (!raw) return;
       const current = Number(raw);
 
@@ -835,6 +860,62 @@ export function stopEnergyWatcher() {
   if (energyWatcherInterval) { clearInterval(energyWatcherInterval); energyWatcherInterval = null; }
 }
 
+// ── End-of-day summary watcher ──
+let endOfDayWatcherInterval: ReturnType<typeof setInterval> | null = null;
+
+export function startEndOfDayWatcher() {
+  if (endOfDayWatcherInterval) return;
+
+  endOfDayWatcherInterval = setInterval(async () => {
+    try {
+      const now = new Date();
+      const h   = now.getHours();
+      const m   = now.getMinutes();
+      // Fire between 21:00 and 21:02 (one 2-minute window per day)
+      if (h !== 21 || m > 2) return;
+
+      const lang     = await getLang();
+      const isAr     = lang === "ar";
+      const todayKey = getTodayDateKey();
+      const dedupKey = `endofday_summary_${todayKey}`;
+
+      const alreadySent = await AsyncStorage.getItem(uk(dedupKey));
+      if (alreadySent) return;
+
+      const planItems = await getTodayPlanItems();
+      if (!planItems.length) return;
+
+      const doneRaw = await AsyncStorage.getItem(uk(`plan_done_${todayKey}`));
+      const doneIds = new Set<string>(doneRaw ? JSON.parse(doneRaw) : []);
+
+      const total = planItems.length;
+      const done  = planItems.filter(item => doneIds.has(item.id)).length;
+      const allDone = done === total;
+
+      await AsyncStorage.setItem(uk(dedupKey), "1");
+
+      await sendPushNotification(
+        isAr
+          ? (allDone ? "يوم رائع! أنجزت كل شيء 🎉" : `ملخص اليوم — ${done}/${total} مهمة`)
+          : (allDone ? "Great day! Everything done 🎉" : `Day summary — ${done}/${total} tasks`),
+        isAr
+          ? (allDone
+              ? "أتممت جميع مهام وتمارين اليوم بنجاح! 💪 استمر على هذا المستوى."
+              : `أكملت ${done} من ${total} مهمة اليوم. غداً فرصة جديدة! 💙`)
+          : (allDone
+              ? "You completed all tasks and exercises today! 💪 Keep it up."
+              : `You completed ${done} out of ${total} tasks today. Tomorrow is a new chance! 💙`),
+        "tasks",
+        { type: "summary" },
+      );
+    } catch (e) { console.warn("End-of-day watcher error:", e); }
+  }, 60_000);
+}
+
+export function stopEndOfDayWatcher() {
+  if (endOfDayWatcherInterval) { clearInterval(endOfDayWatcherInterval); endOfDayWatcherInterval = null; }
+}
+
 // ── Exercise watcher (backward compat) ──
 let exerciseWatcherInterval: ReturnType<typeof setInterval> | null = null;
 export function startExerciseWatcher() { /* covered by taskWatcher */ }
@@ -852,7 +933,8 @@ export function areWatchersRunning(): boolean {
     taskWatcherInterval       !== null ||
     completionWatcherInterval !== null ||
     energyWatcherInterval     !== null ||
-    missedWatcherInterval     !== null
+    missedWatcherInterval     !== null ||
+    endOfDayWatcherInterval   !== null
   );
 }
 
@@ -863,6 +945,7 @@ export function startAllWatchers() {
   startCompletionWatcher();
   startEnergyWatcher();
   startMissedWatcher();
+  startEndOfDayWatcher();
 }
 
 export function stopAllWatchers() {
@@ -871,4 +954,5 @@ export function stopAllWatchers() {
   stopCompletionWatcher();
   stopEnergyWatcher();
   stopMissedWatcher();
+  stopEndOfDayWatcher();
 }

@@ -64,6 +64,7 @@ export type FSChat = {
   lastMessageSender: 'doctor' | 'patient';
   exerciseAccess: boolean;
   unreadCountDoctor?: number;
+  accepted?: boolean;
 };
 
 export type FSExercise = {

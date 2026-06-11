@@ -15,6 +15,7 @@ import { useLang } from '../../context/Languagecontext';
 import { PrimaryButton, OutlineButton } from '../../components/UI';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 import { notify } from './notificationService';
+import PatientTabBar from '../../components/PatientTabBar';
 import { db } from '../../utils/firebaseConfig';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { uploadImageToCloudinary } from '../../utils/uploadImage';
@@ -35,8 +36,8 @@ function getPlanDoneKey(date: Date) { return `plan_done_${toKey(date)}`; }
 function InfoRow({ label, value, isRTL }: { label: string; value: string; isRTL: boolean }) {
   return (
     <View style={[styles.infoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-      <Text style={styles.infoValue}>{value || '—'}</Text>
       <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue}>{value || '—'}</Text>
     </View>
   );
 }
@@ -353,23 +354,26 @@ export default function MoreScreen() {
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
-    AsyncStorage.getItem('user_avatar').then(uri => { if (uri) setAvatarUri(uri); });
-  }, []);
+    const avatarKey = user?.uid ? `${user.uid}_user_avatar` : 'user_avatar';
+    AsyncStorage.getItem(avatarKey).then(uri => { if (uri) setAvatarUri(uri); });
+  }, [user?.uid]);
 
   useFocusEffect(useCallback(() => {
     const loadStats = async () => {
       try {
         const today    = new Date();
         const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+        const uid = user?.uid ?? 'guest';
+        const mk = (base: string) => `${uid}_${base}`;
         const [coreTRaw, extraTRaw] = await Promise.all([
-          AsyncStorage.getItem(STORAGE_KEYS.CORE_TASKS),
-          AsyncStorage.getItem(STORAGE_KEYS.EXTRA_TASKS),
+          AsyncStorage.getItem(mk(STORAGE_KEYS.CORE_TASKS)),
+          AsyncStorage.getItem(mk(STORAGE_KEYS.EXTRA_TASKS)),
         ]);
         const coreTasks:     any[] = coreTRaw  ? JSON.parse(coreTRaw)  : [];
         const allExtraTasks: any[] = extraTRaw ? JSON.parse(extraTRaw) : [];
         const extraTasks = allExtraTasks.filter((tk: any) => !tk.date || tk.date === todayKey);
         setTaskTotal(coreTasks.length + extraTasks.length);
-        const planDoneRaw = await AsyncStorage.getItem(getPlanDoneKey(today));
+        const planDoneRaw = await AsyncStorage.getItem(mk(getPlanDoneKey(today)));
         const doneIds: Set<string> = planDoneRaw ? new Set(JSON.parse(planDoneRaw)) : new Set();
         const coreTaskIds  = new Set(coreTasks.map((t: any)  => t.key ?? t.id));
         const extraTaskIds = new Set(extraTasks.map((t: any) => t.key ?? t.id));
@@ -428,13 +432,14 @@ export default function MoreScreen() {
     if (!permission.granted) { Alert.alert(t.error, t.photoPermissionRequired); return; }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1,1], quality: 0.7 });
     if (!result.canceled && result.assets[0]) {
+      const avatarKey = user?.uid ? `${user.uid}_user_avatar` : 'user_avatar';
       const localUri = result.assets[0].uri;
       setAvatarUri(localUri);
-      await AsyncStorage.setItem('user_avatar', localUri);
+      await AsyncStorage.setItem(avatarKey, localUri);
       try {
         const cloudUrl = await uploadImageToCloudinary(localUri);
         await updateProfile({ photoUrl: cloudUrl });
-        await AsyncStorage.setItem('user_avatar', cloudUrl);
+        await AsyncStorage.setItem(avatarKey, cloudUrl);
         setAvatarUri(cloudUrl);
       } catch (e) {
         console.warn('[more] avatar upload failed:', e);
@@ -443,7 +448,8 @@ export default function MoreScreen() {
   };
 
   const handleDeleteAvatar = async () => {
-    await AsyncStorage.removeItem('user_avatar');
+    const avatarKey = user?.uid ? `${user.uid}_user_avatar` : 'user_avatar';
+    await AsyncStorage.removeItem(avatarKey);
     setAvatarUri(null);
     updateProfile({ photoUrl: '' }).catch(() => {});
   };
@@ -464,11 +470,11 @@ export default function MoreScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
         <View style={[styles.topBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <View style={{ width: 40 }} />
-          <Text style={styles.pageTitle}>{t.profile}</Text>
           <TouchableOpacity style={styles.editBtn} onPress={() => open('editProfile')}>
             <Ionicons name="pencil-outline" size={20} color={Colors.primary} />
           </TouchableOpacity>
+          <Text style={styles.pageTitle}>{t.profile}</Text>
+          <View style={{ width: 40 }} />
         </View>
 
         <View style={styles.avatarCard}>
@@ -522,7 +528,7 @@ export default function MoreScreen() {
             { label: t.myPlanLink,    icon: 'calendar-outline',  color: '#7C5CBF', bg: '#F0EBFA', route: '/tabs/home'      },
             { label: t.exercisesLink, icon: 'fitness-outline',   color: '#4CAF82', bg: '#E8F5EF', route: '/tabs/exercises' },
             { label: t.tasksLink,     icon: 'checkbox-outline',  color: '#5B9BD5', bg: '#E8F1FB', route: '/tabs/tasks'     },
-            { label: t.doctorsLink, icon: 'medkit-outline', color: '#C97B3A', bg: '#FEF3E2', route: '/tabs/doctors' },
+            { label: t.doctorsLink,   icon: 'medkit-outline',    color: '#C97B3A', bg: '#FEF3E2', route: '/tabs/doctors'   },
           ].map((item, i) => (
             <TouchableOpacity key={i} style={[styles.quickLink, { backgroundColor: item.bg }]}
               onPress={() => router.push(item.route as any)} activeOpacity={0.8}>
@@ -582,6 +588,7 @@ export default function MoreScreen() {
           </View>
         </View>
       </Modal>
+      <PatientTabBar />
     </SafeAreaView>
   );
 }

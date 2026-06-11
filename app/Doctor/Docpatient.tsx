@@ -478,10 +478,13 @@ const divStyles = StyleSheet.create({
 });
 
 // ─── Audio Bubble ─────────────────────────────────────────
+const DOC_BARS = [0.4, 0.7, 0.5, 1, 0.6, 0.8, 0.45, 0.9, 0.4, 0.65, 0.85, 0.5, 1, 0.7, 0.4, 0.75, 0.55, 0.9];
+
 function DocAudioBubble({ msg, isDoc }: { msg: Message; isDoc: boolean }) {
-  const [sound,     setSound]     = useState<Audio.Sound | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [posMs,     setPosMs]     = useState(0);
+  const [sound,      setSound]      = useState<Audio.Sound | null>(null);
+  const [isPlaying,  setIsPlaying]  = useState(false);
+  const [posMs,      setPosMs]      = useState(0);
+  const [trackWidth, setTrackWidth] = useState(0);
   const totalMs = (msg.audioDuration ?? 0) * 1000;
 
   useEffect(() => { return () => { sound?.unloadAsync(); }; }, [sound]);
@@ -515,30 +518,52 @@ function DocAudioBubble({ msg, isDoc }: { msg: Message; isDoc: boolean }) {
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   };
 
-  const progress = totalMs > 0 ? Math.min(posMs / totalMs, 1) : 0;
-  const bars = [0.4, 0.7, 0.5, 1, 0.6, 0.8, 0.5, 0.9, 0.4, 0.6, 0.8, 0.5, 1, 0.7, 0.4];
+  const progress  = totalMs > 0 ? Math.min(posMs / totalMs, 1) : 0;
+  const dotLeft   = Math.max(0, progress * trackWidth - 5);
+  const filledW   = progress * trackWidth;
+  const barColor  = isDoc ? 'rgba(255,255,255,0.55)' : DOC_COLOR + '55';
+  const trackBg   = isDoc ? 'rgba(255,255,255,0.2)'  : DOC_COLOR + '25';
+  const filledCol = isDoc ? '#fff'                   : DOC_COLOR;
+  const dotCol    = isDoc ? '#fff'                   : DOC_COLOR;
+  const durCol    = isDoc ? 'rgba(255,255,255,0.85)' : '#888';
 
   return (
     <TouchableOpacity
       onPress={togglePlay}
-      style={[docAudioStyles.wrap, isDoc ? { backgroundColor: DOC_COLOR } : { backgroundColor: '#fff', borderColor: DOC_COLOR + '30', borderWidth: 1.5 }]}
+      style={[
+        docAudioStyles.wrap,
+        isDoc
+          ? { backgroundColor: DOC_COLOR }
+          : { backgroundColor: '#fff', borderColor: DOC_COLOR + '30', borderWidth: 1.5 },
+      ]}
       activeOpacity={0.85}
     >
+      {/* Play / Pause */}
       <View style={[docAudioStyles.playBtn, { backgroundColor: isDoc ? 'rgba(255,255,255,0.2)' : DOC_COLOR_LIGHT }]}>
         <Ionicons name={isPlaying ? 'pause' : 'play'} size={16} color={isDoc ? '#fff' : DOC_COLOR} />
       </View>
-      <View style={docAudioStyles.waveWrap}>
-        {bars.map((h, i) => {
-          const barFilled = progress > 0 && i / bars.length < progress;
-          return (
-            <View key={i} style={[
-              docAudioStyles.bar,
-              { height: 6 + h * 22, backgroundColor: barFilled ? (isDoc ? '#fff' : DOC_COLOR) : (isDoc ? 'rgba(255,255,255,0.35)' : DOC_COLOR + '40') },
-            ]} />
-          );
-        })}
+
+      {/* Waveform + progress track */}
+      <View style={{ flex: 1, gap: 5 }}>
+        {/* Static decorative bars */}
+        <View style={docAudioStyles.waveWrap}>
+          {DOC_BARS.map((h, i) => (
+            <View key={i} style={[docAudioStyles.bar, { height: 5 + h * 18, backgroundColor: barColor }]} />
+          ))}
+        </View>
+
+        {/* Progress track with moving dot */}
+        <View
+          style={[docAudioStyles.track, { backgroundColor: trackBg }]}
+          onLayout={e => setTrackWidth(e.nativeEvent.layout.width)}
+        >
+          <View style={[docAudioStyles.trackFilled, { width: filledW, backgroundColor: filledCol }]} />
+          <View style={[docAudioStyles.dot, { left: dotLeft, backgroundColor: dotCol }]} />
+        </View>
       </View>
-      <Text style={[docAudioStyles.dur, { color: isDoc ? 'rgba(255,255,255,0.85)' : '#888' }]}>
+
+      {/* Duration */}
+      <Text style={[docAudioStyles.dur, { color: durCol }]}>
         {fmtDur(posMs > 0 ? posMs : totalMs)}
       </Text>
     </TouchableOpacity>
@@ -546,11 +571,14 @@ function DocAudioBubble({ msg, isDoc }: { msg: Message; isDoc: boolean }) {
 }
 
 const docAudioStyles = StyleSheet.create({
-  wrap:     { flexDirection: 'row', alignItems: 'center', maxWidth: '75%', borderRadius: 22, paddingHorizontal: 12, paddingVertical: 10, gap: 10 },
-  playBtn:  { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  waveWrap: { flexDirection: 'row', alignItems: 'center', gap: 2.5, flex: 1 },
-  bar:      { width: 3, borderRadius: 2, minHeight: 6 },
-  dur:      { fontSize: 11, fontWeight: '600', minWidth: 30, textAlign: 'right' },
+  wrap:        { flexDirection: 'row', alignItems: 'center', borderRadius: 22, paddingHorizontal: 12, paddingVertical: 10, gap: 10 },
+  playBtn:     { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  waveWrap:    { flexDirection: 'row', alignItems: 'center', gap: 2.5 },
+  bar:         { width: 3, borderRadius: 2, minHeight: 5 },
+  track:       { height: 3, borderRadius: 2 },
+  trackFilled: { position: 'absolute', top: 0, bottom: 0, left: 0, borderRadius: 2 },
+  dot:         { position: 'absolute', top: -4, width: 10, height: 10, borderRadius: 5 },
+  dur:         { fontSize: 11, fontWeight: '600', minWidth: 32, textAlign: 'right', flexShrink: 0 },
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -569,10 +597,12 @@ function ExerciseManagementModal({
   const [activeSection, setActiveSection] = useState<ExSectionKey | 'all'>('therapy');
   const [showAddForm,   setShowAddForm]   = useState(false);
   const [editingEx,     setEditingEx]     = useState<FirebaseExercise | null>(null);
-  const [newTitle,   setNewTitle]   = useState('');
+  const [newTitleAr, setNewTitleAr] = useState('');
+  const [newTitleEn, setNewTitleEn] = useState('');
   const [newEmoji,   setNewEmoji]   = useState('🏋️');
   const [newMins,    setNewMins]    = useState('');
-  const [newDesc,    setNewDesc]    = useState('');
+  const [newDescAr,  setNewDescAr]  = useState('');
+  const [newDescEn,  setNewDescEn]  = useState('');
   const [newType,    setNewType]    = useState<ExSectionKey>('therapy');
   const [saving,     setSaving]     = useState(false);
   const [attachFile, setAttachFile] = useState<PickedAttachment | null>(null);
@@ -585,6 +615,22 @@ function ExerciseManagementModal({
   const [editNote,   setEditNote]   = useState('');
   const [editType,   setEditType]   = useState<ExSectionKey>('therapy');
   const [editSaving, setEditSaving] = useState(false);
+  const [showAssessment, setShowAssessment] = useState(false);
+  const [assessmentData, setAssessmentData] = useState<{
+    hyStage: string; hyLabelAr: string; hyLabelEn: string; seScore: number; completedAt: number;
+  } | null>(null);
+  const [loadingAssessment, setLoadingAssessment] = useState(false);
+
+  const fetchAssessment = async () => {
+    if (!patientId) return;
+    setLoadingAssessment(true);
+    try {
+      const snap = await getDoc(doc(db, 'assessments', patientId));
+      setAssessmentData(snap.exists() ? (snap.data() as any) : null);
+    } catch { setAssessmentData(null); }
+    setLoadingAssessment(false);
+    setShowAssessment(true);
+  };
 
   useEffect(() => {
     if (!visible || !patientId) return;
@@ -631,8 +677,8 @@ function ExerciseManagementModal({
   }, [visible, patientId, isRTL]);
 
   const resetForm = () => {
-    setNewTitle(''); setNewEmoji('🏋️'); setNewMins('');
-    setNewDesc(''); setAttachFile(null); setSaving(false);
+    setNewTitleAr(''); setNewTitleEn(''); setNewEmoji('🏋️'); setNewMins('');
+    setNewDescAr(''); setNewDescEn(''); setAttachFile(null); setSaving(false);
   };
 
   const activeCfg = EX_SECTION_CONFIGS.find((s) => s.key === activeSection) ?? EX_SECTION_CONFIGS[0];
@@ -685,7 +731,9 @@ function ExerciseManagementModal({
   };
 
   const handleAdd = async () => {
-    if (!newTitle.trim()) { Alert.alert(t.docExerciseNotice, t.docEnterExerciseName); return; }
+    const titleAr = newTitleAr.trim();
+    const titleEn = newTitleEn.trim();
+    if (!titleAr && !titleEn) { Alert.alert(t.docExerciseNotice, t.docEnterExerciseName); return; }
     const mins = parseInt(newMins);
     if (!newMins.trim() || isNaN(mins) || mins <= 0) { Alert.alert(t.docExerciseNotice, t.docEnterValidDuration); return; }
     if (saving) return;
@@ -696,20 +744,21 @@ function ExerciseManagementModal({
         const fileUrl = await uploadFileToCloudinary(attachFile.uri, attachFile.mimeType, attachFile.name);
         fileExtra = { fileUrl, fileName: attachFile.name, mimeType: attachFile.mimeType };
       }
+      const displayTitle = titleAr || titleEn;
       await addDoc(collection(db, 'exercises', patientId, 'items'), {
-        title:       isRTL ? newTitle.trim() : '',
-        titleEn:     isRTL ? '' : newTitle.trim(),
+        title:       titleAr || titleEn,
+        titleEn:     titleEn || titleAr,
         emoji:       newEmoji.trim() || '🏋️',
         durationMin: mins,
-        description: isRTL ? newDesc.trim() : '',
-        descEn:      isRTL ? '' : newDesc.trim(),
+        description: newDescAr.trim(),
+        descEn:      newDescEn.trim(),
         assignedAt: Date.now(), completed: false, type: newType, pendingEdit: null,
         source: 'doctor', ...fileExtra,
       });
       sendPushToUser(
         patientId,
         { ar: '🏋️ تمرين جديد من طبيبك', en: '🏋️ New exercise from your doctor' },
-        `${newEmoji.trim() || '🏋️'} ${newTitle.trim()}`,
+        `${newEmoji.trim() || '🏋️'} ${displayTitle}`,
       ).catch(() => {});
       resetForm(); setShowAddForm(false);
     } catch (e) { console.warn('[ExerciseModal] add error:', e); setSaving(false); }
@@ -791,6 +840,17 @@ function ExerciseManagementModal({
             <Ionicons name="add" size={22} color="#fff" />
           </TouchableOpacity>
         </View>
+
+        {/* ── Assessment Results ── */}
+        <TouchableOpacity
+          style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 8, backgroundColor: '#E8F5EF', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, gap: 8 }}
+          onPress={fetchAssessment}
+          activeOpacity={0.8}
+        >
+          <Text style={{ fontSize: 18 }}>📋</Text>
+          <Text style={{ flex: 1, fontSize: 13, fontWeight: '700', color: '#4CAF82', textAlign: isRTL ? 'right' : 'left' }}>{t.docAssessmentResults}</Text>
+          <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color="#4CAF82" />
+        </TouchableOpacity>
 
         {/* ── Mode Toggle ── */}
         <View style={{ flexDirection: 'row', marginHorizontal: 16, marginBottom: 8, backgroundColor: '#EDE9F8', borderRadius: 12, padding: 3 }}>
@@ -985,7 +1045,7 @@ function ExerciseManagementModal({
                     <Text style={exStyles.cardEmoji}>{ex.emoji}</Text>
                     <View style={{ flex: 1 }}>
                       <View style={exStyles.cardTitleRow}>
-                        <Text style={[exStyles.cardTitle, { color: cfg.color }]}>{ex.title}</Text>
+                        <Text style={[exStyles.cardTitle, { color: cfg.color }]}>{isRTL ? ex.title : (ex.titleEn ?? ex.title)}</Text>
                         {ex.completed && (
                           <View style={exStyles.doneBadge}>
                             <Text style={exStyles.doneBadgeText}>{t.docExerciseDoneBadgeFull}</Text>
@@ -1009,7 +1069,9 @@ function ExerciseManagementModal({
                           </Text>
                         </View>
                       </View>
-                      {!!ex.description && <Text style={exStyles.cardDesc} numberOfLines={2}>{ex.description}</Text>}
+                      {!!(isRTL ? ex.description : (ex.descEn ?? ex.description)) && (
+                        <Text style={exStyles.cardDesc} numberOfLines={2}>{isRTL ? ex.description : (ex.descEn ?? ex.description)}</Text>
+                      )}
                       {hasPending && ex.pendingEdit && (
                         <View style={exStyles.pendingPreview}>
                           <Text style={exStyles.pendingPreviewLabel}>{t.docExerciseProposed}</Text>
@@ -1075,12 +1137,14 @@ function ExerciseManagementModal({
                   );
                 })}
               </ScrollView>
-              <View style={{ flexDirection: 'row' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <TextInput style={[exStyles.input, { width: 54, textAlign: 'center', marginRight: 8 }]} value={newEmoji} onChangeText={setNewEmoji} placeholder="🏋️" maxLength={4} />
-                <TextInput style={[exStyles.input, { flex: 1 }]} value={newTitle} onChangeText={setNewTitle} placeholder={t.docEnterExerciseName} placeholderTextColor="#bbb" />
+                <TextInput style={[exStyles.input, { flex: 1 }]} value={newTitleAr} onChangeText={setNewTitleAr} placeholder={t.docExerciseNameAr} placeholderTextColor="#bbb" textAlign="right" />
               </View>
+              <TextInput style={exStyles.input} value={newTitleEn} onChangeText={setNewTitleEn} placeholder={t.docExerciseNameEn} placeholderTextColor="#bbb" textAlign="left" />
               <TextInput style={exStyles.input} value={newMins} onChangeText={setNewMins} placeholder={t.docEnterValidDuration} placeholderTextColor="#bbb" keyboardType="numeric" />
-              <TextInput style={[exStyles.input, { height: 64, textAlignVertical: 'top' }]} value={newDesc} onChangeText={setNewDesc} placeholder={t.descOptional} placeholderTextColor="#bbb" multiline />
+              <TextInput style={[exStyles.input, { height: 64, textAlignVertical: 'top' }]} value={newDescAr} onChangeText={setNewDescAr} placeholder={t.docDescAr} placeholderTextColor="#bbb" multiline textAlign="right" />
+              <TextInput style={[exStyles.input, { height: 64, textAlignVertical: 'top' }]} value={newDescEn} onChangeText={setNewDescEn} placeholder={t.docDescEn} placeholderTextColor="#bbb" multiline textAlign="left" />
               <TouchableOpacity style={exStyles.attachRow} onPress={() => setShowAttach(true)} activeOpacity={0.8}>
                 <Ionicons name="attach-outline" size={18} color={DOC_COLOR} />
                 <Text style={exStyles.attachRowText} numberOfLines={1}>
@@ -1157,6 +1221,51 @@ function ExerciseManagementModal({
         </Modal>
 
       </SafeAreaView>
+
+      <Modal visible={showAssessment} transparent animationType="fade" onRequestClose={() => setShowAssessment(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 20, padding: 20, width: '100%' }}>
+            <Text style={{ fontSize: 16, fontWeight: '800', color: DOC_COLOR, textAlign: 'center', marginBottom: 16 }}>
+              📋 {t.docAssessmentResults}
+            </Text>
+            {loadingAssessment ? (
+              <ActivityIndicator size="large" color={DOC_COLOR} />
+            ) : assessmentData ? (
+              <View>
+                <View style={{ borderRadius: 12, backgroundColor: '#F0EBFA', padding: 14, marginBottom: 12 }}>
+                  <Text style={{ fontSize: 13, color: '#888', textAlign: isRTL ? 'right' : 'left' }}>{t.assessmentHoehnYahr}</Text>
+                  <Text style={{ fontSize: 20, fontWeight: '800', color: DOC_COLOR, textAlign: 'center', marginVertical: 6 }}>
+                    {t.assessmentStage} {assessmentData.hyStage}
+                  </Text>
+                  <Text style={{ fontSize: 13, color: Colors.textPrimary, textAlign: isRTL ? 'right' : 'left' }}>
+                    {isRTL ? assessmentData.hyLabelAr : assessmentData.hyLabelEn}
+                  </Text>
+                </View>
+                <View style={{ borderRadius: 12, backgroundColor: '#E8F5EF', padding: 14, marginBottom: 12 }}>
+                  <Text style={{ fontSize: 13, color: '#888', textAlign: isRTL ? 'right' : 'left' }}>{t.assessmentSchwabEngland}</Text>
+                  <Text style={{ fontSize: 20, fontWeight: '800', color: '#4CAF82', textAlign: 'center', marginVertical: 6 }}>
+                    {assessmentData.seScore}%
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 11, color: '#aaa', textAlign: 'center' }}>
+                  {new Date(assessmentData.completedAt).toLocaleDateString()}
+                </Text>
+              </View>
+            ) : (
+              <Text style={{ textAlign: 'center', color: '#aaa', fontSize: 14, paddingVertical: 20 }}>
+                {isRTL ? 'لا توجد نتائج تقييم بعد' : 'No assessment results yet'}
+              </Text>
+            )}
+            <TouchableOpacity
+              style={{ marginTop: 16, backgroundColor: DOC_COLOR, borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}
+              onPress={() => setShowAssessment(false)}
+              activeOpacity={0.85}
+            >
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>{isRTL ? 'إغلاق' : 'Close'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 }
@@ -1225,19 +1334,21 @@ export default function Docpatient() {
   const [messages,        setMessages]        = useState<Message[]>([]);
   const [exerciseAccess,  setExerciseAccess]  = useState(false);
   const [showExercises,   setShowExercises]   = useState(false);
-  const [inputText,       setInputText]       = useState('');
-  const [showQuick,       setShowQuick]       = useState(false);
-  const [showAttach,      setShowAttach]      = useState(false);
-  const [patientPhotoUrl, setPatientPhotoUrl] = useState<string | null>(photoParam || null);
-  const [kbHeight,        setKbHeight]        = useState(0);
-  const [uploading,       setUploading]       = useState(false);
-  const [isRecording,     setIsRecording]     = useState(false);
-  const [recDuration,     setRecDuration]     = useState(0);
+  const [inputText,        setInputText]        = useState('');
+  const [showQuick,        setShowQuick]        = useState(false);
+  const [showAttach,       setShowAttach]       = useState(false);
+  const [patientPhotoUrl,  setPatientPhotoUrl]  = useState<string | null>(photoParam || null);
+  const [kbHeight,         setKbHeight]         = useState(0);
+  const [uploading,        setUploading]        = useState(false);
+  const [isRecording,      setIsRecording]      = useState(false);
+  const [recDuration,      setRecDuration]      = useState(0);
+  const [isPatientTyping,  setIsPatientTyping]  = useState(false);
 
   const listRef            = useRef<any>(null);
   const quickAnim          = useRef(new Animated.Value(0)).current;
   const initialScrollDone  = useRef(false);
   const recordingRef       = useRef<Audio.Recording | null>(null);
+  const docTypingTimerRef  = useRef<any>(null);
   const recTimerRef        = useRef<any>(null);
 
   useFocusEffect(useCallback(() => {
@@ -1282,10 +1393,28 @@ export default function Docpatient() {
   useEffect(() => {
     if (!chatId) return;
     const unsub = onSnapshot(doc(db, 'chats', chatId), (snap) => {
-      if (snap.exists()) setExerciseAccess((snap.data() as FSChat).exerciseAccess ?? false);
+      if (!snap.exists()) return;
+      const d = snap.data() as FSChat & { patientTypingAt?: number };
+      setExerciseAccess(d.exerciseAccess ?? false);
+      const typingAt = d.patientTypingAt as number | undefined;
+      setIsPatientTyping(!!typingAt && Date.now() - typingAt < 5000);
     });
     return unsub;
   }, [chatId]);
+
+  const notifyDoctorTyping = () => {
+    if (!chatId) return;
+    setDoc(doc(db, 'chats', chatId), { doctorTypingAt: Date.now() }, { merge: true }).catch(() => {});
+    clearTimeout(docTypingTimerRef.current);
+    docTypingTimerRef.current = setTimeout(() => {
+      setDoc(doc(db, 'chats', chatId), { doctorTypingAt: 0 }, { merge: true }).catch(() => {});
+    }, 3000);
+  };
+
+  const clearDoctorTyping = () => {
+    clearTimeout(docTypingTimerRef.current);
+    if (chatId) setDoc(doc(db, 'chats', chatId), { doctorTypingAt: 0 }, { merge: true }).catch(() => {});
+  };
 
   const initials = patientName
     ? patientName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
@@ -1331,6 +1460,7 @@ export default function Docpatient() {
     ).catch(() => {});
     setInputText('');
     setShowQuick(false);
+    clearDoctorTyping();
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   }, [chatId, patientId, patientName, updateChatMeta]);
 
@@ -1501,6 +1631,17 @@ export default function Docpatient() {
           renderItem={({ item }) => <MessageBubble msg={item} isRTL={isRTL} t={t} patientPhotoUrl={patientPhotoUrl} exerciseAccess={exerciseAccess} />}
         />
 
+        {/* Patient typing indicator */}
+        {isPatientTyping && (
+          <View style={[styles.typingRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <View style={styles.typingBubble}>
+              <Text style={styles.typingText}>
+                {isRTL ? 'المريض يكتب...' : 'Patient is typing...'}
+              </Text>
+            </View>
+          </View>
+        )}
+
         {showQuick && (
           <Animated.View style={[styles.quickWrap, {
             opacity: quickAnim,
@@ -1546,7 +1687,7 @@ export default function Docpatient() {
           </TouchableOpacity>
           <View style={[styles.inputWrap, rtlRow(isRTL)]}>
             <TextInput
-              value={inputText} onChangeText={setInputText}
+              value={inputText} onChangeText={(text) => { setInputText(text); notifyDoctorTyping(); }}
               placeholder={isRecording ? '' : t.docWriteMessage}
               placeholderTextColor={Colors.textMuted}
               style={[styles.textInput, rtlAlign(isRTL)]}
@@ -1586,6 +1727,7 @@ export default function Docpatient() {
         onPick={(a) => { setShowAttach(false); handleSendAttachment(a); }}
         isRTL={isRTL} t={t}
       />
+
     </SafeAreaView>
   );
 }
@@ -1612,6 +1754,9 @@ const styles = StyleSheet.create({
   quickContent:       { paddingHorizontal: Spacing.base, alignItems: 'center', flexDirection: 'row' },
   quickChip:          { backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1.5, borderColor: DOC_COLOR + '40', shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2, marginRight: 8 },
   quickChipText:      { fontSize: 12, color: DOC_COLOR, fontWeight: '600', lineHeight: 18 },
+  typingRow:          { paddingHorizontal: Spacing.base, paddingVertical: 6 },
+  typingBubble:       { borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#F0EBFA', alignSelf: 'flex-start' },
+  typingText:         { fontSize: 11, fontWeight: '600', fontStyle: 'italic', color: DOC_COLOR },
   uploadingBar:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.base, paddingTop: 6, backgroundColor: '#fff' },
   uploadingText:      { fontSize: 11, fontWeight: '600', color: DOC_COLOR },
   recordingBar:       { alignItems: 'center', gap: 8, paddingHorizontal: Spacing.base, paddingTop: 6, backgroundColor: '#fff' },

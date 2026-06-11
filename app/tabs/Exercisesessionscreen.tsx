@@ -200,8 +200,6 @@ export default function ExerciseSessionScreen() {
     setActiveStep(-1);
     setCurrentText('');
     isPausedRef.current = false;
-    isMutedRef.current = false;
-    setIsMuted(false);
     stepIndexRef.current = 0;
 
     startTimer();
@@ -236,14 +234,14 @@ export default function ExerciseSessionScreen() {
   function handleStop() {
     stopTimer();
     stopSpeaking();
-    router.push('/tabs/exercises');
+    router.back();
   }
 
   function handleDone() {
     stopSpeaking();
     sendPushNotification(t.exerciseDoneNotifTitle, t.exerciseDoneNotifBody, 'exercises').catch(() => {});
     setShowDone(false);
-    router.push('/tabs/exercises');
+    router.back();
   }
 
   return (

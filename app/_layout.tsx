@@ -10,6 +10,17 @@ import * as Notifications from 'expo-notifications';
 // Disable OS-level RTL so the app controls direction entirely via isRTL state.
 // Without this, Arabic system-locale devices double-reverse every flex layout.
 I18nManager.allowRTL(false);
+
+// Show notifications as banners even when the app is in foreground
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert:  true,
+    shouldPlaySound:  true,
+    shouldSetBadge:   true,
+    shouldShowBanner: true,
+    shouldShowList:   true,
+  }),
+});
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { LanguageProvider } from '../context/Languagecontext';
 import '../global.css';

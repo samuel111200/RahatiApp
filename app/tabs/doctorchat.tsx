@@ -162,8 +162,9 @@ function AccessRequestCard({ isRTL, doctorColor, doctorBg, chatId, t }: {
 }
 
 // ─── Message Bubble ───────────────────────────────────────
-function MessageBubble({ msg, isRTL, doctorColor, doctorBg, chatId, t, doctorPhotoUrl }: {
+function MessageBubble({ msg, isRTL, doctorColor, doctorBg, chatId, t, doctorPhotoUrl, onReply }: {
   msg: Message; isRTL: boolean; doctorColor: string; doctorBg: string; chatId: string; t: any; doctorPhotoUrl?: string | null;
+  onReply?: (msg: Message) => void;
 }) {
   const isPatient   = msg.sender === 'patient';
   const fadeAnim    = useRef(new Animated.Value(0)).current;
@@ -294,7 +295,7 @@ function MessageBubble({ msg, isRTL, doctorColor, doctorBg, chatId, t, doctorPho
     return (
       <Animated.View style={[styles.msgRow, isPatient ? styles.msgRowRight : styles.msgRowLeft, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
         {!isPatient && <DoctorAvatar />}
-        <View>
+        <View style={{ maxWidth: '75%' }}>
           <AudioBubble msg={msg} isPatient={isPatient} doctorColor={doctorColor} doctorBg={doctorBg} />
           <View style={[styles.bubbleMeta, { paddingHorizontal: 6, marginTop: 3 }]}>
             <Text style={[styles.timeText, isPatient && { color: Colors.textMuted }]}>{msg.time}</Text>
@@ -308,10 +309,15 @@ function MessageBubble({ msg, isRTL, doctorColor, doctorBg, chatId, t, doctorPho
   return (
       <Animated.View style={[styles.msgRow, isPatient ? styles.msgRowRight : styles.msgRowLeft, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
         {!isPatient && <DoctorAvatar />}
-        <View style={[
-          styles.bubble,
-          isPatient ? [styles.bubblePatient, { backgroundColor: Colors.primary }] : [styles.bubbleDoctor, { backgroundColor: '#fff', borderColor: doctorColor + '30' }],
-        ]}>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onLongPress={() => onReply?.(msg)}
+          delayLongPress={400}
+          style={[
+            styles.bubble,
+            isPatient ? [styles.bubblePatient, { backgroundColor: Colors.primary }] : [styles.bubbleDoctor, { backgroundColor: '#fff', borderColor: doctorColor + '30' }],
+          ]}
+        >
           <Text style={[styles.bubbleText, isPatient ? { color: '#fff' } : { color: Colors.textPrimary }, { textAlign: isRTL ? 'right' : 'left' }]}>
             {msg.text}
           </Text>
@@ -321,7 +327,7 @@ function MessageBubble({ msg, isRTL, doctorColor, doctorBg, chatId, t, doctorPho
                 <Ionicons name={msg.status === 'read' ? 'checkmark-done' : 'checkmark-done-outline'} size={12} color={msg.status === 'read' ? '#93E0FF' : 'rgba(255,255,255,0.6)'} />
             )}
           </View>
-        </View>
+        </TouchableOpacity>
       </Animated.View>
   );
 }
@@ -419,12 +425,15 @@ function DateDivider({ label }: { label: string }) {
 }
 
 // ─── Audio Bubble ─────────────────────────────────────────
+const BARS = [0.4, 0.7, 0.5, 1, 0.6, 0.8, 0.45, 0.9, 0.4, 0.65, 0.85, 0.5, 1, 0.7, 0.4, 0.75, 0.55, 0.9];
+
 function AudioBubble({ msg, isPatient, doctorColor, doctorBg }: {
   msg: Message; isPatient: boolean; doctorColor: string; doctorBg: string;
 }) {
-  const [sound,     setSound]     = useState<Audio.Sound | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [posMs,     setPosMs]     = useState(0);
+  const [sound,      setSound]      = useState<Audio.Sound | null>(null);
+  const [isPlaying,  setIsPlaying]  = useState(false);
+  const [posMs,      setPosMs]      = useState(0);
+  const [trackWidth, setTrackWidth] = useState(0);
   const totalMs = (msg.audioDuration ?? 0) * 1000;
 
   useEffect(() => { return () => { sound?.unloadAsync(); }; }, [sound]);
@@ -458,30 +467,52 @@ function AudioBubble({ msg, isPatient, doctorColor, doctorBg }: {
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   };
 
-  const progress = totalMs > 0 ? Math.min(posMs / totalMs, 1) : 0;
-  const bars = [0.4, 0.7, 0.5, 1, 0.6, 0.8, 0.5, 0.9, 0.4, 0.6, 0.8, 0.5, 1, 0.7, 0.4];
+  const progress   = totalMs > 0 ? Math.min(posMs / totalMs, 1) : 0;
+  const dotLeft    = Math.max(0, progress * trackWidth - 5);
+  const filledW    = progress * trackWidth;
+  const barColor   = isPatient ? 'rgba(255,255,255,0.55)' : doctorColor + '55';
+  const trackBg    = isPatient ? 'rgba(255,255,255,0.2)'  : doctorColor + '25';
+  const filledCol  = isPatient ? '#fff'                   : doctorColor;
+  const dotCol     = isPatient ? '#fff'                   : doctorColor;
+  const durCol     = isPatient ? 'rgba(255,255,255,0.85)' : '#888';
 
   return (
     <TouchableOpacity
       onPress={togglePlay}
-      style={[audioStyles.wrap, isPatient ? { backgroundColor: '#7C5CBF' } : { backgroundColor: '#fff', borderColor: doctorColor + '30', borderWidth: 1.5 }]}
+      style={[
+        audioStyles.wrap,
+        isPatient
+          ? { backgroundColor: '#7C5CBF' }
+          : { backgroundColor: '#fff', borderColor: doctorColor + '30', borderWidth: 1.5 },
+      ]}
       activeOpacity={0.85}
     >
-      <View style={[audioStyles.playBtn, { backgroundColor: isPatient ? 'rgba(255,255,255,0.25)' : doctorBg }]}>
+      {/* Play / Pause button */}
+      <View style={[audioStyles.playBtn, { backgroundColor: isPatient ? 'rgba(255,255,255,0.2)' : doctorBg }]}>
         <Ionicons name={isPlaying ? 'pause' : 'play'} size={16} color={isPatient ? '#fff' : doctorColor} />
       </View>
-      <View style={audioStyles.waveWrap}>
-        {bars.map((h, i) => {
-          const barFilled = progress > 0 && i / bars.length < progress;
-          return (
-            <View key={i} style={[
-              audioStyles.bar,
-              { height: 6 + h * 22, backgroundColor: barFilled ? (isPatient ? '#fff' : doctorColor) : (isPatient ? 'rgba(255,255,255,0.35)' : doctorColor + '40') },
-            ]} />
-          );
-        })}
+
+      {/* Waveform + progress track */}
+      <View style={{ flex: 1, gap: 5 }}>
+        {/* Static decorative bars */}
+        <View style={audioStyles.waveWrap}>
+          {BARS.map((h, i) => (
+            <View key={i} style={[audioStyles.bar, { height: 5 + h * 18, backgroundColor: barColor }]} />
+          ))}
+        </View>
+
+        {/* Progress track with dot */}
+        <View
+          style={[audioStyles.track, { backgroundColor: trackBg }]}
+          onLayout={e => setTrackWidth(e.nativeEvent.layout.width)}
+        >
+          <View style={[audioStyles.trackFilled, { width: filledW, backgroundColor: filledCol }]} />
+          <View style={[audioStyles.dot, { left: dotLeft, backgroundColor: dotCol }]} />
+        </View>
       </View>
-      <Text style={[audioStyles.dur, { color: isPatient ? 'rgba(255,255,255,0.85)' : '#888' }]}>
+
+      {/* Time */}
+      <Text style={[audioStyles.dur, { color: durCol }]}>
         {fmtDur(posMs > 0 ? posMs : totalMs)}
       </Text>
     </TouchableOpacity>
@@ -489,11 +520,14 @@ function AudioBubble({ msg, isPatient, doctorColor, doctorBg }: {
 }
 
 const audioStyles = StyleSheet.create({
-  wrap:     { flexDirection: 'row', alignItems: 'center', maxWidth: '75%', borderRadius: 22, paddingHorizontal: 12, paddingVertical: 10, gap: 10 },
-  playBtn:  { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  waveWrap: { flexDirection: 'row', alignItems: 'center', gap: 2.5, flex: 1 },
-  bar:      { width: 3, borderRadius: 2, minHeight: 6 },
-  dur:      { fontSize: 11, fontWeight: '600', minWidth: 30, textAlign: 'right' },
+  wrap:        { flexDirection: 'row', alignItems: 'center', borderRadius: 22, paddingHorizontal: 12, paddingVertical: 10, gap: 10 },
+  playBtn:     { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  waveWrap:    { flexDirection: 'row', alignItems: 'center', gap: 2.5 },
+  bar:         { width: 3, borderRadius: 2, minHeight: 5 },
+  track:       { height: 3, borderRadius: 2 },
+  trackFilled: { position: 'absolute', top: 0, bottom: 0, left: 0, borderRadius: 2 },
+  dot:         { position: 'absolute', top: -4, width: 10, height: 10, borderRadius: 5 },
+  dur:         { fontSize: 11, fontWeight: '600', minWidth: 32, textAlign: 'right', flexShrink: 0 },
 });
 
 export default function DoctorChatScreen() {
@@ -532,8 +566,15 @@ export default function DoctorChatScreen() {
   const [doctorPhotoUrl,  setDoctorPhotoUrl]  = useState<string | null>(null);
   const [isRecording,     setIsRecording]     = useState(false);
   const [recDuration,     setRecDuration]     = useState(0);
+  const [recStopped,      setRecStopped]      = useState(false);
+  const [stoppedUri,      setStoppedUri]      = useState<string | null>(null);
+  const [stoppedDuration, setStoppedDuration] = useState(0);
+  const [isDoctorTyping,  setIsDoctorTyping]  = useState(false);
+  const [replyToMsg,      setReplyToMsg]      = useState<Message | null>(null);
   const recordingRef      = useRef<Audio.Recording | null>(null);
   const recTimerRef       = useRef<any>(null);
+  const typingTimerRef    = useRef<any>(null);
+  const waveAnims         = useRef([0,1,2,3,4].map(() => new Animated.Value(0.3))).current;
   const listRef           = useRef<FlatList>(null);
   const quickAnim         = useRef(new Animated.Value(0)).current;
   const initialScrollDone = useRef(false);
@@ -604,6 +645,35 @@ export default function DoctorChatScreen() {
     return () => unsub();
   }, [isFirebase, chatId]);
 
+  // Listen for doctor typing
+  useEffect(() => {
+    if (!isFirebase || !chatId) return;
+    const unsub = onSnapshot(doc(db, 'chats', chatId), (snap) => {
+      if (!snap.exists()) return;
+      const d = snap.data();
+      const typingAt = d.doctorTypingAt as number | undefined;
+      setIsDoctorTyping(!!typingAt && Date.now() - typingAt < 5000);
+    });
+    return unsub;
+  }, [isFirebase, chatId]);
+
+  // Write patient typing to Firestore (debounced)
+  const notifyPatientTyping = () => {
+    if (!isFirebase || !chatId) return;
+    setDoc(doc(db, 'chats', chatId), { patientTypingAt: Date.now() }, { merge: true }).catch(() => {});
+    clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => {
+      setDoc(doc(db, 'chats', chatId), { patientTypingAt: 0 }, { merge: true }).catch(() => {});
+    }, 3000);
+  };
+
+  const clearPatientTyping = () => {
+    clearTimeout(typingTimerRef.current);
+    if (isFirebase && chatId) {
+      setDoc(doc(db, 'chats', chatId), { patientTypingAt: 0 }, { merge: true }).catch(() => {});
+    }
+  };
+
   const toggleQuick = () => {
     const toVal = showQuick ? 0 : 1;
     setShowQuick(!showQuick);
@@ -618,7 +688,7 @@ export default function DoctorChatScreen() {
 
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim()) return;
-    setInputText(''); setShowQuick(false);
+    setInputText(''); setShowQuick(false); setReplyToMsg(null); clearPatientTyping();
     if (isFirebase && chatId && patientId) {
       try {
         const now         = Date.now();
@@ -696,6 +766,24 @@ export default function DoctorChatScreen() {
     setShowQuick(false);
   };
 
+  // Waveform animation while recording
+  useEffect(() => {
+    if (!isRecording) {
+      waveAnims.forEach(a => a.setValue(0.3));
+      return;
+    }
+    const loops = waveAnims.map((anim, i) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(anim, { toValue: 1,   duration: 250 + i * 80, useNativeDriver: true }),
+          Animated.timing(anim, { toValue: 0.2, duration: 250 + i * 80, useNativeDriver: true }),
+        ]),
+      )
+    );
+    loops.forEach(l => l.start());
+    return () => loops.forEach(l => l.stop());
+  }, [isRecording]);
+
   const startRecording = useCallback(async () => {
     try {
       const { granted } = await Audio.requestPermissionsAsync();
@@ -704,29 +792,62 @@ export default function DoctorChatScreen() {
       const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
       recordingRef.current = recording;
       setIsRecording(true);
+      setRecStopped(false);
+      setStoppedUri(null);
       setRecDuration(0);
       recTimerRef.current = setInterval(() => setRecDuration(d => d + 1), 1000);
     } catch { Alert.alert(t.error, t.recordFailed); }
   }, [t]);
 
-  const stopAndSendAudio = useCallback(async () => {
+  // Stop recording but keep URI for preview (don't send yet)
+  const stopRecording = useCallback(async () => {
     if (!recordingRef.current) return;
     clearInterval(recTimerRef.current);
     const rec = recordingRef.current;
     recordingRef.current = null;
-    const duration = recDuration;
+    const dur = recDuration;
     setIsRecording(false);
-    setRecDuration(0);
     try {
       await rec.stopAndUnloadAsync();
       await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
       const uri = rec.getURI();
-      if (!uri) return;
-      setUploading(true);
-      const name = `voice_${Date.now()}.m4a`;
+      if (uri) {
+        setStoppedUri(uri);
+        setStoppedDuration(dur);
+        setRecStopped(true);
+      }
+    } catch { Alert.alert(t.error, t.sendFailed); }
+  }, [recDuration, t]);
+
+  const cancelRecordingOrPreview = useCallback(async () => {
+    clearInterval(recTimerRef.current);
+    if (recordingRef.current) {
+      try {
+        await recordingRef.current.stopAndUnloadAsync();
+        await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+      } catch {}
+      recordingRef.current = null;
+    }
+    setIsRecording(false);
+    setRecStopped(false);
+    setStoppedUri(null);
+    setRecDuration(0);
+    setStoppedDuration(0);
+  }, []);
+
+  const sendStoppedAudio = useCallback(async () => {
+    if (!stoppedUri) return;
+    const uri      = stoppedUri;
+    const duration = stoppedDuration;
+    setRecStopped(false);
+    setStoppedUri(null);
+    setStoppedDuration(0);
+    setUploading(true);
+    try {
+      const name     = `voice_${Date.now()}.m4a`;
       const cloudUrl = await uploadFileToCloudinary(uri, 'audio/m4a', name);
-      const now = Date.now();
-      const preview = t.voiceMessage;
+      const now      = Date.now();
+      const preview  = t.voiceMessage;
       const senderName = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || t.patientDefault;
       if (isFirebase && chatId && patientId) {
         await addDoc(collection(db, 'chats', chatId, 'messages'), {
@@ -742,25 +863,13 @@ export default function DoctorChatScreen() {
       }
     } catch { Alert.alert(t.error, t.sendFailed); }
     finally { setUploading(false); }
-  }, [recDuration, isFirebase, chatId, patientId, doctorId, user, t]);
-
-  const cancelRecording = useCallback(async () => {
-    if (!recordingRef.current) return;
-    clearInterval(recTimerRef.current);
-    try {
-      await recordingRef.current.stopAndUnloadAsync();
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
-    } catch {}
-    recordingRef.current = null;
-    setIsRecording(false);
-    setRecDuration(0);
-  }, []);
+  }, [stoppedUri, stoppedDuration, isFirebase, chatId, patientId, doctorId, user, t]);
 
   return (
       <SafeAreaView style={styles.safeOuter} edges={['top', 'left', 'right']}>
         <StatusBar backgroundColor="#F8F5FF" barStyle="dark-content" />
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.replace('/tabs/doctors')} style={styles.backBtn} activeOpacity={0.8}>
+          <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/tabs/doctors')} style={styles.backBtn} activeOpacity={0.8}>
             <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={22} color={doctorColor} />
           </TouchableOpacity>
           <View style={styles.headerInfo}>
@@ -807,9 +916,41 @@ export default function DoctorChatScreen() {
               extraData={doctorPhotoUrl}
               ListHeaderComponent={<DateDivider label={t.today} />}
               renderItem={({ item }) => (
-                  <MessageBubble msg={item} isRTL={isRTL} doctorColor={doctorColor} doctorBg={doctorBg} chatId={chatId} t={t} doctorPhotoUrl={doctorPhotoUrl} />
+                  <MessageBubble msg={item} isRTL={isRTL} doctorColor={doctorColor} doctorBg={doctorBg} chatId={chatId} t={t} doctorPhotoUrl={doctorPhotoUrl} onReply={setReplyToMsg} />
               )}
           />
+
+          {/* Doctor typing indicator */}
+          {isDoctorTyping && (
+            <View style={[styles.typingRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <View style={[styles.typingAvatar, { backgroundColor: doctorBg }]}>
+                <Ionicons name="person" size={11} color={doctorColor} />
+              </View>
+              <View style={[styles.typingBubble, { borderColor: doctorColor + '30' }]}>
+                <Text style={[styles.typingText, { color: doctorColor }]}>
+                  {isRTL ? 'الطبيب يكتب...' : 'Doctor is typing...'}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Reply preview bar */}
+          {replyToMsg && (
+            <View style={[styles.replyBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <View style={[styles.replyAccent, { backgroundColor: doctorColor }]} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.replyFrom, { color: doctorColor, textAlign: isRTL ? 'right' : 'left' }]}>
+                  {replyToMsg.sender === 'patient' ? (isRTL ? 'أنت' : 'You') : (isRTL ? 'الطبيب' : 'Doctor')}
+                </Text>
+                <Text style={[styles.replyPreview, { textAlign: isRTL ? 'right' : 'left' }]} numberOfLines={1}>
+                  {replyToMsg.text}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setReplyToMsg(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close" size={16} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+          )}
 
           {showQuick && (
               <View style={styles.quickWrap}>
@@ -839,18 +980,47 @@ export default function DoctorChatScreen() {
                   <Text style={[styles.uploadingText, { color: doctorColor }]}>{t.sending}</Text>
                 </View>
             )}
-            {isRecording && (
+            {(isRecording || recStopped) && (
               <View style={[styles.recordingBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <View style={styles.recDot} />
-                <Text style={styles.recText}>
-                  {`${Math.floor(recDuration / 60)}:${String(recDuration % 60).padStart(2, '0')}`}
-                </Text>
-                <TouchableOpacity onPress={cancelRecording} style={styles.recCancelBtn}>
-                  <Ionicons name="close" size={18} color="#E05C5C" />
+                {/* Delete / cancel */}
+                <TouchableOpacity onPress={cancelRecordingOrPreview} style={styles.recCancelBtn}>
+                  <Ionicons name="trash-outline" size={18} color="#E05C5C" />
                 </TouchableOpacity>
+
+                {isRecording ? (
+                  /* Animated waveform */
+                  <View style={styles.waveform}>
+                    {waveAnims.map((anim, i) => (
+                      <Animated.View
+                        key={i}
+                        style={[styles.waveBar, { transform: [{ scaleY: anim }] }]}
+                      />
+                    ))}
+                  </View>
+                ) : (
+                  /* Stopped — show duration */
+                  <Text style={[styles.recText, { flex: 1, textAlign: 'center' }]}>
+                    🎙 {`${Math.floor(stoppedDuration / 60)}:${String(stoppedDuration % 60).padStart(2, '0')}`}
+                  </Text>
+                )}
+
+                <Text style={[styles.recText, { minWidth: 36 }]}>
+                  {isRecording ? `${Math.floor(recDuration / 60)}:${String(recDuration % 60).padStart(2, '0')}` : ''}
+                </Text>
+
+                {/* Stop or Send */}
+                {isRecording ? (
+                  <TouchableOpacity onPress={stopRecording} style={[styles.recSendBtn, { backgroundColor: doctorColor }]}>
+                    <Ionicons name="stop" size={16} color="#fff" />
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity onPress={sendStoppedAudio} style={[styles.recSendBtn, { backgroundColor: doctorColor }]}>
+                    <Ionicons name="send" size={14} color="#fff" />
+                  </TouchableOpacity>
+                )}
               </View>
             )}
-            <View style={[styles.inputBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            {!(isRecording || recStopped) && <View style={[styles.inputBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <TouchableOpacity
                   onPress={toggleQuick}
                   style={[styles.iconBtn, { backgroundColor: showQuick ? doctorColor : doctorBg }]}
@@ -868,7 +1038,7 @@ export default function DoctorChatScreen() {
               <View style={[styles.inputWrap, { borderColor: doctorColor + '40' }]}>
                 <TextInput
                     value={inputText}
-                    onChangeText={setInputText}
+                    onChangeText={(text) => { setInputText(text); notifyPatientTyping(); }}
                     placeholder={isRecording ? '' : t.writeMessage}
                     placeholderTextColor={Colors.textMuted}
                     style={[styles.textInput, { textAlign: isRTL ? 'right' : 'left' }]}
@@ -886,16 +1056,14 @@ export default function DoctorChatScreen() {
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
-                    onLongPress={startRecording}
-                    onPressOut={isRecording ? stopAndSendAudio : undefined}
-                    delayLongPress={300}
-                    style={[styles.sendBtn, { backgroundColor: isRecording ? '#E05C5C' : doctorColor }]}
+                    onPress={startRecording}
+                    style={[styles.sendBtn, { backgroundColor: doctorColor }]}
                     activeOpacity={0.8}
                 >
-                  <Ionicons name={isRecording ? 'stop' : 'mic'} size={18} color="#fff" />
+                  <Ionicons name="mic" size={18} color="#fff" />
                 </TouchableOpacity>
               )}
-            </View>
+            </View>}
           </View>
         </KeyboardAvoidingView>
 
@@ -950,12 +1118,23 @@ const styles = StyleSheet.create({
   quickChip:     { backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1.5, shadowColor: Colors.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 1 },
   quickChipText: { fontSize: 12, fontWeight: '600', lineHeight: 18 },
   inputBarWrap:  { backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: Colors.border, shadowColor: Colors.shadow, shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 4 },
+  typingRow:     { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: Spacing.base, paddingVertical: 6 },
+  typingAvatar:  { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  typingBubble:  { borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#fff', borderWidth: 1 },
+  typingText:    { fontSize: 11, fontWeight: '600', fontStyle: 'italic' },
+  replyBar:      { alignItems: 'center', gap: 8, paddingHorizontal: Spacing.base, paddingVertical: 8, backgroundColor: '#F8F8F8', borderTopWidth: 1, borderTopColor: '#EEE', minHeight: 52 },
+  replyAccent:   { width: 3, alignSelf: 'stretch', borderRadius: 2, minHeight: 30 },
+  replyFrom:     { fontSize: 11, fontWeight: '700', marginBottom: 2 },
+  replyPreview:  { fontSize: 12, color: Colors.textMuted },
   uploadingBar:  { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: Spacing.base, paddingTop: 6 },
   uploadingText: { fontSize: 11, fontWeight: '600' },
-  recordingBar:  { alignItems: 'center', gap: 8, paddingHorizontal: Spacing.base, paddingTop: 6 },
+  recordingBar:  { alignItems: 'center', gap: 10, paddingHorizontal: Spacing.base, paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#EEE' },
   recDot:        { width: 8, height: 8, borderRadius: 4, backgroundColor: '#E05C5C' },
-  recText:       { fontSize: 13, fontWeight: '700', color: '#E05C5C', flex: 1 },
-  recCancelBtn:  { padding: 4 },
+  recText:       { fontSize: 13, fontWeight: '700', color: Colors.textMuted },
+  recCancelBtn:  { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FDEAEA' },
+  recSendBtn:    { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  waveform:      { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, height: 36 },
+  waveBar:       { width: 4, height: 24, borderRadius: 2, backgroundColor: '#E05C5C' },
   inputBar:  { alignItems: 'flex-end', gap: 8, paddingHorizontal: Spacing.base, paddingTop: 10, paddingBottom: 0 },
   inputWrap: { flex: 1, backgroundColor: Colors.background, borderRadius: 22, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1.5, minHeight: 44, maxHeight: 120 },
   textInput: { flex: 1, fontSize: FontSize.base, color: Colors.textPrimary, padding: 0, lineHeight: 20 },

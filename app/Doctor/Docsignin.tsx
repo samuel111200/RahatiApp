@@ -34,22 +34,21 @@ export default function DocSignInScreen() {
   const handleSignIn = async () => {
     if (!validate()) return;
     setLoading(true);
-    const { ok, error, role } = await signIn(email, password);
-    setLoading(false);
-
-    if (!ok) {
-      Alert.alert(t.error, error ?? t.signInFailed);
-      return;
+    try {
+      const { ok, error, role } = await signIn(email, password);
+      if (!ok) {
+        Alert.alert(t.error, error ?? t.signInFailed);
+        return;
+      }
+      if (role !== 'doctor') {
+        await logout();
+        Alert.alert(t.patientAccount, t.docRolePatientSub);
+        return;
+      }
+      router.replace('/Doctor/Dochome');
+    } finally {
+      setLoading(false);
     }
-
-    if (role !== 'doctor') {
-      // Patient account used on doctor screen → reject
-      await logout();
-      Alert.alert(t.patientAccount, t.docRolePatientSub);
-      return;
-    }
-
-    router.replace('/Doctor/Dochome');
   };
 
   return (

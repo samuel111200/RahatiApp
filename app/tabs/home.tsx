@@ -14,6 +14,7 @@ import {
   sendPushNotification,
 } from './notificationService';
 import MedicationNote from '../../components/Medicationnote';
+import PatientTabBar from '../../components/PatientTabBar';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/Languagecontext';
 import { db } from '../../utils/firebaseConfig';
@@ -45,15 +46,16 @@ const ENDURANCE_KEY    = 'endurance_exercises';
 const STRENGTH_KEY     = 'strength_exercises';
 const COORDINATION_KEY = 'coordination_exercises';
 
-async function loadLocalExercises(): Promise<any[]> {
+async function loadLocalExercises(uid: string): Promise<any[]> {
+  const ek = (base: string) => `${uid}_${base}`;
   try {
     const [therapy, yoga, aerobic, endurance, strength, coordination] = await Promise.all([
-      AsyncStorage.getItem(THERAPY_KEY),
-      AsyncStorage.getItem(YOGA_KEY),
-      AsyncStorage.getItem(AEROBIC_KEY),
-      AsyncStorage.getItem(ENDURANCE_KEY),
-      AsyncStorage.getItem(STRENGTH_KEY),
-      AsyncStorage.getItem(COORDINATION_KEY),
+      AsyncStorage.getItem(ek(THERAPY_KEY)),
+      AsyncStorage.getItem(ek(YOGA_KEY)),
+      AsyncStorage.getItem(ek(AEROBIC_KEY)),
+      AsyncStorage.getItem(ek(ENDURANCE_KEY)),
+      AsyncStorage.getItem(ek(STRENGTH_KEY)),
+      AsyncStorage.getItem(ek(COORDINATION_KEY)),
     ]);
     return [
       ...(therapy      ? JSON.parse(therapy)      : []),
@@ -190,8 +192,9 @@ function buildPlanList(
   return result;
 }
 
-function getDoneStorageKey(date: Date) {
-  return `plan_done_${toKey(date)}`;
+function getDoneStorageKey(date: Date, uid?: string | null) {
+  const base = `plan_done_${toKey(date)}`;
+  return uid ? `${uid}_${base}` : base;
 }
 
 async function loadDoneIds(date: Date, uid: string | null): Promise<Set<string>> {
@@ -205,13 +208,13 @@ async function loadDoneIds(date: Date, uid: string | null): Promise<Set<string>>
       }
     } catch {}
   }
-  const raw = await AsyncStorage.getItem(getDoneStorageKey(date));
+  const raw = await AsyncStorage.getItem(getDoneStorageKey(date, uid));
   return raw ? new Set(JSON.parse(raw)) : new Set();
 }
 
 async function saveDoneIds(date: Date, ids: Set<string>, uid: string | null) {
   const arr = [...ids];
-  await AsyncStorage.setItem(getDoneStorageKey(date), JSON.stringify(arr));
+  await AsyncStorage.setItem(getDoneStorageKey(date, uid), JSON.stringify(arr));
   if (uid) {
     setDoc(doc(db, 'users', uid, 'planHistory', toKey(date)), { doneIds: arr }, { merge: true }).catch(() => {});
   }
@@ -219,20 +222,7 @@ async function saveDoneIds(date: Date, ids: Set<string>, uid: string | null) {
 
 function getTodayKey() { return toKey(new Date()); }
 
-function DoneBadge({ status, onPress }: {
-  status: CompletionStatus;
-  onPress: () => void;
-}) {
-  const scaleAnim = React.useRef(new Animated.Value(1)).current;
-
-  const handlePress = () => {
-    Animated.sequence([
-      Animated.timing(scaleAnim, { toValue: 1.3, duration: 120, useNativeDriver: true }),
-      Animated.timing(scaleAnim, { toValue: 1,   duration: 120, useNativeDriver: true }),
-    ]).start();
-    onPress();
-  };
-
+function DoneBadge({ status }: { status: CompletionStatus }) {
   if (status === 'locked') {
     return (
       <View style={badge.lockWrap}>
@@ -242,22 +232,19 @@ function DoneBadge({ status, onPress }: {
   }
 
   return (
-    <TouchableOpacity onPress={handlePress} activeOpacity={0.8}>
-      <Animated.View
-        style={[
-          badge.circle,
-          status === 'done'    && badge.done,
-          status === 'pending' && badge.pending,
-          { transform: [{ scale: scaleAnim }] },
-        ]}
-      >
-        {status === 'done' ? (
-          <Ionicons name="checkmark" size={14} color="#fff" />
-        ) : (
-          <View style={badge.emptyInner} />
-        )}
-      </Animated.View>
-    </TouchableOpacity>
+    <View
+      style={[
+        badge.circle,
+        status === 'done'    && badge.done,
+        status === 'pending' && badge.pending,
+      ]}
+    >
+      {status === 'done' ? (
+        <Ionicons name="checkmark" size={14} color="#fff" />
+      ) : (
+        <View style={badge.emptyInner} />
+      )}
+    </View>
   );
 }
 
@@ -388,12 +375,11 @@ function CalendarPicker({ visible, selected, onSelect, onClose, minDateKey, t, i
   );
 }
 
-function TaskCard({ task, energy, isLast, status, onToggleDone, selectedDate, t }: {
+function TaskCard({ task, energy, isLast, status, selectedDate, t }: {
   task: PlanTask;
   energy: number;
   isLast: boolean;
   status: CompletionStatus;
-  onToggleDone: (id: string) => void;
   selectedDate: Date;
   t: any;
 }) {
@@ -470,10 +456,7 @@ function TaskCard({ task, energy, isLast, status, onToggleDone, selectedDate, t 
             )}
           </View>
 
-          <DoneBadge
-            status={status}
-            onPress={() => onToggleDone(task.id)}
-          />
+          <DoneBadge status={status} />
         </View>
 
         {!isExercise && !canDo && !isDone && (
@@ -563,7 +546,7 @@ export default function PlanScreen() {
   // Energy + local exercises — load on focus
   useFocusEffect(useCallback(() => {
     loadAllData();
-    loadLocalExercises().then(setLocalExercises);
+    loadLocalExercises(user?.uid ?? 'guest').then(setLocalExercises);
   }, [user?.uid]));
 
   async function loadAllData() {
@@ -638,9 +621,12 @@ export default function PlanScreen() {
     });
   };
 
-  const totalEffort = [...dayCoreTasks, ...dayExtraTasks].reduce((s, t) => s + t.effortScore, 0);
-  const maxEffort   = (dayCoreTasks.length + dayExtraTasks.length) * 3;
-  const energyOk    = maxEffort === 0 || (totalEffort / maxEffort) * 100 <= energy;
+  const totalEffort  = withExercises.reduce((s, t) => s + t.effortScore, 0);
+  const maxEffort    = withExercises.length * 3;
+  const energyState: 'zero' | 'ok' | 'low' =
+    maxEffort === 0 ? 'zero'
+    : (totalEffort / maxEffort) * 100 <= energy ? 'ok'
+    : 'low';
 
   const realTasks = withExercises.filter(t => !t.isExercise);
   const doneCount = realTasks.filter(t => doneIds.has(t.id)).length;
@@ -721,7 +707,7 @@ export default function PlanScreen() {
                 <Text style={[s.summaryText, { color: '#C97B3A' }]}>{dayExtraTasks.length} {t.extraTasksCount}</Text>
               </View>
             )}
-            {exercisePool.length > 0 && (
+            {exercisePool.length > 0 && (dayCoreTasks.length + dayExtraTasks.length) >= 2 && (
               <View style={[s.summaryPill, { backgroundColor: '#E8F5EF' }]}>
                 <Text style={s.summaryEmoji}>🏋️</Text>
                 <Text style={[s.summaryText, { color: '#4CAF82' }]}>{dayCoreTasks.length + dayExtraTasks.length} {t.exercisesCount}</Text>
@@ -731,10 +717,18 @@ export default function PlanScreen() {
         )}
 
         <View style={s.energySummary}>
-          <View style={[s.energyBar, { backgroundColor: energyOk ? "#E8F5EF" : "#FDEAEA" }]}>
-            <Text style={{ fontSize: 16 }}>{energyOk ? "⚡" : "⚠️"}</Text>
-            <Text style={[s.energyText, { color: energyOk ? "#4CAF82" : "#E05C5C" }]}>
-              {energyOk
+          <View style={[s.energyBar, {
+            backgroundColor: energyState === 'zero' ? '#F5F5F5' : energyState === 'ok' ? '#E8F5EF' : '#FDEAEA',
+          }]}>
+            <Text style={{ fontSize: 16 }}>
+              {energyState === 'zero' ? '🌿' : energyState === 'ok' ? '⚡' : '⚠️'}
+            </Text>
+            <Text style={[s.energyText, {
+              color: energyState === 'zero' ? '#888' : energyState === 'ok' ? '#4CAF82' : '#E05C5C',
+            }]}>
+              {energyState === 'zero'
+                ? t.energyZero
+                : energyState === 'ok'
                 ? `${t.energySufficient} (${energy}%)`
                 : `${t.energyInsufficient} (${energy}%)`}
             </Text>
@@ -790,7 +784,6 @@ export default function PlanScreen() {
                 energy={energy}
                 isLast={index === withExercises.length - 1}
                 status={getStatus(task)}
-                onToggleDone={handleToggleDone}
                 selectedDate={selectedDate}
                 t={t}
               />
@@ -809,6 +802,7 @@ export default function PlanScreen() {
         isRTL={isRTL}
       />
       <MedicationNote />
+      <PatientTabBar />
     </View>
   );
 }

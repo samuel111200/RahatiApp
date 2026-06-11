@@ -8,6 +8,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db, FSUser } from '../utils/firebaseConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { registerPushToken, startTokenRefreshListener } from '../utils/pushNotifications';
 import { startPresenceListener } from '../utils/presence';
 
@@ -193,8 +194,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    const uid = user?.uid;
     setUser(null);
     setIsAuthenticated(false);
+    if (uid) await AsyncStorage.removeItem(`${uid}_user_avatar`);
     await signOut(auth);
   };
 
