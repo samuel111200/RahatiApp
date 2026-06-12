@@ -27,8 +27,6 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
-import * as Sharing from 'expo-sharing';
-import * as WebBrowser from 'expo-web-browser';
 
 const DOC_COLOR       = '#7C5CBF';
 const DOC_COLOR_LIGHT = '#F0EBFA';
@@ -822,7 +820,6 @@ function ExerciseManagementModal({
     <Modal visible={visible} transparent={false} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={{ flex: 1, backgroundColor: '#F8F5FF' }} edges={['top', 'bottom']}>
 
-        {/* ── Header ── */}
         <View style={exStyles.header}>
           <TouchableOpacity onPress={onClose} style={exStyles.backBtn} activeOpacity={0.8}>
             <Ionicons name={isRTL ? 'arrow-forward' : 'arrow-back'} size={22} color={DOC_COLOR} />
@@ -836,7 +833,6 @@ function ExerciseManagementModal({
           </TouchableOpacity>
         </View>
 
-        {/* ── Assessment Results ── */}
         <TouchableOpacity
           style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 8, backgroundColor: '#E8F5EF', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, gap: 8 }}
           onPress={fetchAssessment}
@@ -847,7 +843,6 @@ function ExerciseManagementModal({
           <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={16} color="#4CAF82" />
         </TouchableOpacity>
 
-        {/* ── Mode Toggle ── */}
         <View style={{ flexDirection: 'row', marginHorizontal: 16, marginBottom: 8, backgroundColor: '#EDE9F8', borderRadius: 12, padding: 3 }}>
           <TouchableOpacity
             style={[{ flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center' }, mode === 'library' && { backgroundColor: DOC_COLOR }]}
@@ -867,7 +862,6 @@ function ExerciseManagementModal({
           </TouchableOpacity>
         </View>
 
-        {/* ── Section Tabs ── */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={exStyles.tabsRow} style={exStyles.tabsScroll}>
           {mode === 'assigned' && (() => {
             const isAct = activeSection === 'all';
@@ -916,7 +910,6 @@ function ExerciseManagementModal({
         </ScrollView>
 
         <ScrollView contentContainerStyle={exStyles.listContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          {/* Library Mode */}
           {mode === 'library' && (() => {
             const libList = SYSTEM_EXERCISES.filter(e => e.type === activeSection);
             const libCfg  = EX_SECTION_CONFIGS.find(s => s.key === activeSection)!;
@@ -963,7 +956,6 @@ function ExerciseManagementModal({
             });
           })()}
 
-          {/* Assigned Mode - Patient exercises */}
           {mode === 'assigned' && assignedPatient.length > 0 && (
             <View style={exStyles.sectionGroup}>
               <View style={exStyles.sectionGroupHeader}>
@@ -1016,7 +1008,6 @@ function ExerciseManagementModal({
             </View>
           )}
 
-          {/* Doctor exercises */}
           {mode === 'assigned' && assignedDoctor.length > 0 && (
             <View style={[exStyles.sectionGroup, { marginTop: assignedPatient.length > 0 ? 10 : 0 }]}>
               <View style={exStyles.sectionGroupHeader}>
@@ -1095,7 +1086,6 @@ function ExerciseManagementModal({
             </View>
           )}
 
-          {/* Empty state */}
           {mode === 'assigned' && assignedPatient.length === 0 && assignedDoctor.length === 0 && !showAddForm && (
             <View style={exStyles.emptyState}>
               <Text style={{ fontSize: 48 }}>{activeSection === 'all' ? '📋' : activeCfg.emoji}</Text>
@@ -1114,7 +1104,6 @@ function ExerciseManagementModal({
             </View>
           )}
 
-          {/* Add Form */}
           {mode === 'assigned' && showAddForm && (
             <View style={exStyles.addForm}>
               <Text style={exStyles.addFormTitle}>{t.docNewExerciseTitle}</Text>
@@ -1161,7 +1150,6 @@ function ExerciseManagementModal({
 
         <AttachmentSheet visible={showAttach} onClose={() => setShowAttach(false)} onPick={(a) => { setAttachFile(a); setShowAttach(false); }} isRTL={isRTL} t={t} />
 
-        {/* Edit Modal */}
         <Modal visible={!!editingEx} transparent animationType="slide" onRequestClose={() => setEditingEx(null)}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
             <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }} activeOpacity={1} onPress={() => setEditingEx(null)} />
@@ -1665,8 +1653,7 @@ export default function Docpatient() {
         </TouchableOpacity>
       </View>
 
-      {/* ── المحتوى الرئيسي — paddingBottom يتحرك مع الكيبورد ── */}
-      <View style={{ flex: 1, paddingBottom: keyboardHeight }}>
+<View style={{ flex: 1, paddingBottom: keyboardHeight }}>
         <FlatList
           ref={listRef}
           data={messages}
@@ -1686,7 +1673,6 @@ export default function Docpatient() {
           renderItem={({ item }) => <MessageBubble msg={item} isRTL={isRTL} t={t} patientPhotoUrl={patientPhotoUrl} exerciseAccess={exerciseAccess} />}
         />
 
-        {/* Patient typing indicator */}
         {isPatientTyping && (
           <View style={[styles.typingRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <View style={styles.typingBubble}>
@@ -1716,7 +1702,6 @@ export default function Docpatient() {
           </Animated.View>
         )}
 
-        {/* Input bar wrapper */}
         <View style={[styles.inputBarWrap, { paddingBottom: insets.bottom || 8 }]}>
           {uploading && (
             <View style={[styles.uploadingBar, rtlRow(isRTL)]}>
@@ -1725,7 +1710,6 @@ export default function Docpatient() {
             </View>
           )}
 
-          {/* Recording bar */}
           {(isRecording || recStopped) && (
             <View style={[styles.recordingBar, rtlRow(isRTL)]}>
               <TouchableOpacity onPress={cancelRecordingOrPreview} style={styles.recCancelBtn}>
@@ -1760,7 +1744,6 @@ export default function Docpatient() {
             </View>
           )}
 
-          {/* Text input bar */}
           {!(isRecording || recStopped) && (
             <View style={[styles.inputBar, rtlRow(isRTL)]}>
               <TouchableOpacity onPress={toggleQuick} style={[styles.iconBtn, showQuick && styles.iconBtnActive]} activeOpacity={0.8}>
