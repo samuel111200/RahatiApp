@@ -13,7 +13,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
 import { notify, suppressTaskListNotifOnce } from './notificationService';
-import PatientTabBar from '../../components/PatientTabBar';
 import { collection, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../../utils/firebaseConfig';
 import { useAuth } from '../../context/AuthContext';
@@ -1460,7 +1459,6 @@ export default function ExercisesScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-      <PatientTabBar />
     </SafeAreaView>
   );
 }

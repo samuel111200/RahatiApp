@@ -4,7 +4,7 @@ import {
   Modal, TextInput, Alert, Image,
   Animated, Platform, StatusBar, KeyboardAvoidingView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
@@ -22,7 +22,6 @@ import {
   notifyAvatarUpdated,
   notifyLogout,
 } from './DocNotifService';
-import DocTabBar from '../../components/DocTabBar';
 
 const DOC_COLOR       = '#7C5CBF';
 const DOC_COLOR_LIGHT = '#F0EBFA';
@@ -323,6 +322,7 @@ type ModalKey = 'logout' | 'editProfile' | 'language' | 'help' | null;
 export default function DocMoreScreen() {
   const { user, logout, updateProfile } = useAuth();
   const { t, isRTL, setLang }           = useLang();
+  const insets                           = useSafeAreaInsets();
   const [activeModal,     setActiveModal]     = useState<ModalKey>(null);
   const [avatarUri,       setAvatarUri]       = useState<string | null>(null);
   const [showAvatarSheet, setShowAvatarSheet] = useState(false);
@@ -432,7 +432,10 @@ export default function DocMoreScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar backgroundColor='#F8F5FF' barStyle="dark-content" />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: 84 + Math.max(insets.bottom, 12) + 20 }]}
+        showsVerticalScrollIndicator={false}
+      >
 
         <View style={[styles.topBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <TouchableOpacity style={styles.backBtn} onPress={() => open('editProfile')}>
@@ -542,10 +545,8 @@ export default function DocMoreScreen() {
         </TouchableOpacity>
 
         <Text style={styles.versionText}>{t.docVersion}</Text>
-        <View style={{ height: 20 }} />
       </ScrollView>
 
-      <DocTabBar />
 
       <AvatarActionSheet visible={showAvatarSheet} onClose={() => setShowAvatarSheet(false)}
         onPickNew={handlePickAvatar} onDelete={handleDeleteAvatar} hasAvatar={!!avatarUri} t={t} />

@@ -10,7 +10,6 @@ import { Colors, Spacing, FontSize } from '../../constants/Theme';
 import { useLang } from '../../context/Languagecontext';
 import { useChats } from '../../context/Chatscontext';
 import type { ChatPreview } from '../../context/Chatscontext';
-import DocTabBar from '../../components/DocTabBar';
 
 const DOC_COLOR       = '#7C5CBF';
 const DOC_COLOR_LIGHT = '#F0EBFA';
@@ -197,7 +196,6 @@ export default function ChatsListScreen() {
         ItemSeparatorComponent={() => <View style={styles.separator} />}
       />
 
-      <DocTabBar />
     </View>
   );
 }

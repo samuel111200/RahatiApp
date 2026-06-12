@@ -37,7 +37,8 @@ export default function DocSignInScreen() {
     try {
       const { ok, error, role } = await signIn(email, password);
       if (!ok) {
-        Alert.alert(t.error, error ?? t.signInFailed);
+        const errMsg = error ? ((t as any)[error] ?? t.signInFailed) : t.signInFailed;
+        Alert.alert(t.error, errMsg);
         return;
       }
       if (role !== 'doctor') {

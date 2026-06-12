@@ -41,8 +41,10 @@ module.exports = async (req, res) => {
   if (!header.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Missing Authorization header' });
   }
+  let callerUid;
   try {
-    await auth.verifyIdToken(header.slice(7));
+    const decoded = await auth.verifyIdToken(header.slice(7));
+    callerUid = decoded.uid;
   } catch {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
@@ -54,31 +56,78 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // ── Fetch target user from Firestore ──
-    const snap = await db.collection('users').doc(toUserId).get();
-    if (!snap.exists) {
-      return res.status(200).json({ sent: false, reason: 'User not found' });
+    // ── Fetch sender (photoUrl) and target (token/lang/platform) in parallel ──
+    const [senderSnap, targetSnap] = await Promise.all([
+      db.collection('users').doc(callerUid).get(),
+      db.collection('users').doc(toUserId).get(),
+    ]);
+
+    if (!targetSnap.exists) {
+      return res.status(404).json({ sent: false, reason: 'User not found' });
     }
 
-    const userData = snap.data();
-    const token    = userData?.fcmToken;
-    const lang     = userData?.lang ?? 'ar';
+    const senderData    = senderSnap.exists ? senderSnap.data() : {};
+    const targetData    = targetSnap.data();
 
-    if (!token || !Expo.isExpoPushToken(token)) {
-      return res.status(200).json({ sent: false, reason: 'No valid Expo push token' });
+    const senderPhoto   = senderData?.photoUrl ?? null;
+    const token         = targetData?.fcmToken;
+    const expoPushToken = targetData?.expoPushToken;
+    const lang          = targetData?.lang ?? 'ar';
+    const platform      = targetData?.devicePlatform ?? 'android';
+
+    const titleStr = pickLang(title, lang);
+    const bodyStr  = pickLang(body,  lang);
+
+    // ── Android + native FCM token → Admin SDK (supports sender avatar via imageUrl) ──
+    const isNativeFcm = token && platform === 'android' && !token.startsWith('ExponentPushToken');
+
+    if (isNativeFcm) {
+      // Admin SDK requires all data values to be strings
+      const fcmData = Object.fromEntries(
+        Object.entries(data ?? {}).map(([k, v]) => [k, typeof v === 'string' ? v : String(v)])
+      );
+      const message = {
+        token,
+        notification: {
+          title: titleStr,
+          body:  bodyStr,
+          ...(senderPhoto && { imageUrl: senderPhoto }),
+        },
+        android: {
+          notification: {
+            channelId: 'chat',
+            color:     '#7C5CBF',
+            ...(senderPhoto && { imageUrl: senderPhoto }),
+          },
+        },
+        data: fcmData,
+      };
+      try {
+        const msgId = await admin.messaging().send(message);
+        return res.status(200).json({ sent: true, messageId: msgId });
+      } catch (err) {
+        console.error('[send-push] FCM send error:', err.message ?? err);
+        // Fall through to Expo push service as fallback
+      }
     }
 
-    // ── Build and send the push message ──
-    const message = {
-      to:       token,
-      sound:    'default',
-      title:    pickLang(title, lang),
-      body:     pickLang(body,  lang),
-      data:     data ?? {},
-      priority: 'high',
+    // ── Expo push service fallback (iOS / Expo push tokens / FCM fallback) ──
+    const expoToken = expoPushToken ?? token;
+    if (!expoToken || !Expo.isExpoPushToken(expoToken)) {
+      return res.status(422).json({ sent: false, reason: 'No valid Expo push token' });
+    }
+
+    const expoMessage = {
+      to:        expoToken,
+      sound:     'default',
+      title:     titleStr,
+      body:      bodyStr,
+      data:      data ?? {},
+      priority:  'high',
+      channelId: 'chat',
     };
 
-    const [ticket] = await expo.sendPushNotificationsAsync([message]);
+    const [ticket] = await expo.sendPushNotificationsAsync([expoMessage]);
 
     if (ticket.status === 'error') {
       console.error('[send-push] Expo ticket error:', ticket.message, ticket.details);

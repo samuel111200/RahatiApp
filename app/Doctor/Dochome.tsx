@@ -15,7 +15,6 @@ import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/Languagecontext';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 import { sendPushToUser } from '../../utils/pushNotifications';
-import DocTabBar from '../../components/DocTabBar';
 
 const DOC_COLOR       = '#7C5CBF';
 const DOC_COLOR_LIGHT = '#F0EBFA';
@@ -400,7 +399,6 @@ export default function DocHome() {
         <View style={{ height: 20 }} />
       </ScrollView>
 
-      <DocTabBar />
 
       <AcceptModal
         visible={!!pendingModal} patient={pendingModal}

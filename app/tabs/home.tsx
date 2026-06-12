@@ -14,7 +14,6 @@ import {
   sendPushNotification,
 } from './notificationService';
 import MedicationNote from '../../components/Medicationnote';
-import PatientTabBar from '../../components/PatientTabBar';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/Languagecontext';
 import { db } from '../../utils/firebaseConfig';
@@ -802,7 +801,6 @@ export default function PlanScreen() {
         isRTL={isRTL}
       />
       <MedicationNote />
-      <PatientTabBar />
     </View>
   );
 }

@@ -404,13 +404,7 @@ function MessageBubble({ msg, isRTL, t, patientPhotoUrl, exerciseAccess }: { msg
               : <Ionicons name="person" size={14} color={DOC_COLOR} />}
           </View>
         )}
-        <View>
-          <DocAudioBubble msg={msg} isDoc={isDoc} />
-          <View style={[msgStyles.bubbleMeta, { paddingHorizontal: 6, marginTop: 3 }]}>
-            <Text style={[msgStyles.timeText, isDoc && { color: 'rgba(255,255,255,0.7)' }]}>{msg.time}</Text>
-            {isDoc && <Ionicons name={msg.status === 'read' ? 'checkmark-done' : 'checkmark-done-outline'} size={13} color={msg.status === 'read' ? '#D4BBFF' : 'rgba(255,255,255,0.6)'} />}
-          </View>
-        </View>
+        <DocAudioBubble msg={msg} isDoc={isDoc} />
       </Animated.View>
     );
   }
@@ -437,8 +431,9 @@ function MessageBubble({ msg, isRTL, t, patientPhotoUrl, exerciseAccess }: { msg
 
 const msgStyles = StyleSheet.create({
   row:      { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 6 },
-  rowRight: { justifyContent: 'flex-end' },
-  rowLeft:  { justifyContent: 'flex-start' },
+  rowRight:  { justifyContent: 'flex-end' },
+  rowLeft:   { justifyContent: 'flex-start' },
+  rowCenter: { justifyContent: 'center' },
   patientAvatar:     { width: 30, height: 30, borderRadius: 15, backgroundColor: DOC_COLOR_LIGHT, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: DOC_COLOR + '30', marginRight: 8, overflow: 'hidden' },
   bubble:            { maxWidth: '75%', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 },
   bubbleDoc:         { backgroundColor: DOC_COLOR, borderBottomRightRadius: 4, shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 6, elevation: 3 },
@@ -478,20 +473,25 @@ const divStyles = StyleSheet.create({
 });
 
 // ─── Audio Bubble ─────────────────────────────────────────
-const DOC_BARS = [0.4, 0.7, 0.5, 1, 0.6, 0.8, 0.45, 0.9, 0.4, 0.65, 0.85, 0.5, 1, 0.7, 0.4, 0.75, 0.55, 0.9];
+const DOC_BARS = [3, 9, 5, 18, 8, 24, 6, 22, 13, 20, 15, 26, 9, 20, 6, 15, 11, 24, 5, 17, 10, 23, 7, 19, 12];
 
 function DocAudioBubble({ msg, isDoc }: { msg: Message; isDoc: boolean }) {
-  const [sound,      setSound]      = useState<Audio.Sound | null>(null);
-  const [isPlaying,  setIsPlaying]  = useState(false);
-  const [posMs,      setPosMs]      = useState(0);
-  const [trackWidth, setTrackWidth] = useState(0);
+  const [sound,     setSound]     = useState<Audio.Sound | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [posMs,     setPosMs]     = useState(0);
   const totalMs = (msg.audioDuration ?? 0) * 1000;
+  const progress = totalMs > 0 ? Math.min(posMs / totalMs, 1) : 0;
 
   useEffect(() => { return () => { sound?.unloadAsync(); }; }, [sound]);
 
   const togglePlay = async () => {
     if (!msg.fileUrl) return;
-    await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, allowsRecordingIOS: false });
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: true,
+      playThroughEarpieceAndroid: false,
+      shouldDuckAndroid: true,
+    });
     if (!sound) {
       const { sound: s } = await Audio.Sound.createAsync(
         { uri: msg.fileUrl },
@@ -518,67 +518,62 @@ function DocAudioBubble({ msg, isDoc }: { msg: Message; isDoc: boolean }) {
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   };
 
-  const progress  = totalMs > 0 ? Math.min(posMs / totalMs, 1) : 0;
-  const dotLeft   = Math.max(0, progress * trackWidth - 5);
-  const filledW   = progress * trackWidth;
-  const barColor  = isDoc ? 'rgba(255,255,255,0.55)' : DOC_COLOR + '55';
-  const trackBg   = isDoc ? 'rgba(255,255,255,0.2)'  : DOC_COLOR + '25';
-  const filledCol = isDoc ? '#fff'                   : DOC_COLOR;
-  const dotCol    = isDoc ? '#fff'                   : DOC_COLOR;
-  const durCol    = isDoc ? 'rgba(255,255,255,0.85)' : '#888';
+  const activeColor   = isDoc ? 'rgba(255,255,255,0.92)' : DOC_COLOR;
+  const inactiveColor = isDoc ? 'rgba(255,255,255,0.28)' : DOC_COLOR + '33';
 
   return (
-    <TouchableOpacity
-      onPress={togglePlay}
-      style={[
-        docAudioStyles.wrap,
-        isDoc
-          ? { backgroundColor: DOC_COLOR }
-          : { backgroundColor: '#fff', borderColor: DOC_COLOR + '30', borderWidth: 1.5 },
-      ]}
-      activeOpacity={0.85}
-    >
-      {/* Play / Pause */}
-      <View style={[docAudioStyles.playBtn, { backgroundColor: isDoc ? 'rgba(255,255,255,0.2)' : DOC_COLOR_LIGHT }]}>
-        <Ionicons name={isPlaying ? 'pause' : 'play'} size={16} color={isDoc ? '#fff' : DOC_COLOR} />
-      </View>
-
-      {/* Waveform + progress track */}
-      <View style={{ flex: 1, gap: 5 }}>
-        {/* Static decorative bars */}
-        <View style={docAudioStyles.waveWrap}>
+    <View style={[
+      docAudioStyles.wrap,
+      isDoc
+        ? { backgroundColor: DOC_COLOR }
+        : { backgroundColor: '#fff', borderWidth: 2.5, borderColor: DOC_COLOR + '73' },
+    ]}>
+      <View style={docAudioStyles.mainRow}>
+        <TouchableOpacity onPress={togglePlay} activeOpacity={0.7}
+          style={[docAudioStyles.playBtn, { backgroundColor: isDoc ? 'rgba(255,255,255,0.18)' : DOC_COLOR_LIGHT }]}
+        >
+          <Ionicons name={isPlaying ? 'pause' : 'play'} size={18} color={isDoc ? '#fff' : DOC_COLOR} />
+        </TouchableOpacity>
+        <View style={docAudioStyles.waveRow}>
           {DOC_BARS.map((h, i) => (
-            <View key={i} style={[docAudioStyles.bar, { height: 5 + h * 18, backgroundColor: barColor }]} />
+            <View
+              key={i}
+              style={[docAudioStyles.bar, {
+                height: Math.max(4, h),
+                backgroundColor: (i / DOC_BARS.length) < progress ? activeColor : inactiveColor,
+              }]}
+            />
           ))}
         </View>
-
-        {/* Progress track with moving dot */}
-        <View
-          style={[docAudioStyles.track, { backgroundColor: trackBg }]}
-          onLayout={e => setTrackWidth(e.nativeEvent.layout.width)}
-        >
-          <View style={[docAudioStyles.trackFilled, { width: filledW, backgroundColor: filledCol }]} />
-          <View style={[docAudioStyles.dot, { left: dotLeft, backgroundColor: dotCol }]} />
-        </View>
+        <Text style={[docAudioStyles.dur, { color: isDoc ? 'rgba(255,255,255,0.75)' : '#aaa' }]}>
+          {fmtDur(posMs > 0 ? posMs : totalMs)}
+        </Text>
       </View>
-
-      {/* Duration */}
-      <Text style={[docAudioStyles.dur, { color: durCol }]}>
-        {fmtDur(posMs > 0 ? posMs : totalMs)}
-      </Text>
-    </TouchableOpacity>
+      <View style={docAudioStyles.metaRow}>
+        <Text style={[docAudioStyles.timeStamp, { color: isDoc ? 'rgba(255,255,255,0.65)' : '#bbb' }]}>
+          {msg.time}
+        </Text>
+        {isDoc && (
+          <Ionicons
+            name={msg.status === 'read' ? 'checkmark-done' : 'checkmark-done-outline'}
+            size={12}
+            color={msg.status === 'read' ? '#D4BBFF' : 'rgba(255,255,255,0.6)'}
+          />
+        )}
+      </View>
+    </View>
   );
 }
 
 const docAudioStyles = StyleSheet.create({
-  wrap:        { flexDirection: 'row', alignItems: 'center', borderRadius: 22, paddingHorizontal: 12, paddingVertical: 10, gap: 10 },
-  playBtn:     { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  waveWrap:    { flexDirection: 'row', alignItems: 'center', gap: 2.5 },
-  bar:         { width: 3, borderRadius: 2, minHeight: 5 },
-  track:       { height: 3, borderRadius: 2 },
-  trackFilled: { position: 'absolute', top: 0, bottom: 0, left: 0, borderRadius: 2 },
-  dot:         { position: 'absolute', top: -4, width: 10, height: 10, borderRadius: 5 },
-  dur:         { fontSize: 11, fontWeight: '600', minWidth: 32, textAlign: 'right', flexShrink: 0 },
+  wrap:      { flexDirection: 'column', borderRadius: 20, overflow: 'hidden', paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8, minWidth: 240, maxWidth: 300 },
+  mainRow:   { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  playBtn:   { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  waveRow:   { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 2.5, height: 32 },
+  bar:       { width: 3, borderRadius: 2 },
+  dur:       { fontSize: 12, fontWeight: '600', minWidth: 36, textAlign: 'right', flexShrink: 0 },
+  metaRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 3, marginTop: 2 },
+  timeStamp: { fontSize: 10, fontWeight: '600' },
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -1338,10 +1333,12 @@ export default function Docpatient() {
   const [showQuick,        setShowQuick]        = useState(false);
   const [showAttach,       setShowAttach]       = useState(false);
   const [patientPhotoUrl,  setPatientPhotoUrl]  = useState<string | null>(photoParam || null);
-  const [kbHeight,         setKbHeight]         = useState(0);
   const [uploading,        setUploading]        = useState(false);
   const [isRecording,      setIsRecording]      = useState(false);
   const [recDuration,      setRecDuration]      = useState(0);
+  const [recStopped,       setRecStopped]       = useState(false);
+  const [stoppedUri,       setStoppedUri]       = useState<string | null>(null);
+  const [stoppedDuration,  setStoppedDuration]  = useState(0);
   const [isPatientTyping,  setIsPatientTyping]  = useState(false);
 
   const listRef            = useRef<any>(null);
@@ -1350,6 +1347,7 @@ export default function Docpatient() {
   const recordingRef       = useRef<Audio.Recording | null>(null);
   const docTypingTimerRef  = useRef<any>(null);
   const recTimerRef        = useRef<any>(null);
+  const waveAnims          = useRef([0,1,2,3,4].map(() => new Animated.Value(0.3))).current;
 
   useFocusEffect(useCallback(() => {
     if (patientId) markAsRead(patientId);
@@ -1499,31 +1497,61 @@ export default function Docpatient() {
 
   const startRecording = useCallback(async () => {
     try {
+      if (recordingRef.current) {
+        try { await recordingRef.current.stopAndUnloadAsync(); } catch {}
+        recordingRef.current = null;
+      }
       const { granted } = await Audio.requestPermissionsAsync();
       if (!granted) { Alert.alert(t.error, t.micPerm); return; }
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        shouldDuckAndroid: false,
+        playThroughEarpieceAndroid: false,
+      });
       const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
       recordingRef.current = recording;
       setIsRecording(true);
+      setRecStopped(false);
+      setStoppedUri(null);
       setRecDuration(0);
       recTimerRef.current = setInterval(() => setRecDuration(d => d + 1), 1000);
-    } catch { Alert.alert(t.error, t.recordFailed); }
+    } catch (e) { console.error('[startRecording]', e); Alert.alert(t.error, t.recordFailed); }
   }, [t]);
 
-  const stopAndSendAudio = useCallback(async () => {
+  const stopRecording = useCallback(async () => {
     if (!recordingRef.current) return;
     clearInterval(recTimerRef.current);
     const rec = recordingRef.current;
     recordingRef.current = null;
-    const duration = recDuration;
+    const dur = recDuration;
     setIsRecording(false);
-    setRecDuration(0);
     try {
       await rec.stopAndUnloadAsync();
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+      });
       const uri = rec.getURI();
-      if (!uri) return;
-      setUploading(true);
+      if (uri) {
+        setStoppedUri(uri);
+        setStoppedDuration(dur);
+        setRecStopped(true);
+      }
+    } catch (e) { console.error('[stopRecording]', e); Alert.alert(t.error, t.sendFailed ?? 'Failed'); }
+  }, [recDuration, t]);
+
+  const sendStoppedAudio = useCallback(async () => {
+    if (!stoppedUri) return;
+    const uri = stoppedUri;
+    const duration = stoppedDuration;
+    setRecStopped(false);
+    setStoppedUri(null);
+    setStoppedDuration(0);
+    setUploading(true);
+    try {
       const name = `voice_${Date.now()}.m4a`;
       const cloudUrl = await uploadFileToCloudinary(uri, 'audio/m4a', name);
       const ts = Date.now();
@@ -1541,18 +1569,27 @@ export default function Docpatient() {
       ).catch(() => {});
     } catch { Alert.alert(t.error, t.sendFailed ?? 'Failed'); }
     finally { setUploading(false); }
-  }, [recDuration, chatId, patientId, doctorId, doctorFullName, doctorSpecialty, isRTL, updateChatMeta, t]);
+  }, [stoppedUri, stoppedDuration, chatId, patientId, doctorId, doctorFullName, doctorSpecialty, isRTL, updateChatMeta, t]);
 
-  const cancelRecording = useCallback(async () => {
-    if (!recordingRef.current) return;
+  const cancelRecordingOrPreview = useCallback(async () => {
     clearInterval(recTimerRef.current);
-    try {
-      await recordingRef.current.stopAndUnloadAsync();
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
-    } catch {}
-    recordingRef.current = null;
+    if (recordingRef.current) {
+      try {
+        await recordingRef.current.stopAndUnloadAsync();
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: false,
+          playsInSilentModeIOS: true,
+          shouldDuckAndroid: true,
+          playThroughEarpieceAndroid: false,
+        });
+      } catch {}
+      recordingRef.current = null;
+    }
     setIsRecording(false);
+    setRecStopped(false);
+    setStoppedUri(null);
     setRecDuration(0);
+    setStoppedDuration(0);
   }, []);
 
   const rtlRow   = (r: boolean): { flexDirection: 'row' | 'row-reverse' } => ({ flexDirection: r ? 'row-reverse' : 'row' });
@@ -1562,24 +1599,31 @@ export default function Docpatient() {
   const QUICK_REPLIES: string[] = t.docQuickReplies;
 
   useEffect(() => {
-    if (messages.length > 0 && !initialScrollDone.current) {
-      setTimeout(() => {
-        listRef.current?.scrollToEnd({ animated: false });
-        initialScrollDone.current = true;
-      }, 150);
-    }
-  }, [messages]);
-
-  useEffect(() => {
-    const show = Keyboard.addListener('keyboardDidShow', e => {
-      if (Platform.OS === 'android') setKbHeight(e.endCoordinates.height);
+    const show = Keyboard.addListener('keyboardDidShow', () => {
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
     });
     const hide = Keyboard.addListener('keyboardDidHide', () => {
-      if (Platform.OS === 'android') setKbHeight(0);
+      listRef.current?.scrollToEnd({ animated: false });
     });
     return () => { show.remove(); hide.remove(); };
   }, []);
+
+  useEffect(() => {
+    if (!isRecording) {
+      waveAnims.forEach(a => a.setValue(0.3));
+      return;
+    }
+    const loops = waveAnims.map((anim, i) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(anim, { toValue: 1,   duration: 250 + i * 80, useNativeDriver: true }),
+          Animated.timing(anim, { toValue: 0.2, duration: 250 + i * 80, useNativeDriver: true }),
+        ]),
+      )
+    );
+    loops.forEach(l => l.start());
+    return () => loops.forEach(l => l.stop());
+  }, [isRecording]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -1615,7 +1659,7 @@ export default function Docpatient() {
       </View>
 
       <KeyboardAvoidingView
-        style={{ flex: 1, marginBottom: kbHeight }}
+        style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? keyboardOffset : 0}
       >
@@ -1628,6 +1672,12 @@ export default function Docpatient() {
           showsVerticalScrollIndicator={false}
           extraData={patientPhotoUrl}
           ListHeaderComponent={<DateDivider label={t.docToday} />}
+          onContentSizeChange={() => {
+            if (!initialScrollDone.current && messages.length > 0) {
+              listRef.current?.scrollToEnd({ animated: false });
+              initialScrollDone.current = true;
+            }
+          }}
           renderItem={({ item }) => <MessageBubble msg={item} isRTL={isRTL} t={t} patientPhotoUrl={patientPhotoUrl} exerciseAccess={exerciseAccess} />}
         />
 
@@ -1667,54 +1717,75 @@ export default function Docpatient() {
             <Text style={styles.uploadingText}>{isRTL ? 'جاري الإرسال...' : 'Sending...'}</Text>
           </View>
         )}
-        {isRecording && (
-          <View style={[styles.recordingBar, rtlRow(isRTL)]}>
-            <View style={styles.recDot} />
-            <Text style={styles.recText}>
-              {`${Math.floor(recDuration / 60)}:${String(recDuration % 60).padStart(2, '0')}`}
-            </Text>
-            <TouchableOpacity onPress={cancelRecording} style={styles.recCancelBtn}>
-              <Ionicons name="close" size={18} color="#E05C5C" />
+        {(isRecording || recStopped) && (
+          <View style={[styles.recordingBar, rtlRow(isRTL), { paddingBottom: 10 + insets.bottom }]}>
+            <TouchableOpacity onPress={cancelRecordingOrPreview} style={styles.recCancelBtn}>
+              <Ionicons name="trash-outline" size={18} color="#E05C5C" />
             </TouchableOpacity>
+
+            {isRecording ? (
+              <View style={styles.waveform}>
+                {waveAnims.map((anim, i) => (
+                  <Animated.View key={i} style={[styles.waveBar, { transform: [{ scaleY: anim }] }]} />
+                ))}
+              </View>
+            ) : (
+              <Text style={[styles.recText, { flex: 1, textAlign: 'center' }]}>
+                🎙 {`${Math.floor(stoppedDuration / 60)}:${String(stoppedDuration % 60).padStart(2, '0')}`}
+              </Text>
+            )}
+
+            <Text style={[styles.recText, { minWidth: 36 }]}>
+              {isRecording ? `${Math.floor(recDuration / 60)}:${String(recDuration % 60).padStart(2, '0')}` : ''}
+            </Text>
+
+            {isRecording ? (
+              <TouchableOpacity onPress={stopRecording} style={styles.recSendBtn}>
+                <Ionicons name="stop" size={16} color="#fff" />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={sendStoppedAudio} style={styles.recSendBtn}>
+                <Ionicons name="send" size={14} color="#fff" />
+              </TouchableOpacity>
+            )}
           </View>
         )}
-        <View style={[styles.inputBar, rtlRow(isRTL), { paddingBottom: 10 + insets.bottom }]}>
-          <TouchableOpacity onPress={toggleQuick} style={[styles.iconBtn, showQuick && styles.iconBtnActive]} activeOpacity={0.8}>
-            <Ionicons name={showQuick ? 'close' : 'flash'} size={20} color={showQuick ? '#fff' : DOC_COLOR} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowAttach(true)} style={styles.iconBtn} activeOpacity={0.8}>
-            <Ionicons name="attach" size={22} color={DOC_COLOR} />
-          </TouchableOpacity>
-          <View style={[styles.inputWrap, rtlRow(isRTL)]}>
-            <TextInput
-              value={inputText} onChangeText={(text) => { setInputText(text); notifyDoctorTyping(); }}
-              placeholder={isRecording ? '' : t.docWriteMessage}
-              placeholderTextColor={Colors.textMuted}
-              style={[styles.textInput, rtlAlign(isRTL)]}
-              multiline maxLength={500} returnKeyType="default"
-              editable={!isRecording}
-            />
+        {!(isRecording || recStopped) && (
+          <View style={[styles.inputBar, rtlRow(isRTL), { paddingBottom: 10 + insets.bottom }]}>
+            <TouchableOpacity onPress={toggleQuick} style={[styles.iconBtn, showQuick && styles.iconBtnActive]} activeOpacity={0.8}>
+              <Ionicons name={showQuick ? 'close' : 'flash'} size={20} color={showQuick ? '#fff' : DOC_COLOR} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowAttach(true)} style={styles.iconBtn} activeOpacity={0.8}>
+              <Ionicons name="attach" size={22} color={DOC_COLOR} />
+            </TouchableOpacity>
+            <View style={[styles.inputWrap, rtlRow(isRTL)]}>
+              <TextInput
+                value={inputText} onChangeText={(text) => { setInputText(text); notifyDoctorTyping(); }}
+                placeholder={t.docWriteMessage}
+                placeholderTextColor={Colors.textMuted}
+                style={[styles.textInput, rtlAlign(isRTL)]}
+                multiline maxLength={500} returnKeyType="default"
+              />
+            </View>
+            {inputText.trim() ? (
+              <TouchableOpacity
+                onPress={() => sendMessage(inputText)}
+                style={styles.sendBtn}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="send" size={18} color="#fff" style={{ marginLeft: isRTL ? 0 : 2 }} />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={startRecording}
+                style={styles.sendBtn}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="mic" size={18} color="#fff" />
+              </TouchableOpacity>
+            )}
           </View>
-          {inputText.trim() ? (
-            <TouchableOpacity
-              onPress={() => sendMessage(inputText)}
-              style={styles.sendBtn}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="send" size={18} color="#fff" style={{ marginLeft: isRTL ? 0 : 2 }} />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              onLongPress={startRecording}
-              onPressOut={isRecording ? stopAndSendAudio : undefined}
-              delayLongPress={300}
-              style={[styles.sendBtn, isRecording && { backgroundColor: '#E05C5C' }]}
-              activeOpacity={0.8}
-            >
-              <Ionicons name={isRecording ? 'stop' : 'mic'} size={18} color="#fff" />
-            </TouchableOpacity>
-          )}
-        </View>
+        )}
       </KeyboardAvoidingView>
 
       <ExerciseManagementModal
@@ -1749,7 +1820,7 @@ const styles = StyleSheet.create({
   offlineText:        { color: '#B0BEC5' },
   exerciseBtn:        { width: 40, height: 40, borderRadius: 20, backgroundColor: DOC_COLOR_LIGHT, alignItems: 'center', justifyContent: 'center', marginLeft: 10 },
   exerciseBtnActive:  { backgroundColor: '#E8F8F2', borderWidth: 1.5, borderColor: '#4CAF82' },
-  listContent:        { paddingHorizontal: Spacing.base, paddingBottom: 12 },
+  listContent:        { flexGrow: 1, justifyContent: 'flex-end', paddingHorizontal: Spacing.base, paddingBottom: 12 },
   quickWrap:          { height: 56, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#F0EBFA' },
   quickContent:       { paddingHorizontal: Spacing.base, alignItems: 'center', flexDirection: 'row' },
   quickChip:          { backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1.5, borderColor: DOC_COLOR + '40', shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2, marginRight: 8 },
@@ -1759,10 +1830,12 @@ const styles = StyleSheet.create({
   typingText:         { fontSize: 11, fontWeight: '600', fontStyle: 'italic', color: DOC_COLOR },
   uploadingBar:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.base, paddingTop: 6, backgroundColor: '#fff' },
   uploadingText:      { fontSize: 11, fontWeight: '600', color: DOC_COLOR },
-  recordingBar:       { alignItems: 'center', gap: 8, paddingHorizontal: Spacing.base, paddingTop: 6, backgroundColor: '#fff' },
-  recDot:             { width: 8, height: 8, borderRadius: 4, backgroundColor: '#E05C5C' },
-  recText:            { fontSize: 13, fontWeight: '700', color: '#E05C5C', flex: 1 },
-  recCancelBtn:       { padding: 4 },
+  recordingBar:       { alignItems: 'center', gap: 10, paddingHorizontal: Spacing.base, paddingTop: 10, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#F0EBFA' },
+  recText:            { fontSize: 13, fontWeight: '700', color: Colors.textMuted },
+  recCancelBtn:       { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FDEAEA' },
+  recSendBtn:         { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: DOC_COLOR },
+  waveform:           { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, height: 36 },
+  waveBar:            { width: 4, height: 24, borderRadius: 2, backgroundColor: '#E05C5C' },
   inputBar:           { alignItems: 'flex-end', paddingHorizontal: Spacing.base, paddingTop: 10, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#F0EBFA', shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 4 },
   inputWrap:          { flex: 1, backgroundColor: Colors.background, borderRadius: 22, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1.5, borderColor: '#E8DFFA', minHeight: 44, maxHeight: 120, marginHorizontal: 8 },
   textInput:          { flex: 1, fontSize: FontSize.base, color: Colors.textPrimary, padding: 0, lineHeight: 20 },

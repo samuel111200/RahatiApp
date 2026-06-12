@@ -7,7 +7,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLang } from '../../context/Languagecontext';
 import { Colors, Spacing, Radius } from '../../constants/Theme';
-import PatientTabBar from '../../components/PatientTabBar';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -355,7 +354,6 @@ export default function InfoScreen() {
 
         <View style={{ height: 120 }} />
       </ScrollView>
-      <PatientTabBar />
     </SafeAreaView>
   );
 }

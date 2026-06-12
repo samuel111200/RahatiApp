@@ -6,7 +6,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLang } from '../../context/Languagecontext';
-import DocTabBar from '../../components/DocTabBar';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 
 const DOC_COLOR = '#4A90D9';
@@ -21,56 +20,56 @@ const HY_QUESTIONS: HYQuestion[] = [
     questionAr: 'هل الأعراض موجودة في جهة واحدة فقط من الجسم؟',
     questionEn: 'Are symptoms present on only one side of the body?',
     options: [
-      { labelAr: 'نعم ← 1 نقطة',  labelEn: 'Yes ← 1 point',  value: 1 },
-      { labelAr: 'لا ← 0 نقطة',   labelEn: 'No ← 0 points',  value: 0 },
+      { labelAr: 'نعم', labelEn: 'Yes', value: 1 },
+      { labelAr: 'لا',  labelEn: 'No',  value: 0 },
     ],
   },
   {
     questionAr: 'هل الأعراض موجودة في جهة واحدة مع تأثر الرقبة أو الجذع؟',
     questionEn: 'Are symptoms present on one side of the body with involvement of the neck or trunk (axial symptoms)?',
     options: [
-      { labelAr: 'نعم ← 1.5 نقطة', labelEn: 'Yes ← 1.5 points', value: 1.5 },
-      { labelAr: 'لا ← 0 نقطة',    labelEn: 'No ← 0 points',    value: 0 },
+      { labelAr: 'نعم', labelEn: 'Yes', value: 1.5 },
+      { labelAr: 'لا',  labelEn: 'No',  value: 0 },
     ],
   },
   {
     questionAr: 'هل الأعراض موجودة في الجانبين بدون مشاكل في الاتزان؟',
     questionEn: 'Are symptoms present on both sides of the body without balance impairment?',
     options: [
-      { labelAr: 'نعم ← 2 نقطة', labelEn: 'Yes ← 2 points', value: 2 },
-      { labelAr: 'لا ← 0 نقطة',  labelEn: 'No ← 0 points',  value: 0 },
+      { labelAr: 'نعم', labelEn: 'Yes', value: 2 },
+      { labelAr: 'لا',  labelEn: 'No',  value: 0 },
     ],
   },
   {
     questionAr: 'هل الأعراض موجودة في الجانبين مع عدم اتزان بسيط ويتعافى المريض في Pull Test؟',
     questionEn: 'Are symptoms present on both sides of the body with mild balance impairment, but the patient recovers on the Pull Test?',
     options: [
-      { labelAr: 'نعم ← 2.5 نقطة', labelEn: 'Yes ← 2.5 points', value: 2.5 },
-      { labelAr: 'لا ← 0 نقطة',    labelEn: 'No ← 0 points',    value: 0 },
+      { labelAr: 'نعم', labelEn: 'Yes', value: 2.5 },
+      { labelAr: 'لا',  labelEn: 'No',  value: 0 },
     ],
   },
   {
     questionAr: 'هل يوجد عدم اتزان بسيط إلى متوسط لكن المريض ما زال مستقلاً؟',
     questionEn: 'Does the patient have mild to moderate postural instability while remaining physically independent?',
     options: [
-      { labelAr: 'نعم ← 3 نقاط', labelEn: 'Yes ← 3 points', value: 3 },
-      { labelAr: 'لا ← 0 نقطة',  labelEn: 'No ← 0 points',  value: 0 },
+      { labelAr: 'نعم', labelEn: 'Yes', value: 3 },
+      { labelAr: 'لا',  labelEn: 'No',  value: 0 },
     ],
   },
   {
     questionAr: 'هل يعاني المريض من إعاقة شديدة لكنه يستطيع المشي أو الوقوف دون مساعدة؟',
     questionEn: 'Does the patient have severe disability but is still able to walk or stand without assistance?',
     options: [
-      { labelAr: 'نعم ← 4 نقاط', labelEn: 'Yes ← 4 points', value: 4 },
-      { labelAr: 'لا ← 0 نقطة',  labelEn: 'No ← 0 points',  value: 0 },
+      { labelAr: 'نعم', labelEn: 'Yes', value: 4 },
+      { labelAr: 'لا',  labelEn: 'No',  value: 0 },
     ],
   },
   {
     questionAr: 'مستخدم دائم للكرسي المتحرك أو ملازم للفراش ما لم يتلق مساعدة؟',
     questionEn: 'Is the patient wheelchair-bound or bedridden unless assisted?',
     options: [
-      { labelAr: 'نعم ← 5 نقاط', labelEn: 'Yes ← 5 points', value: 5 },
-      { labelAr: 'لا ← 0 نقطة',  labelEn: 'No ← 0 points',  value: 0 },
+      { labelAr: 'نعم', labelEn: 'Yes', value: 5 },
+      { labelAr: 'لا',  labelEn: 'No',  value: 0 },
     ],
   },
 ];
@@ -94,88 +93,88 @@ const SE_QUESTIONS: SEQuestion[] = [
     questionAr: 'هل يستطيع المريض أداء جميع الأنشطة اليومية بشكل طبيعي تماماً دون أي صعوبة؟',
     questionEn: 'Can the patient perform all daily activities normally without any difficulty?',
     options: [
-      { labelAr: 'نعم ← 100%', labelEn: 'Yes ← 100%', value: 100 },
-      { labelAr: 'لا ← 0%',    labelEn: 'No ← 0%',    value: 0 },
+      { labelAr: 'نعم', labelEn: 'Yes', value: 100 },
+      { labelAr: 'لا',  labelEn: 'No',  value: 0 },
     ],
   },
   {
     questionAr: 'هل يستطيع أداء جميع الأنشطة اليومية مع بعض البطء أو الصعوبة؟',
     questionEn: 'Can the patient perform all daily activities independently, with only slight slowness or difficulty?',
     options: [
-      { labelAr: 'نعم ← 90%', labelEn: 'Yes ← 90%', value: 90 },
-      { labelAr: 'لا ← 0%',   labelEn: 'No ← 0%',   value: 0 },
+      { labelAr: 'نعم', labelEn: 'Yes', value: 90 },
+      { labelAr: 'لا',  labelEn: 'No',  value: 0 },
     ],
   },
   {
     questionAr: 'هل يستطيع أداء جميع الأنشطة اليومية لكنه يحتاج وقتاً أطول من المعتاد؟',
     questionEn: 'Can the patient perform all daily activities independently but requires more time than usual?',
     options: [
-      { labelAr: 'نعم ← 80%', labelEn: 'Yes ← 80%', value: 80 },
-      { labelAr: 'لا ← 0%',   labelEn: 'No ← 0%',   value: 0 },
+      { labelAr: 'نعم', labelEn: 'Yes', value: 80 },
+      { labelAr: 'لا',  labelEn: 'No',  value: 0 },
     ],
   },
   {
     questionAr: 'هل يستطيع أداء معظم الأنشطة اليومية لكن يحتاج وقتاً أطول بكثير لبعضها؟',
     questionEn: 'Can the patient perform most daily activities independently but requires significantly more time for some tasks?',
     options: [
-      { labelAr: 'نعم ← 70%', labelEn: 'Yes ← 70%', value: 70 },
-      { labelAr: 'لا ← 0%',   labelEn: 'No ← 0%',   value: 0 },
+      { labelAr: 'نعم', labelEn: 'Yes', value: 70 },
+      { labelAr: 'لا',  labelEn: 'No',  value: 0 },
     ],
   },
   {
     questionAr: 'هل يستطيع أداء معظم الأنشطة اليومية ولكن ببطء شديد ومع مجهود وأخطاء؟',
     questionEn: 'Can the patient perform most daily activities, but very slowly and with considerable effort and occasional errors?',
     options: [
-      { labelAr: 'نعم ← 60%', labelEn: 'Yes ← 60%', value: 60 },
-      { labelAr: 'لا ← 0%',   labelEn: 'No ← 0%',   value: 0 },
+      { labelAr: 'نعم', labelEn: 'Yes', value: 60 },
+      { labelAr: 'لا',  labelEn: 'No',  value: 0 },
     ],
   },
   {
     questionAr: 'هل يحتاج إلى مساعدة في حوالي نصف الأنشطة اليومية؟',
     questionEn: 'Does the patient require assistance with approximately half of daily activities?',
     options: [
-      { labelAr: 'نعم ← 50%', labelEn: 'Yes ← 50%', value: 50 },
-      { labelAr: 'لا ← 0%',   labelEn: 'No ← 0%',   value: 0 },
+      { labelAr: 'نعم', labelEn: 'Yes', value: 50 },
+      { labelAr: 'لا',  labelEn: 'No',  value: 0 },
     ],
   },
   {
     questionAr: 'هل يعتمد على الآخرين بدرجة كبيرة لكنه يشارك في بعض الأنشطة؟',
     questionEn: 'Is the patient largely dependent on others but still participates in some daily activities?',
     options: [
-      { labelAr: 'نعم ← 40%', labelEn: 'Yes ← 40%', value: 40 },
-      { labelAr: 'لا ← 0%',   labelEn: 'No ← 0%',   value: 0 },
+      { labelAr: 'نعم', labelEn: 'Yes', value: 40 },
+      { labelAr: 'لا',  labelEn: 'No',  value: 0 },
     ],
   },
   {
     questionAr: 'هل يستطيع بدء بعض الأنشطة بنفسه لكنه يحتاج مساعدة كبيرة لإكمالها؟',
     questionEn: 'Can the patient initiate some activities independently but requires substantial assistance to complete them?',
     options: [
-      { labelAr: 'نعم ← 30%', labelEn: 'Yes ← 30%', value: 30 },
-      { labelAr: 'لا ← 0%',   labelEn: 'No ← 0%',   value: 0 },
+      { labelAr: 'نعم', labelEn: 'Yes', value: 30 },
+      { labelAr: 'لا',  labelEn: 'No',  value: 0 },
     ],
   },
   {
     questionAr: 'هل يستطيع المساعدة بشكل محدود جداً فقط؟',
     questionEn: 'Is the patient able to provide only very limited assistance in daily activities?',
     options: [
-      { labelAr: 'نعم ← 20%', labelEn: 'Yes ← 20%', value: 20 },
-      { labelAr: 'لا ← 0%',   labelEn: 'No ← 0%',   value: 0 },
+      { labelAr: 'نعم', labelEn: 'Yes', value: 20 },
+      { labelAr: 'لا',  labelEn: 'No',  value: 0 },
     ],
   },
   {
     questionAr: 'هل يعتمد بشكل شبه كامل على الآخرين؟',
     questionEn: 'Is the patient almost completely dependent on others for daily care?',
     options: [
-      { labelAr: 'نعم ← 10%', labelEn: 'Yes ← 10%', value: 10 },
-      { labelAr: 'لا ← 0%',   labelEn: 'No ← 0%',   value: 0 },
+      { labelAr: 'نعم', labelEn: 'Yes', value: 10 },
+      { labelAr: 'لا',  labelEn: 'No',  value: 0 },
     ],
   },
   {
     questionAr: 'هل المريض طريح الفراش ويعتمد كلياً على الآخرين؟',
     questionEn: 'Is the patient bedridden and completely dependent on others for care?',
     options: [
-      { labelAr: 'نعم ← 0%', labelEn: 'Yes ← 0%', value: 0 },
-      { labelAr: 'لا ← 0%',  labelEn: 'No ← 0%',  value: 0 },
+      { labelAr: 'نعم', labelEn: 'Yes', value: 0 },
+      { labelAr: 'لا',  labelEn: 'No',  value: 0 },
     ],
   },
 ];
@@ -291,7 +290,6 @@ export default function DocAssessmentScreen() {
             </View>
           </TouchableOpacity>
         </ScrollView>
-        <DocTabBar />
       </SafeAreaView>
     );
   }
@@ -331,7 +329,6 @@ export default function DocAssessmentScreen() {
             <Text style={[styles.actionBtnText, { color: Colors.textMuted }]}>{t.docAssessmentNewAssessment}</Text>
           </TouchableOpacity>
         </ScrollView>
-        <DocTabBar />
       </SafeAreaView>
     );
   }
@@ -406,7 +403,6 @@ export default function DocAssessmentScreen() {
         )}
       </View>
 
-      <DocTabBar />
     </SafeAreaView>
   );
 }

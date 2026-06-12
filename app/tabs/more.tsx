@@ -4,7 +4,7 @@ import {
   Modal, TextInput, Alert, Image,
   Animated, Platform, StatusBar, KeyboardAvoidingView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
@@ -15,7 +15,6 @@ import { useLang } from '../../context/Languagecontext';
 import { PrimaryButton, OutlineButton } from '../../components/UI';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 import { notify } from './notificationService';
-import PatientTabBar from '../../components/PatientTabBar';
 import { db } from '../../utils/firebaseConfig';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { uploadImageToCloudinary } from '../../utils/uploadImage';
@@ -345,6 +344,7 @@ type ModalKey = 'logout' | 'editProfile' | 'language' | 'help' | 'energy' | null
 export default function MoreScreen() {
   const { user, logout, updateProfile } = useAuth();
   const { t, isRTL, setLang }           = useLang();
+  const insets                           = useSafeAreaInsets();
   const [activeModal,     setActiveModal]     = useState<ModalKey>(null);
   const [avatarUri,       setAvatarUri]       = useState<string | null>(null);
   const [showAvatarSheet, setShowAvatarSheet] = useState(false);
@@ -467,7 +467,10 @@ export default function MoreScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar backgroundColor={Colors.background} barStyle="dark-content" />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: 84 + Math.max(insets.bottom, 12) + 20 }]}
+        showsVerticalScrollIndicator={false}
+      >
 
         <View style={[styles.topBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <TouchableOpacity style={styles.editBtn} onPress={() => open('editProfile')}>
@@ -555,7 +558,6 @@ export default function MoreScreen() {
         </TouchableOpacity>
 
         <Text style={styles.versionText}>{t.version}</Text>
-        <View style={{ height: 100 }} />
       </ScrollView>
 
       {/* ✅ isRTL prop added here */}
@@ -588,7 +590,6 @@ export default function MoreScreen() {
           </View>
         </View>
       </Modal>
-      <PatientTabBar />
     </SafeAreaView>
   );
 }

@@ -13,7 +13,6 @@ import { Chip } from '../../components/UI';
 import { useLang } from '../../context/Languagecontext';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 import { notify } from './notificationService';
-import PatientTabBar from '../../components/PatientTabBar';
 
 type TaskType = 'core' | 'extra';
 type Task = {
@@ -518,7 +517,6 @@ export default function TasksScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-      <PatientTabBar />
     </SafeAreaView>
   );
 }

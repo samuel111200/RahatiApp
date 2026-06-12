@@ -35,6 +35,10 @@ export type FSUser = {
   isOnline?: boolean;
   lastSeen?: number;
   createdAt: number;
+  fcmToken?: string;
+  expoPushToken?: string;
+  devicePlatform?: 'android' | 'ios' | 'web';
+  lang?: 'ar' | 'en';
 };
 
 export type FSRelationship = {

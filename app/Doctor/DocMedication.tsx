@@ -6,7 +6,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLang } from '../../context/Languagecontext';
-import DocTabBar from '../../components/DocTabBar';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -142,7 +141,6 @@ export default function DocMedicationScreen() {
         <View style={{ height: 16 }} />
       </ScrollView>
 
-      <DocTabBar />
     </SafeAreaView>
   );
 }

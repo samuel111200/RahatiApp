@@ -6,20 +6,21 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StyleSheet, I18nManager } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
+import { activeChatRef } from '../utils/activeChatRef';
 
 // Disable OS-level RTL so the app controls direction entirely via isRTL state.
 // Without this, Arabic system-locale devices double-reverse every flex layout.
 I18nManager.allowRTL(false);
 
-// Show notifications as banners even when the app is in foreground
+// Suppress foreground notifications when the user is already inside that chat
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert:  true,
-    shouldPlaySound:  true,
-    shouldSetBadge:   true,
-    shouldShowBanner: true,
-    shouldShowList:   true,
-  }),
+  handleNotification: async (notification) => {
+    const data = notification.request.content.data as any;
+    if (data?.chatId && activeChatRef.chatId && data.chatId === activeChatRef.chatId) {
+      return { shouldShowAlert: false, shouldPlaySound: false, shouldSetBadge: false, shouldShowBanner: false, shouldShowList: false };
+    }
+    return { shouldShowAlert: true, shouldPlaySound: true, shouldSetBadge: true, shouldShowBanner: true, shouldShowList: true };
+  },
 });
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { LanguageProvider } from '../context/Languagecontext';

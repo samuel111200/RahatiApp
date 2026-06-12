@@ -1,7 +1,6 @@
 // app/tabs/notificationService.tsx
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
-import { activeChatRef } from "../../utils/activeChatRef";
 
 // ─── Active-user scoping ──────────────────────────────────
 let _uid = '';
@@ -369,15 +368,8 @@ export async function setupNotifications() {
   const mod = await N();
   if (!mod) return;
 
-  mod.setNotificationHandler({
-    handleNotification: async (notification) => {
-      const notifChatId = notification.request.content.data?.chatId as string | undefined;
-      if (notifChatId && activeChatRef.chatId && notifChatId === activeChatRef.chatId) {
-        return { shouldShowBanner: false, shouldShowList: false, shouldPlaySound: false, shouldSetBadge: false };
-      }
-      return { shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: true };
-    },
-  });
+  // Note: notification handler is set in app/_layout.tsx at module level.
+  // Do not override it here.
 
   if (Platform.OS === "web") return;
 
@@ -390,6 +382,7 @@ export async function setupNotifications() {
         { id: "energy",     name: "تنبيهات الطاقة",     importance: mod.AndroidImportance.DEFAULT, lightColor: "#F5A623", vibrationPattern: [0, 200] as number[] },
         { id: "missed",     name: "مهام وتمارين فاتتك", importance: mod.AndroidImportance.HIGH,    lightColor: "#E05C5C", vibrationPattern: [0, 400, 200, 400] as number[] },
         { id: "summary",    name: "ملخص اليوم",          importance: mod.AndroidImportance.HIGH,    lightColor: "#7C5CBF", vibrationPattern: [0, 300, 150, 300, 150, 300] as number[] },
+        { id: "chat",       name: "رسائل الدردشة",       importance: mod.AndroidImportance.HIGH,    lightColor: "#7C5CBF", vibrationPattern: [0, 250, 150, 250] as number[] },
       ];
       for (const ch of channels) {
         await mod.setNotificationChannelAsync(ch.id, {

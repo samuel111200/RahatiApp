@@ -6,7 +6,7 @@ import {
   signOut,
   onAuthStateChanged,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, getDocFromServer, updateDoc } from 'firebase/firestore';
 import { auth, db, FSUser } from '../utils/firebaseConfig';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { registerPushToken, startTokenRefreshListener } from '../utils/pushNotifications';
@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ): Promise<{ ok: boolean; error?: string; role?: 'doctor' | 'patient' }> => {
     try {
       const cred = await signInWithEmailAndPassword(auth, email, password);
-      const snap = await getDoc(doc(db, 'users', cred.user.uid));
+      const snap = await getDocFromServer(doc(db, 'users', cred.user.uid));
       if (snap.exists()) {
         const data = snap.data() as FSUser;
         setUser({
@@ -117,14 +117,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         registerPushToken(cred.user.uid).catch(() => {});
         return { ok: true, role: data.role };
       }
-      return { ok: true, role: 'patient' };
+      await signOut(auth);
+      return { ok: false, error: 'userDataNotFound' };
     } catch (e: any) {
       const code = e?.code ?? '';
-      const msg =
+      const errorKey =
         code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential'
-          ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة'
-          : 'حدث خطأ، حاول مرة أخرى';
-      return { ok: false, error: msg };
+          ? 'invalidCredential'
+          : 'authError';
+      return { ok: false, error: errorKey };
     }
   };
 
