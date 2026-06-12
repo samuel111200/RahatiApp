@@ -1,0 +1,17 @@
+# Backend — server-only code, not part of the mobile build
+backend/
+
+# Videos are hosted on Cloudinary — local copies are unused
+assets/videos/
+
+# AI tool caches (large, not needed for build)
+.claude/
+.serena/
+
+# IDE files
+.idea/
+
+# Dev/test artifacts
+testsprite_tests/
+bundle_debug.js
+hs_err_pid*.log

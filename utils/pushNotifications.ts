@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, auth } from './firebaseConfig';
 
@@ -19,7 +20,9 @@ export async function registerPushToken(uid: string): Promise<void> {
     }
     if (finalStatus !== 'granted') return;
 
-    const updates: Record<string, string> = { devicePlatform: Platform.OS };
+    const savedLang = await AsyncStorage.getItem('app_language').catch(() => null);
+    const lang = savedLang === 'en' ? 'en' : 'ar';
+    const updates: Record<string, string> = { devicePlatform: Platform.OS, lang };
 
     // Native FCM token (Android) — backend uses this path with Admin SDK to include imageUrl
     try {

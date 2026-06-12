@@ -14,15 +14,24 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.rahtyi.app"
+      "bundleIdentifier": "com.rahtyi.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "يحتاج التطبيق إلى الميكروفون لإرسال الرسائل الصوتية",
+        "NSCameraUsageDescription": "يحتاج التطبيق إلى الكاميرا لإرسال الصور",
+        "UIBackgroundModes": ["remote-notification", "audio"]
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/logo.png"
       },
       "package": "com.rahtyi.app",
+      "googleServicesFile": "./google-services.json",
       "softwareKeyboardLayoutMode": "resize",
       "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.VIBRATE",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
@@ -39,6 +48,20 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-av",
+        {
+          "microphonePermission": "يحتاج التطبيق إلى الميكروفون لإرسال الرسائل الصوتية"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/character.png",
+          "color": "#7C5CBF",
+          "defaultChannel": "default"
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -62,9 +85,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "d715c38c-90d8-4575-9f26-7187594dcc4d"
+        "projectId": "9173fa5b-8197-45a4-ac98-581081c3b0db"
       }
     },
-    "owner": "samuel-milad"
+    "owner": "abdelrhmanahmed2004"
   }
 }

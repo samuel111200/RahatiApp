@@ -5,15 +5,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ─── إعداد الإشعارات ───────────────────────────────────
 export async function setupDocNotifications() {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: true,
-      shouldShowBanner: true,
-      shouldShowList: true,
-    }),
-  });
+  // Note: setNotificationHandler is intentionally NOT called here.
+  // The root _layout.tsx sets it once with chat-suppression logic; calling it
+  // again here would overwrite that handler and break foreground suppression.
 
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('doc_channel', {
