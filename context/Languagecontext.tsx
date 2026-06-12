@@ -179,6 +179,11 @@ const AR = {
 
   // ── Home / Plan Screen ────────────────────────────────────────────────────
   myPlan: 'خطتي اليوم',
+  deleteModeActive: 'وضع الحذف — احذف مهمة لتتناسب مع طاقتك',
+  energySufficientNew: 'طاقتك تكفي لإتمام هذه المهام ✓',
+  energyInsufficientNew: 'طاقتك لا تكفي لاستكمال هذه المهام',
+  energyDeleteHint: 'احذف إحدى هذه المهام لتتناسب مع طاقتك:',
+  energyDeleteAction: 'حذف مهمة',
   notifications: 'الإشعارات',
   energyZero: 'أضف مهام لترى مستوى طاقتك',
   energySufficient: 'طاقتك كافية لمهام اليوم',
@@ -937,6 +942,11 @@ const EN: typeof AR = {
 
   // ── Home / Plan Screen ────────────────────────────────────────────────────
   myPlan: 'My Plan Today',
+  deleteModeActive: 'Delete mode — remove a task to match your energy',
+  energySufficientNew: 'Your energy is sufficient for these tasks ✓',
+  energyInsufficientNew: 'Your energy is not enough for these tasks',
+  energyDeleteHint: 'Delete one of these tasks to match your energy:',
+  energyDeleteAction: 'Delete task',
   notifications: 'Notifications',
   energyZero: 'Add tasks to see your energy level',
   energySufficient: "Your energy is sufficient for today's tasks",

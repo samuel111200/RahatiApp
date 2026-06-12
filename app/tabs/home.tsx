@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Modal, Platform, StatusBar, Animated,
+  Modal, Platform, StatusBar, Animated, Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,7 +37,7 @@ interface PlanTask {
 
 type CompletionStatus = 'done' | 'pending' | 'locked';
 
-// ─── Exercise Storage Keys (نفس الـ keys في exercises.tsx) ──
+// ─── Exercise Storage Keys ──
 const THERAPY_KEY      = 'therapy_exercises';
 const YOGA_KEY         = 'yoga_exercises';
 const AEROBIC_KEY      = 'aerobic_exercises';
@@ -164,7 +164,6 @@ function mapExerciseToTask(exercise: any, index: number, afterTaskDate: string):
   };
 }
 
-
 function buildPlanList(
   coreTasks: PlanTask[],
   extraTasks: PlanTask[],
@@ -176,7 +175,6 @@ function buildPlanList(
   ];
   if (allTasks.length === 0) return [];
 
-  // لو مفيش exercises خالص، متضيفش تمارين بين المهام
   if (exercises.length === 0) return allTasks;
   const exercisePool = exercises;
 
@@ -189,6 +187,36 @@ function buildPlanList(
     }
   });
   return result;
+}
+
+// ─── Energy Check Logic ─────────────────────────────────────────────────────
+// يحسب متوسط الجهد المطلوب للمهام الحقيقية (بدون تمارين)
+// ويحوّله لنسبة مئوية ويقارنها بمستوى الطاقة
+function calcEnergyState(realTasks: PlanTask[], energy: number): {
+  state: 'zero' | 'ok' | 'low';
+  avgEffortPct: number;
+  tasksAboveEnergy: PlanTask[];
+} {
+  if (realTasks.length === 0) {
+    return { state: 'zero', avgEffortPct: 0, tasksAboveEnergy: [] };
+  }
+
+  // متوسط الـ effortScore (1-3) → نسبة من 100
+  // effortScore 1 → 33%, 2 → 66%, 3 → 100%
+  const avgEffort = realTasks.reduce((s, t) => s + t.effortScore, 0) / realTasks.length;
+  const avgEffortPct = Math.round((avgEffort / 3) * 100);
+
+  // المهام اللي الطاقة الحالية مش كافية ليها
+  const tasksAboveEnergy = realTasks.filter(t => !canDoTask(energy, t.effortScore));
+
+  let state: 'zero' | 'ok' | 'low';
+  if (avgEffortPct <= energy) {
+    state = 'ok';
+  } else {
+    state = 'low';
+  }
+
+  return { state, avgEffortPct, tasksAboveEnergy };
 }
 
 function getDoneStorageKey(date: Date, uid?: string | null) {
@@ -374,13 +402,16 @@ function CalendarPicker({ visible, selected, onSelect, onClose, minDateKey, t, i
   );
 }
 
-function TaskCard({ task, energy, isLast, status, selectedDate, t }: {
+// ─── TaskCard with optional delete button ─────────────────────────────────
+function TaskCard({ task, energy, isLast, status, selectedDate, t, showDeleteMode, onDelete }: {
   task: PlanTask;
   energy: number;
   isLast: boolean;
   status: CompletionStatus;
   selectedDate: Date;
   t: any;
+  showDeleteMode?: boolean;
+  onDelete?: (taskId: string) => void;
 }) {
   const canDo      = canDoTask(energy, task.effortScore);
   const isExercise = !!task.isExercise;
@@ -402,6 +433,7 @@ function TaskCard({ task, energy, isLast, status, selectedDate, t }: {
         { backgroundColor: task.bg },
         isDone && card.boxDone,
         isExercise && card.exerciseBox,
+        showDeleteMode && !isExercise && card.deleteModeBorder,
       ]}>
         {isExercise && (
           <View style={card.exerciseBadgeRow}>
@@ -455,10 +487,21 @@ function TaskCard({ task, energy, isLast, status, selectedDate, t }: {
             )}
           </View>
 
-          <DoneBadge status={status} />
+          {/* زر الحذف يظهر فقط في وضع الحذف وللمهام غير التمارين */}
+          {showDeleteMode && !isExercise ? (
+            <TouchableOpacity
+              style={card.deleteBtn}
+              onPress={() => onDelete && onDelete(task.id)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="trash-outline" size={20} color="#E05C5C" />
+            </TouchableOpacity>
+          ) : (
+            <DoneBadge status={status} />
+          )}
         </View>
 
-        {!isExercise && !canDo && !isDone && (
+        {!isExercise && !canDo && !isDone && !showDeleteMode && (
           <Text style={card.warning}>{t.energyWarning}</Text>
         )}
       </View>
@@ -487,6 +530,120 @@ function ProgressBar({ total, done, t }: { total: number; done: number; t: any }
   );
 }
 
+// ─── Energy Status Banner ────────────────────────────────────────────────────
+function EnergyStatusBanner({
+  realTasks,
+  energy,
+  t,
+  isRTL,
+  onEnterDeleteMode,
+}: {
+  realTasks: PlanTask[];
+  energy: number;
+  t: any;
+  isRTL: boolean;
+  onEnterDeleteMode: () => void;
+}) {
+  if (realTasks.length === 0) {
+    return (
+      <View style={[enBanner.wrap, { backgroundColor: '#F5F5F5' }]}>
+        <Text style={{ fontSize: 16 }}>🌿</Text>
+        <Text style={[enBanner.text, { color: '#888' }]}>{t.energyZero}</Text>
+      </View>
+    );
+  }
+
+  const { state, avgEffortPct, tasksAboveEnergy } = calcEnergyState(realTasks, energy);
+
+  if (state === 'ok') {
+    return (
+      <View style={[enBanner.wrap, { backgroundColor: '#E8F5EF' }]}>
+        <Text style={{ fontSize: 16 }}>⚡</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[enBanner.text, { color: '#4CAF82' }]}>
+            {t.energySufficientNew
+              ? t.energySufficientNew
+              : `طاقتك تكفي لإتمام هذه المهام ✓`}
+          </Text>
+          <Text style={enBanner.subText}>
+            {`متوسط الجهد المطلوب: ${avgEffortPct}% | طاقتك: ${energy}%`}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  // state === 'low'
+  return (
+    <View style={[enBanner.wrap, { backgroundColor: '#FDEAEA', borderColor: '#E05C5C', borderWidth: 1.5 }]}>
+      <Text style={{ fontSize: 16 }}>⚠️</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={[enBanner.text, { color: '#E05C5C', fontWeight: '800' }]}>
+          {t.energyInsufficientNew
+            ? t.energyInsufficientNew
+            : `طاقتك لا تكفي لاستكمال هذه المهام`}
+        </Text>
+        <Text style={[enBanner.subText, { color: '#C04040' }]}>
+          {`متوسط الجهد المطلوب: ${avgEffortPct}% | طاقتك: ${energy}%`}
+        </Text>
+        <Text style={[enBanner.subText, { color: '#C04040', marginTop: 2 }]}>
+          {t.energyDeleteHint
+            ? t.energyDeleteHint
+            : `احذف إحدى هذه المهام لتتناسب مع طاقتك:`}
+        </Text>
+
+        <TouchableOpacity style={enBanner.deleteBtn} onPress={onEnterDeleteMode} activeOpacity={0.8}>
+          <Ionicons name="trash-outline" size={15} color="#fff" />
+          <Text style={enBanner.deleteBtnText}>
+            {t.energyDeleteAction
+              ? t.energyDeleteAction
+              : `حذف مهمة`}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const enBanner = StyleSheet.create({
+  wrap: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 14,
+  },
+  text: {
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+  subText: {
+    fontSize: 11,
+    color: '#888',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  deleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#E05C5C',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    alignSelf: 'flex-start',
+    marginTop: 8,
+  },
+  deleteBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fff',
+  },
+});
+
 const prog = StyleSheet.create({
   wrap:      { backgroundColor: '#fff', borderRadius: 16, padding: 14, marginBottom: 14, shadowColor: '#7C5CBF', shadowOffset: { width:0,height:2 }, shadowOpacity:0.07, shadowRadius:6, elevation:2 },
   labelRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
@@ -509,6 +666,9 @@ export default function PlanScreen() {
   const [localExercises,  setLocalExercises]  = useState<any[]>([]);
   const [energy, setEnergy]             = useState(50);
   const [doneIds, setDoneIds]           = useState<Set<string>>(new Set());
+
+  // ─── وضع الحذف: لما الطاقة مش كافية ──────────────────────────────────────
+  const [deleteMode, setDeleteMode]     = useState(false);
 
   const watchersStarted = useRef(false);
 
@@ -576,10 +736,6 @@ export default function PlanScreen() {
     })();
   }, [selectedDate, user?.uid]);
 
-  // ✅ تم حذف useFocusEffect الخاص بـ checkNotifDone —
-  // الـ completionWatcher في notificationService هو المسؤول الوحيد
-  // عن إشعارات الإتمام، ومحتاجش نبعتها من هنا تاني
-
   const todayKey    = getTodayKey();
   const selectedKey = toKey(selectedDate);
   const yesterday   = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return toKey(d); })();
@@ -590,11 +746,38 @@ export default function PlanScreen() {
   const dayCoreTasks  = coreTasks.filter(t => !t.date || t.date === selectedKey);
   const dayExtraTasks = extraTasks.filter(t => t.date === selectedKey);
 
-  // لو في doctor exercises استخدمها، غير كده استخدم التمارين المحفوظة محلياً
   const exercisePool = doctorExercises.length > 0 ? doctorExercises : localExercises;
   const withExercises = buildPlanList(dayCoreTasks, dayExtraTasks, exercisePool);
 
+  // المهام الحقيقية (بدون تمارين)
+  const realTasks = withExercises.filter(t => !t.isExercise);
+
+  // ─── حساب حالة الطاقة بناءً على متوسط الجهد ────────────────────────────
+  const { state: energyState } = calcEnergyState(realTasks, energy);
+
+  // لما الطاقة تبقى كافية بعد حذف → اخرج من وضع الحذف تلقائياً
+  useEffect(() => {
+    if (deleteMode && energyState !== 'low') {
+      setDeleteMode(false);
+    }
+  }, [energyState, deleteMode]);
+
+  // ─── حذف مهمة (فقط locally من state) ──────────────────────────────────
+  const handleDeleteTask = (taskId: string) => {
+    // نحدد هي core ولا extra
+    const isCoreTask = coreTasks.some(t => t.id === taskId);
+    if (isCoreTask) {
+      setCoreTasks(prev => prev.filter(t => t.id !== taskId));
+    } else {
+      setExtraTasks(prev => prev.filter(t => t.id !== taskId));
+    }
+  };
+
+  const doneCount = realTasks.filter(t => doneIds.has(t.id)).length;
+
   const handleToggleDone = async (taskId: string) => {
+    // منع التفاعل لو في وضع الحذف أو ليس اليوم
+    if (deleteMode) return;
     if (isPastDay || isFutureDay) return;
     const task = withExercises.find(tk => tk.id === taskId);
     if (!task) return;
@@ -614,21 +797,10 @@ export default function PlanScreen() {
       } else {
         next.delete(taskId);
       }
-      // ✅ saveDoneIds هنا بس — الـ completionWatcher هيشوف التغيير ويبعت الإشعار
       saveDoneIds(selectedDate, next, user?.uid ?? null);
       return next;
     });
   };
-
-  const totalEffort  = withExercises.reduce((s, t) => s + t.effortScore, 0);
-  const maxEffort    = withExercises.length * 3;
-  const energyState: 'zero' | 'ok' | 'low' =
-    maxEffort === 0 ? 'zero'
-    : (totalEffort / maxEffort) * 100 <= energy ? 'ok'
-    : 'low';
-
-  const realTasks = withExercises.filter(t => !t.isExercise);
-  const doneCount = realTasks.filter(t => doneIds.has(t.id)).length;
 
   function getStatus(task: PlanTask): CompletionStatus {
     if (doneIds.has(task.id)) return 'done';
@@ -662,6 +834,21 @@ export default function PlanScreen() {
           <View style={s.calDot} />
         </View>
       </View>
+
+      {/* بانر وضع الحذف في الأعلى */}
+      {deleteMode && (
+        <View style={s.deleteModeBar}>
+          <Ionicons name="warning-outline" size={16} color="#E05C5C" />
+          <Text style={s.deleteModeBarText}>
+            {t.deleteModeActive
+              ? t.deleteModeActive
+              : `وضع الحذف — احذف مهمة لتتناسب مع طاقتك`}
+          </Text>
+          <TouchableOpacity onPress={() => setDeleteMode(false)} style={s.deleteModeClose}>
+            <Ionicons name="close" size={16} color="#E05C5C" />
+          </TouchableOpacity>
+        </View>
+      )}
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
 
@@ -715,24 +902,16 @@ export default function PlanScreen() {
           </View>
         )}
 
-        <View style={s.energySummary}>
-          <View style={[s.energyBar, {
-            backgroundColor: energyState === 'zero' ? '#F5F5F5' : energyState === 'ok' ? '#E8F5EF' : '#FDEAEA',
-          }]}>
-            <Text style={{ fontSize: 16 }}>
-              {energyState === 'zero' ? '🌿' : energyState === 'ok' ? '⚡' : '⚠️'}
-            </Text>
-            <Text style={[s.energyText, {
-              color: energyState === 'zero' ? '#888' : energyState === 'ok' ? '#4CAF82' : '#E05C5C',
-            }]}>
-              {energyState === 'zero'
-                ? t.energyZero
-                : energyState === 'ok'
-                ? `${t.energySufficient} (${energy}%)`
-                : `${t.energyInsufficient} (${energy}%)`}
-            </Text>
-          </View>
-        </View>
+        {/* ─── بانر الطاقة الجديد بالحساب الصحيح ─── */}
+        {hasTasks && (
+          <EnergyStatusBanner
+            realTasks={realTasks}
+            energy={energy}
+            t={t}
+            isRTL={isRTL}
+            onEnterDeleteMode={() => setDeleteMode(true)}
+          />
+        )}
 
         {hasTasks && (
           <View style={s.legend}>
@@ -777,15 +956,23 @@ export default function PlanScreen() {
         ) : (
           <View style={s.timeline}>
             {withExercises.map((task, index) => (
-              <TaskCard
+              <TouchableOpacity
                 key={task.id}
-                task={task}
-                energy={energy}
-                isLast={index === withExercises.length - 1}
-                status={getStatus(task)}
-                selectedDate={selectedDate}
-                t={t}
-              />
+                onPress={() => handleToggleDone(task.id)}
+                activeOpacity={deleteMode || task.isExercise ? 1 : 0.85}
+                disabled={deleteMode}
+              >
+                <TaskCard
+                  task={task}
+                  energy={energy}
+                  isLast={index === withExercises.length - 1}
+                  status={getStatus(task)}
+                  selectedDate={selectedDate}
+                  t={t}
+                  showDeleteMode={deleteMode}
+                  onDelete={handleDeleteTask}
+                />
+              </TouchableOpacity>
             ))}
           </View>
         )}
@@ -844,9 +1031,6 @@ const s = StyleSheet.create({
   summaryPill:  { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#F0EBFA', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6 },
   summaryEmoji: { fontSize: 13 },
   summaryText:  { fontSize: 12, fontWeight: '700', color: '#7C5CBF' },
-  energySummary:    { marginBottom: 14 },
-  energyBar:        { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
-  energyText:       { fontSize: 13, fontWeight: '600' },
   timeline:         {},
   emptyState:       { alignItems: 'center', paddingTop: 60, gap: 12 },
   emptyText:        { fontSize: 15, color: '#aaa' },
@@ -870,6 +1054,26 @@ const s = StyleSheet.create({
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendDot:  { width: 10, height: 10, borderRadius: 5 },
   legendText: { fontSize: 11, color: '#888' },
+  // ─── وضع الحذف ──────────────────────────────────────────────────────────
+  deleteModeBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFF0F0',
+    borderBottomWidth: 2,
+    borderBottomColor: '#E05C5C',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  deleteModeBarText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#E05C5C',
+  },
+  deleteModeClose: {
+    padding: 4,
+  },
 });
 
 const card = StyleSheet.create({
@@ -893,6 +1097,10 @@ const card = StyleSheet.create({
     borderWidth: 1.5, borderColor: '#b8e6c9',
     borderStyle: 'dashed', shadowOpacity: 0, elevation: 0,
   },
+  deleteModeBorder: {
+    borderWidth: 2, borderColor: '#E05C5C33',
+    borderStyle: 'dashed',
+  },
   exerciseBadgeRow: { marginBottom: 4 },
   exerciseBadge:    {
     flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
@@ -909,6 +1117,14 @@ const card = StyleSheet.create({
   doneLabel:   { fontSize: 11, color: '#4CAF82', fontWeight: '700', marginTop: 3 },
   lockedLabel: { fontSize: 11, color: '#bbb', marginTop: 3 },
   warning:     { fontSize: 11, color: '#E05C5C', marginTop: 6, textAlign: 'right' },
+  // ─── زر الحذف ─────────────────────────────────────────────────────────
+  deleteBtn:   {
+    width: 36, height: 36, borderRadius: 18,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#FDEAEA',
+    borderWidth: 1.5,
+    borderColor: '#E05C5C44',
+  },
 });
 
 const cal = StyleSheet.create({

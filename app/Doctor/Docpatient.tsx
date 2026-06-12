@@ -869,7 +869,6 @@ function ExerciseManagementModal({
 
         {/* ── Section Tabs ── */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={exStyles.tabsRow} style={exStyles.tabsScroll}>
-          {/* All tab — only in assigned mode */}
           {mode === 'assigned' && (() => {
             const isAct = activeSection === 'all';
             const total = doctorExercises.length + patientExercises.length;
@@ -917,8 +916,7 @@ function ExerciseManagementModal({
         </ScrollView>
 
         <ScrollView contentContainerStyle={exStyles.listContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-
-          {/* ── Library Mode ── */}
+          {/* Library Mode */}
           {mode === 'library' && (() => {
             const libList = SYSTEM_EXERCISES.filter(e => e.type === activeSection);
             const libCfg  = EX_SECTION_CONFIGS.find(s => s.key === activeSection)!;
@@ -965,8 +963,7 @@ function ExerciseManagementModal({
             });
           })()}
 
-          {/* ── Assigned Mode ── */}
-          {/* Patient base exercises */}
+          {/* Assigned Mode - Patient exercises */}
           {mode === 'assigned' && assignedPatient.length > 0 && (
             <View style={exStyles.sectionGroup}>
               <View style={exStyles.sectionGroupHeader}>
@@ -1340,6 +1337,8 @@ export default function Docpatient() {
   const [stoppedUri,       setStoppedUri]       = useState<string | null>(null);
   const [stoppedDuration,  setStoppedDuration]  = useState(0);
   const [isPatientTyping,  setIsPatientTyping]  = useState(false);
+  // ── keyboard height — same approach as doctorchat.tsx ──
+  const [keyboardHeight,   setKeyboardHeight]   = useState(0);
 
   const listRef            = useRef<any>(null);
   const quickAnim          = useRef(new Animated.Value(0)).current;
@@ -1399,6 +1398,24 @@ export default function Docpatient() {
     });
     return unsub;
   }, [chatId]);
+
+  // ── Keyboard listeners — same as doctorchat.tsx ──
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const onShow = (e: any) => {
+      setKeyboardHeight(e.endCoordinates.height);
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
+    };
+    const onHide = () => {
+      setKeyboardHeight(0);
+    };
+
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, []);
 
   const notifyDoctorTyping = () => {
     if (!chatId) return;
@@ -1594,19 +1611,8 @@ export default function Docpatient() {
 
   const rtlRow   = (r: boolean): { flexDirection: 'row' | 'row-reverse' } => ({ flexDirection: r ? 'row-reverse' : 'row' });
   const rtlAlign = (r: boolean): { textAlign: 'right' | 'left' } => ({ textAlign: r ? 'right' : 'left' });
-  const keyboardOffset = 68 + insets.top;
 
   const QUICK_REPLIES: string[] = t.docQuickReplies;
-
-  useEffect(() => {
-    const show = Keyboard.addListener('keyboardDidShow', () => {
-      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-    });
-    const hide = Keyboard.addListener('keyboardDidHide', () => {
-      listRef.current?.scrollToEnd({ animated: false });
-    });
-    return () => { show.remove(); hide.remove(); };
-  }, []);
 
   useEffect(() => {
     if (!isRecording) {
@@ -1626,6 +1632,7 @@ export default function Docpatient() {
   }, [isRecording]);
 
   return (
+    // ── SafeAreaView top فقط — bottom بنتحكم فيه يدوياً زي doctorchat ──
     <SafeAreaView style={styles.safe} edges={['top']}>
       <StatusBar backgroundColor="#F8F5FF" barStyle="dark-content" />
 
@@ -1658,11 +1665,8 @@ export default function Docpatient() {
         </TouchableOpacity>
       </View>
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? keyboardOffset : 0}
-      >
+      {/* ── المحتوى الرئيسي — paddingBottom يتحرك مع الكيبورد ── */}
+      <View style={{ flex: 1, paddingBottom: keyboardHeight }}>
         <FlatList
           ref={listRef}
           data={messages}
@@ -1671,6 +1675,7 @@ export default function Docpatient() {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           extraData={patientPhotoUrl}
+          keyboardShouldPersistTaps="handled"
           ListHeaderComponent={<DateDivider label={t.docToday} />}
           onContentSizeChange={() => {
             if (!initialScrollDone.current && messages.length > 0) {
@@ -1711,82 +1716,89 @@ export default function Docpatient() {
           </Animated.View>
         )}
 
-        {uploading && (
-          <View style={[styles.uploadingBar, rtlRow(isRTL)]}>
-            <ActivityIndicator size="small" color={DOC_COLOR} style={{ marginRight: 6 }} />
-            <Text style={styles.uploadingText}>{isRTL ? 'جاري الإرسال...' : 'Sending...'}</Text>
-          </View>
-        )}
-        {(isRecording || recStopped) && (
-          <View style={[styles.recordingBar, rtlRow(isRTL), { paddingBottom: 10 + insets.bottom }]}>
-            <TouchableOpacity onPress={cancelRecordingOrPreview} style={styles.recCancelBtn}>
-              <Ionicons name="trash-outline" size={18} color="#E05C5C" />
-            </TouchableOpacity>
-
-            {isRecording ? (
-              <View style={styles.waveform}>
-                {waveAnims.map((anim, i) => (
-                  <Animated.View key={i} style={[styles.waveBar, { transform: [{ scaleY: anim }] }]} />
-                ))}
-              </View>
-            ) : (
-              <Text style={[styles.recText, { flex: 1, textAlign: 'center' }]}>
-                🎙 {`${Math.floor(stoppedDuration / 60)}:${String(stoppedDuration % 60).padStart(2, '0')}`}
-              </Text>
-            )}
-
-            <Text style={[styles.recText, { minWidth: 36 }]}>
-              {isRecording ? `${Math.floor(recDuration / 60)}:${String(recDuration % 60).padStart(2, '0')}` : ''}
-            </Text>
-
-            {isRecording ? (
-              <TouchableOpacity onPress={stopRecording} style={styles.recSendBtn}>
-                <Ionicons name="stop" size={16} color="#fff" />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity onPress={sendStoppedAudio} style={styles.recSendBtn}>
-                <Ionicons name="send" size={14} color="#fff" />
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-        {!(isRecording || recStopped) && (
-          <View style={[styles.inputBar, rtlRow(isRTL), { paddingBottom: 10 + insets.bottom }]}>
-            <TouchableOpacity onPress={toggleQuick} style={[styles.iconBtn, showQuick && styles.iconBtnActive]} activeOpacity={0.8}>
-              <Ionicons name={showQuick ? 'close' : 'flash'} size={20} color={showQuick ? '#fff' : DOC_COLOR} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowAttach(true)} style={styles.iconBtn} activeOpacity={0.8}>
-              <Ionicons name="attach" size={22} color={DOC_COLOR} />
-            </TouchableOpacity>
-            <View style={[styles.inputWrap, rtlRow(isRTL)]}>
-              <TextInput
-                value={inputText} onChangeText={(text) => { setInputText(text); notifyDoctorTyping(); }}
-                placeholder={t.docWriteMessage}
-                placeholderTextColor={Colors.textMuted}
-                style={[styles.textInput, rtlAlign(isRTL)]}
-                multiline maxLength={500} returnKeyType="default"
-              />
+        {/* Input bar wrapper */}
+        <View style={[styles.inputBarWrap, { paddingBottom: insets.bottom || 8 }]}>
+          {uploading && (
+            <View style={[styles.uploadingBar, rtlRow(isRTL)]}>
+              <ActivityIndicator size="small" color={DOC_COLOR} style={{ marginRight: 6 }} />
+              <Text style={styles.uploadingText}>{isRTL ? 'جاري الإرسال...' : 'Sending...'}</Text>
             </View>
-            {inputText.trim() ? (
-              <TouchableOpacity
-                onPress={() => sendMessage(inputText)}
-                style={styles.sendBtn}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="send" size={18} color="#fff" style={{ marginLeft: isRTL ? 0 : 2 }} />
+          )}
+
+          {/* Recording bar */}
+          {(isRecording || recStopped) && (
+            <View style={[styles.recordingBar, rtlRow(isRTL)]}>
+              <TouchableOpacity onPress={cancelRecordingOrPreview} style={styles.recCancelBtn}>
+                <Ionicons name="trash-outline" size={18} color="#E05C5C" />
               </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                onPress={startRecording}
-                style={styles.sendBtn}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="mic" size={18} color="#fff" />
+
+              {isRecording ? (
+                <View style={styles.waveform}>
+                  {waveAnims.map((anim, i) => (
+                    <Animated.View key={i} style={[styles.waveBar, { transform: [{ scaleY: anim }] }]} />
+                  ))}
+                </View>
+              ) : (
+                <Text style={[styles.recText, { flex: 1, textAlign: 'center' }]}>
+                  🎙 {`${Math.floor(stoppedDuration / 60)}:${String(stoppedDuration % 60).padStart(2, '0')}`}
+                </Text>
+              )}
+
+              <Text style={[styles.recText, { minWidth: 36 }]}>
+                {isRecording ? `${Math.floor(recDuration / 60)}:${String(recDuration % 60).padStart(2, '0')}` : ''}
+              </Text>
+
+              {isRecording ? (
+                <TouchableOpacity onPress={stopRecording} style={styles.recSendBtn}>
+                  <Ionicons name="stop" size={16} color="#fff" />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity onPress={sendStoppedAudio} style={styles.recSendBtn}>
+                  <Ionicons name="send" size={14} color="#fff" />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {/* Text input bar */}
+          {!(isRecording || recStopped) && (
+            <View style={[styles.inputBar, rtlRow(isRTL)]}>
+              <TouchableOpacity onPress={toggleQuick} style={[styles.iconBtn, showQuick && styles.iconBtnActive]} activeOpacity={0.8}>
+                <Ionicons name={showQuick ? 'close' : 'flash'} size={20} color={showQuick ? '#fff' : DOC_COLOR} />
               </TouchableOpacity>
-            )}
-          </View>
-        )}
-      </KeyboardAvoidingView>
+              <TouchableOpacity onPress={() => setShowAttach(true)} style={styles.iconBtn} activeOpacity={0.8}>
+                <Ionicons name="attach" size={22} color={DOC_COLOR} />
+              </TouchableOpacity>
+              <View style={[styles.inputWrap, rtlRow(isRTL)]}>
+                <TextInput
+                  value={inputText} onChangeText={(text) => { setInputText(text); notifyDoctorTyping(); }}
+                  placeholder={t.docWriteMessage}
+                  placeholderTextColor={Colors.textMuted}
+                  style={[styles.textInput, rtlAlign(isRTL)]}
+                  multiline maxLength={500} returnKeyType="default"
+                />
+              </View>
+              {inputText.trim() ? (
+                <TouchableOpacity
+                  onPress={() => sendMessage(inputText)}
+                  style={styles.sendBtn}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="send" size={18} color="#fff" style={{ marginLeft: isRTL ? 0 : 2 }} />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  onPress={startRecording}
+                  style={styles.sendBtn}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="mic" size={18} color="#fff" />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+        </View>
+      </View>
 
       <ExerciseManagementModal
         visible={showExercises} onClose={() => setShowExercises(false)}
@@ -1828,15 +1840,16 @@ const styles = StyleSheet.create({
   typingRow:          { paddingHorizontal: Spacing.base, paddingVertical: 6 },
   typingBubble:       { borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#F0EBFA', alignSelf: 'flex-start' },
   typingText:         { fontSize: 11, fontWeight: '600', fontStyle: 'italic', color: DOC_COLOR },
-  uploadingBar:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.base, paddingTop: 6, backgroundColor: '#fff' },
+  inputBarWrap:       { backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#F0EBFA', shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 4 },
+  uploadingBar:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.base, paddingTop: 6 },
   uploadingText:      { fontSize: 11, fontWeight: '600', color: DOC_COLOR },
-  recordingBar:       { alignItems: 'center', gap: 10, paddingHorizontal: Spacing.base, paddingTop: 10, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#F0EBFA' },
+  recordingBar:       { alignItems: 'center', gap: 10, paddingHorizontal: Spacing.base, paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#F0EBFA' },
   recText:            { fontSize: 13, fontWeight: '700', color: Colors.textMuted },
   recCancelBtn:       { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FDEAEA' },
   recSendBtn:         { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: DOC_COLOR },
   waveform:           { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, height: 36 },
   waveBar:            { width: 4, height: 24, borderRadius: 2, backgroundColor: '#E05C5C' },
-  inputBar:           { alignItems: 'flex-end', paddingHorizontal: Spacing.base, paddingTop: 10, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#F0EBFA', shadowColor: DOC_COLOR, shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 4 },
+  inputBar:           { alignItems: 'flex-end', paddingHorizontal: Spacing.base, paddingTop: 10, paddingBottom: 0 },
   inputWrap:          { flex: 1, backgroundColor: Colors.background, borderRadius: 22, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1.5, borderColor: '#E8DFFA', minHeight: 44, maxHeight: 120, marginHorizontal: 8 },
   textInput:          { flex: 1, fontSize: FontSize.base, color: Colors.textPrimary, padding: 0, lineHeight: 20 },
   iconBtn:            { width: 44, height: 44, borderRadius: 22, backgroundColor: DOC_COLOR_LIGHT, alignItems: 'center', justifyContent: 'center' },
