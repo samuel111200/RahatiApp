@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Modal, Platform, StatusBar, Animated, Alert,
+  TextInput, KeyboardAvoidingView, Keyboard,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,6 +13,7 @@ import {
   startAllWatchers,
   areWatchersRunning,
   sendPushNotification,
+  notify,
 } from './notificationService';
 import MedicationNote from '../../components/Medicationnote';
 import { useAuth } from '../../context/AuthContext';
@@ -248,6 +250,57 @@ async function saveDoneIds(date: Date, ids: Set<string>, uid: string | null) {
 }
 
 function getTodayKey() { return toKey(new Date()); }
+
+// ─── Add Task Helpers ────────────────────────────────────────────────────────
+type Period = 'AM' | 'PM';
+
+const CAT_COLORS: Record<string, { color: string; bg: string }> = {
+  work:  { color: '#5B9BD5', bg: '#E8F1FB' },
+  study: { color: '#4CAF82', bg: '#E8F5EF' },
+  home:  { color: '#C97B3A', bg: '#FEF3E2' },
+};
+
+const CAT_OPTIONS = [
+  { k: 'work',  labelAr: 'عمل',   labelEn: 'Work'  },
+  { k: 'study', labelAr: 'دراسة', labelEn: 'Study' },
+  { k: 'home',  labelAr: 'منزل',  labelEn: 'Home'  },
+];
+
+function to24h(display: string, period: Period): string {
+  const [hStr, mStr] = display.split(':');
+  let h = parseInt(hStr, 10);
+  const m = mStr ?? '00';
+  if (isNaN(h)) return display;
+  if (period === 'AM') { if (h === 12) h = 0; }
+  else { if (h !== 12) h += 12; }
+  return `${String(h).padStart(2, '0')}:${m}`;
+}
+
+function AmPmToggle({ period, onChange, isRTL }: {
+  period: Period; onChange: (p: Period) => void; isRTL: boolean;
+}) {
+  const options: { value: Period; label: string }[] = isRTL
+    ? [{ value: 'AM', label: 'ص' }, { value: 'PM', label: 'م' }]
+    : [{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }];
+  return (
+    <View style={ampmSt.wrap}>
+      {options.map(opt => (
+        <TouchableOpacity key={opt.value} onPress={() => onChange(opt.value)} activeOpacity={0.8}
+          style={[ampmSt.btn, period === opt.value && ampmSt.btnActive]}>
+          <Text style={[ampmSt.text, period === opt.value && ampmSt.textActive]}>{opt.label}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+const ampmSt = StyleSheet.create({
+  wrap:       { borderWidth: 1.5, borderColor: '#E0D6F5', borderRadius: 12, overflow: 'hidden', flexDirection: 'column' },
+  btn:        { paddingHorizontal: 10, paddingVertical: 7, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F8F5FF' },
+  btnActive:  { backgroundColor: '#7C5CBF' },
+  text:       { fontSize: 11, fontWeight: '800', color: '#7C5CBF' },
+  textActive: { color: '#fff' },
+});
 
 function DoneBadge({ status }: { status: CompletionStatus }) {
   if (status === 'locked') {
@@ -670,6 +723,20 @@ export default function PlanScreen() {
   // ─── وضع الحذف: لما الطاقة مش كافية ──────────────────────────────────────
   const [deleteMode, setDeleteMode]     = useState(false);
 
+  // ─── Add Task Modal ────────────────────────────────────────────────────────
+  const [modalVisible,   setModalVisible]   = useState(false);
+  const [newName,        setNewName]        = useState('');
+  const [newIcon,        setNewIcon]        = useState('');
+  const [newTimeStart,   setNewTimeStart]   = useState('');
+  const [newPeriodStart, setNewPeriodStart] = useState<Period>('AM');
+  const [newTimeEnd,     setNewTimeEnd]     = useState('');
+  const [newPeriodEnd,   setNewPeriodEnd]   = useState<Period>('AM');
+  const [newEnergy,      setNewEnergy]      = useState('');
+  const [newCat,         setNewCat]         = useState('work');
+  const [newTaskType,    setNewTaskType]    = useState<'core' | 'extra'>('core');
+  const [nameError,      setNameError]      = useState(false);
+  const [saving,         setSaving]         = useState(false);
+
   const watchersStarted = useRef(false);
 
   useEffect(() => {
@@ -771,6 +838,76 @@ export default function PlanScreen() {
     } else {
       setExtraTasks(prev => prev.filter(t => t.id !== taskId));
     }
+  };
+
+  const openModal = () => {
+    setNewName(''); setNewIcon('');
+    setNewTimeStart(''); setNewPeriodStart('AM');
+    setNewTimeEnd('');   setNewPeriodEnd('AM');
+    setNewEnergy(''); setNewCat('work'); setNewTaskType('core');
+    setNameError(false); setSaving(false); setModalVisible(true);
+  };
+
+  const closeModal = () => {
+    Keyboard.dismiss(); setModalVisible(false);
+    setNewName(''); setNewIcon('');
+    setNewTimeStart(''); setNewPeriodStart('AM');
+    setNewTimeEnd('');   setNewPeriodEnd('AM');
+    setNewEnergy(''); setNewCat('work'); setNameError(false); setSaving(false);
+  };
+
+  const addTask = async () => {
+    if (!newName.trim()) { setNameError(true); return; }
+    const uid = user?.uid;
+    if (!uid || saving) return;
+    setSaving(true);
+    try {
+      const catColors = CAT_COLORS[newCat] ?? CAT_COLORS.work;
+      const start24 = newTimeStart.trim() ? to24h(newTimeStart.trim(), newPeriodStart) : '';
+      const end24   = newTimeEnd.trim()   ? to24h(newTimeEnd.trim(),   newPeriodEnd)   : '';
+      const timeStr = start24 && end24 ? `${start24} - ${end24}` : start24 || '--:--';
+      const energy  = Math.min(100, Math.max(5, parseInt(newEnergy) || 20));
+      const key     = `task_${Date.now()}`;
+      const today   = toKey(new Date());
+      const newTask = {
+        key, icon: newIcon.trim() || '📌',
+        cat: newCat, energy, color: catColors.color, bg: catColors.bg,
+        time: timeStr, done: false, name: newName.trim(), type: newTaskType,
+        ...(newTaskType === 'extra' ? { date: today } : {}),
+      };
+      closeModal();
+      await setDoc(doc(db, 'tasks', uid, 'items', key), newTask);
+      await notify({
+        title: t.taskAddedNotif ?? 'تمت الإضافة',
+        body: isRTL
+          ? `${newTask.icon} "${newTask.name}" ${newTaskType === 'extra' ? 'اتضافت لليوم ده' : 'اتضافت للمهام الأساسية'}`
+          : `${newTask.icon} "${newTask.name}" added`,
+        emoji: '✅', type: 'add',
+        dedupKey: `task_added_${key}`,
+      });
+    } catch (e) { console.warn('addTask error:', e); setSaving(false); }
+  };
+
+  const handleExerciseTap = (task: PlanTask) => {
+    const exerciseKey = task.id.replace(/^exercise_/, '');
+    const ex = exercisePool.find((e: any) => (e.key ?? e.id) === exerciseKey) ?? exercisePool[0];
+    if (!ex) return;
+    router.push({
+      pathname: '/tabs/Exercisesessionscreen',
+      params: {
+        exerciseKey: ex.key ?? ex.id ?? exerciseKey,
+        videoKey:    ex.key ?? ex.id ?? exerciseKey,
+        title:       ex.title ?? ex.titleAr ?? task.title,
+        titleEn:     ex.titleEn ?? ex.title ?? task.title,
+        emoji:       ex.emoji ?? task.emoji,
+        color:       ex.color ?? task.color,
+        bg:          ex.bg    ?? task.bg,
+        accent:      ex.accent ?? '#E0D6F5',
+        durationSeconds: ex.durationSeconds ?? 300,
+        steps:   JSON.stringify(ex.steps   ?? []),
+        stepsEn: JSON.stringify(ex.stepsEn ?? []),
+      },
+    });
   };
 
   const doneCount = realTasks.filter(t => doneIds.has(t.id)).length;
@@ -943,7 +1080,7 @@ export default function PlanScreen() {
             {!isPastDay && (
               <TouchableOpacity
                 style={s.goToTasksBtn}
-                onPress={() => router.push('/tabs/tasks')}
+                onPress={openModal}
                 activeOpacity={0.85}
               >
                 <Ionicons name="add-circle-outline" size={18} color="#7C5CBF" />
@@ -958,9 +1095,9 @@ export default function PlanScreen() {
             {withExercises.map((task, index) => (
               <TouchableOpacity
                 key={task.id}
-                onPress={() => handleToggleDone(task.id)}
-                activeOpacity={deleteMode || task.isExercise ? 1 : 0.85}
-                disabled={deleteMode}
+                onPress={() => task.isExercise ? handleExerciseTap(task) : handleToggleDone(task.id)}
+                activeOpacity={deleteMode ? 1 : 0.85}
+                disabled={deleteMode && !task.isExercise}
               >
                 <TaskCard
                   task={task}
@@ -988,6 +1125,117 @@ export default function PlanScreen() {
         isRTL={isRTL}
       />
       <MedicationNote />
+
+      {/* FAB: Add Task */}
+      {!isPastDay && (
+        <TouchableOpacity style={s.fab} onPress={openModal} activeOpacity={0.85}>
+          <Ionicons name="add" size={28} color="#fff" />
+        </TouchableOpacity>
+      )}
+
+      {/* Add Task Modal */}
+      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={closeModal} statusBarTranslucent={false}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
+          <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }} activeOpacity={1} onPress={closeModal} />
+          <View style={s.modalSheet}>
+            <ScrollView contentContainerStyle={{ paddingBottom: 36 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              <View style={s.modalHandle} />
+              <View style={s.modalHeaderRow}>
+                <Text style={s.modalTitle}>{t.addNewTask ?? 'إضافة مهمة'}</Text>
+                <TouchableOpacity onPress={closeModal} style={s.modalCloseBtn} activeOpacity={0.7}>
+                  <Ionicons name="close" size={20} color="#888" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Task Type */}
+              <Text style={[s.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskType ?? 'نوع المهمة'}</Text>
+              <View style={s.typeRow}>
+                <TouchableOpacity style={[s.typeBtn, newTaskType === 'core' && s.typeBtnActive]} onPress={() => setNewTaskType('core')} activeOpacity={0.8}>
+                  <Ionicons name="star" size={16} color={newTaskType === 'core' ? '#fff' : '#7C5CBF'} />
+                  <Text style={[s.typeBtnText, newTaskType === 'core' && s.typeBtnTextActive]}>{t.taskTypeCore ?? 'أساسية'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[s.typeBtn, newTaskType === 'extra' && s.typeBtnActive]} onPress={() => setNewTaskType('extra')} activeOpacity={0.8}>
+                  <Ionicons name="flash" size={16} color={newTaskType === 'extra' ? '#fff' : '#7C5CBF'} />
+                  <Text style={[s.typeBtnText, newTaskType === 'extra' && s.typeBtnTextActive]}>{t.taskTypeExtra ?? 'إضافية'}</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Task Name */}
+              <Text style={[s.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskName ?? 'اسم المهمة'}</Text>
+              <TextInput
+                style={[s.fieldInput, nameError && s.fieldInputError, { textAlign: isRTL ? 'right' : 'left' }]}
+                placeholder={t.taskNamePlaceholder ?? 'أدخل اسم المهمة'}
+                placeholderTextColor="#aaa"
+                value={newName} onChangeText={(v) => { setNewName(v); if (v.trim()) setNameError(false); }}
+                returnKeyType="next"
+              />
+              {nameError && <Text style={[s.errorText, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskNameRequired ?? 'اسم المهمة مطلوب'}</Text>}
+
+              {/* Icon */}
+              <Text style={[s.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskIcon ?? 'أيقونة'}</Text>
+              <TextInput
+                style={[s.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
+                placeholder="📌" placeholderTextColor="#aaa"
+                value={newIcon} onChangeText={setNewIcon}
+              />
+
+              {/* Time */}
+              <Text style={[s.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskTime ?? 'الوقت'}</Text>
+              <View style={[s.timeRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <View style={s.timeSlot}>
+                  <TextInput
+                    style={s.timeInput}
+                    placeholder={t.taskTimeFromPlaceholder ?? '09:00'}
+                    placeholderTextColor="#aaa"
+                    value={newTimeStart} onChangeText={setNewTimeStart}
+                    keyboardType="numbers-and-punctuation" textAlign="center"
+                  />
+                  <AmPmToggle period={newPeriodStart} onChange={setNewPeriodStart} isRTL={isRTL} />
+                </View>
+                <Text style={s.timeSep}>—</Text>
+                <View style={s.timeSlot}>
+                  <TextInput
+                    style={s.timeInput}
+                    placeholder={t.taskTimeToPlaceholder ?? '10:00'}
+                    placeholderTextColor="#aaa"
+                    value={newTimeEnd} onChangeText={setNewTimeEnd}
+                    keyboardType="numbers-and-punctuation" textAlign="center"
+                  />
+                  <AmPmToggle period={newPeriodEnd} onChange={setNewPeriodEnd} isRTL={isRTL} />
+                </View>
+              </View>
+
+              {/* Category */}
+              <Text style={[s.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskCategory2 ?? 'التصنيف'}</Text>
+              <View style={[s.catRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                {CAT_OPTIONS.map(opt => (
+                  <TouchableOpacity key={opt.k}
+                    style={[s.catBtn, newCat === opt.k && s.catBtnActive]}
+                    onPress={() => setNewCat(opt.k)} activeOpacity={0.8}>
+                    <Text style={[s.catBtnText, newCat === opt.k && s.catBtnTextActive]}>
+                      {isRTL ? opt.labelAr : opt.labelEn}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Energy */}
+              <Text style={[s.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskEnergyConsumed ?? 'الطاقة المستهلكة %'}</Text>
+              <TextInput
+                style={[s.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
+                placeholder={t.taskEnergyPlaceholder ?? '20'}
+                placeholderTextColor="#aaa"
+                keyboardType="number-pad"
+                value={newEnergy} onChangeText={setNewEnergy}
+              />
+
+              <TouchableOpacity style={[s.submitBtn, saving && { opacity: 0.6 }]} onPress={addTask} activeOpacity={0.85} disabled={saving}>
+                <Text style={s.submitText}>{saving ? (t.savingDots ?? '...') : (t.addTaskBtn ?? 'إضافة')}</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -1074,6 +1322,43 @@ const s = StyleSheet.create({
   deleteModeClose: {
     padding: 4,
   },
+  // ─── FAB ───────────────────────────────────────────────────────────────────
+  fab: {
+    position: 'absolute',
+    bottom: 155,
+    right: 20,
+    width: 52, height: 52, borderRadius: 26,
+    backgroundColor: '#7C5CBF',
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#7C5CBF', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35, shadowRadius: 8, elevation: 6,
+  },
+  // ─── Add Task Modal ─────────────────────────────────────────────────────────
+  modalSheet:     { backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, maxHeight: '90%' },
+  modalHandle:    { width: 40, height: 4, backgroundColor: '#E0D6F5', borderRadius: 2, alignSelf: 'center', marginBottom: 12 },
+  modalHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+  modalTitle:     { fontSize: 18, fontWeight: '800', color: '#2d2d2d' },
+  modalCloseBtn:  { width: 32, height: 32, borderRadius: 16, backgroundColor: '#F0F0F0', alignItems: 'center', justifyContent: 'center' },
+  typeRow:        { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  typeBtn:        { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1.5, borderColor: '#7C5CBF', borderRadius: 12, paddingVertical: 10, backgroundColor: '#F0EBFA' },
+  typeBtnActive:     { backgroundColor: '#7C5CBF' },
+  typeBtnText:       { fontSize: 12, fontWeight: '700', color: '#7C5CBF' },
+  typeBtnTextActive: { color: '#fff' },
+  fieldLabel:     { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 6 },
+  fieldInput:     { borderWidth: 1.5, borderColor: '#E0D6F5', borderRadius: 12, padding: 10, fontSize: 15, color: '#2d2d2d', backgroundColor: '#F8F5FF', marginBottom: 14 },
+  fieldInputError:{ borderColor: '#E24B4A' },
+  errorText:      { fontSize: 11, color: '#E24B4A', marginTop: -10, marginBottom: 8 },
+  timeRow:        { gap: 8, marginBottom: 14, alignItems: 'center' },
+  timeSlot:       { flex: 1, flexDirection: 'row', alignItems: 'stretch', gap: 6 },
+  timeInput:      { flex: 1, borderWidth: 1.5, borderColor: '#E0D6F5', borderRadius: 12, padding: 10, fontSize: 15, color: '#2d2d2d', backgroundColor: '#F8F5FF' },
+  timeSep:        { color: '#aaa', fontSize: 18 },
+  catRow:         { gap: 10, marginBottom: 14 },
+  catBtn:         { flex: 1, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5, borderColor: '#E0D6F5', alignItems: 'center', backgroundColor: '#F8F5FF' },
+  catBtnActive:       { backgroundColor: '#7C5CBF', borderColor: '#7C5CBF' },
+  catBtnText:         { fontSize: 13, fontWeight: '700', color: '#888' },
+  catBtnTextActive:   { color: '#fff' },
+  submitBtn:      { backgroundColor: '#7C5CBF', borderRadius: 16, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
+  submitText:     { fontSize: 15, fontWeight: '800', color: '#fff' },
 });
 
 const card = StyleSheet.create({

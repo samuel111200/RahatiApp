@@ -14,7 +14,7 @@ import PatientTabBar from '../../components/PatientTabBar';
 import { useAuth } from '../../context/AuthContext';
 
 const MED_HIDDEN_SEGMENTS = ['doctorchat', 'Exercisesessionscreen'];
-const TAB_HIDDEN_SEGMENTS = ['doctors', 'doctorchat', 'Exercisesessionscreen'];
+const TAB_HIDDEN_SEGMENTS = ['doctorchat', 'Exercisesessionscreen', 'references'];
 
 function MedicationNoteGate() {
   const pathname = usePathname();
@@ -50,13 +50,13 @@ export default function TabsLayout() {
     <View style={{ flex: 1 }}>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="home"                  options={{ gestureEnabled: false }} />
-        <Stack.Screen name="tasks"                 options={{ gestureEnabled: true  }} />
         <Stack.Screen name="info"                  options={{ gestureEnabled: true  }} />
         <Stack.Screen name="exercises"             options={{ gestureEnabled: true  }} />
         <Stack.Screen name="more"                  options={{ gestureEnabled: true  }} />
         <Stack.Screen name="doctors"               options={{ gestureEnabled: true  }} />
         <Stack.Screen name="doctorchat"            options={{ gestureEnabled: true  }} />
         <Stack.Screen name="Exercisesessionscreen" options={{ gestureEnabled: true  }} />
+        <Stack.Screen name="references"            options={{ gestureEnabled: true  }} />
       </Stack>
       <MedicationNoteGate />
       <PatientTabBarGate />

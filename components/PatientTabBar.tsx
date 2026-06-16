@@ -8,7 +8,7 @@ import { Colors, Spacing } from '../constants/Theme';
 
 const TABS = [
   { key: 'home',      icon: 'home-outline'               as const, iconActive: 'home'               as const, route: '/tabs/home'      },
-  { key: 'tasks',     icon: 'checkmark-circle-outline'   as const, iconActive: 'checkmark-circle'   as const, route: '/tabs/tasks'     },
+  { key: 'doctors',   icon: 'medkit-outline'             as const, iconActive: 'medkit'             as const, route: '/tabs/doctors'   },
   { key: 'info',      icon: 'information-circle-outline' as const, iconActive: 'information-circle' as const, route: '/tabs/info'      },
   { key: 'exercises', icon: 'fitness-outline'            as const, iconActive: 'fitness'            as const, route: '/tabs/exercises' },
   { key: 'more',      icon: 'grid-outline'               as const, iconActive: 'grid'               as const, route: '/tabs/more'      },
@@ -22,7 +22,7 @@ export default function PatientTabBar() {
 
   const labels: Record<string, string> = {
     home:      t.home,
-    tasks:     t.tasks,
+    doctors:   t.doctors ?? (isRTL ? 'أطبائي' : 'Doctors'),
     info:      t.infoTab,
     exercises: t.exercisesTab,
     more:      t.more,

@@ -538,6 +538,15 @@ export default function DocMoreScreen() {
           ))}
         </View>
 
+        <TouchableOpacity
+          onPress={() => router.push('/tabs/references')}
+          style={[styles.referencesBtn, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="book-outline" size={20} color="#7C5CBF" />
+          <Text style={styles.referencesBtnText}>{isRTL ? 'المراجع العلمية' : 'References'}</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity onPress={() => open('logout')}
           style={[styles.logoutBtn, { flexDirection: isRTL ? 'row-reverse' : 'row' }]} activeOpacity={0.8}>
           <Ionicons name="log-out-outline" size={20} color={Colors.danger} />
@@ -660,6 +669,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.base,
   },
   medInfoBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  referencesBtn:     { alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#F0EBFA', borderRadius: Radius.xl, paddingVertical: 16, marginBottom: Spacing.base },
+  referencesBtnText: { fontSize: FontSize.base, fontWeight: '600', color: '#7C5CBF' },
   logoutBtn: {
     alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: Colors.dangerLight, borderRadius: Radius.xl,

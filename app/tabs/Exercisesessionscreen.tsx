@@ -34,20 +34,20 @@ const EXERCISE_VIDEOS: Record<string, any> = {
   marchingInPlace:          { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048601/t9ftlcnfodnmn5gcvu9l.mp4' },
   chairSquat:               { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048606/agde0vt0ktmjbqjatc7t.mp4' },
   hipStrength:              { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048611/jurf87w2kcxl9ozeopli.mp4' },
-  seatedTwistKnee:          { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048615/ivfcwhmzso3xhewrj8v5.mp4' },
-  armLegStrength:           { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048620/ayxfjccc4bfxcngpqaue.mp4' },
-  standingArmTrunk:         { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048632/jnkjateevrqv9qx5bozn.mp4' },
-  lyingTwistArms:           { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048638/awea0ceznvcxo74mfnug.mp4' },
+  seatedTwistKnee:          { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048705/sabpvavn3aqosnii9c3l.mp4' },
+  armLegStrength:           { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048632/jnkjateevrqv9qx5bozn.mp4' },
+  standingArmTrunk:         { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048638/awea0ceznvcxo74mfnug.mp4' },
+  lyingTwistArms:           { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048659/xhue8ykz60tpmsji8t3i.mp4' },
   backBridgeLying:          { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048645/mojixpcwyvzzkhqvbvhf.mp4' },
   upperFlexArmStrength:     { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048652/y2i6ecfc1eqvi4lnfygg.mp4' },
-  trunkBackFlexibility:     { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048659/xhue8ykz60tpmsji8t3i.mp4' },
+  trunkBackFlexibility:     { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048620/ayxfjccc4bfxcngpqaue.mp4' },
   towelArmStrength:         { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048668/n6pozaq4xvctvahfefh2.mp4' },
-  seatedBicycle:            { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048671/lufbq8snzdcfqnhhqizs.mp4' },
-  heelTapStanding:          { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048678/v8c3ytzwqvc8xh5sircq.mp4' },
-  kneeCircleStanding:       { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048685/ysqv0tgto5jullc2awuk.mp4' },
-  legSwingBalance:          { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048694/perqeynqbkosky63xvln.mp4' },
-  pelvisTiltSeated:         { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048700/dhdetnfo6bdx8znoypy2.mp4' },
-  trunkRotationStanding:    { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048705/sabpvavn3aqosnii9c3l.mp4' },
+  seatedBicycle:            { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048694/perqeynqbkosky63xvln.mp4' },
+  heelTapStanding:          { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048671/lufbq8snzdcfqnhhqizs.mp4' },
+  kneeCircleStanding:       { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048615/ivfcwhmzso3xhewrj8v5.mp4' },
+  legSwingBalance:          { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048685/ysqv0tgto5jullc2awuk.mp4' },
+  pelvisTiltSeated:         { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048678/v8c3ytzwqvc8xh5sircq.mp4' },
+  trunkRotationStanding:    { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048700/dhdetnfo6bdx8znoypy2.mp4' },
   lateralBalanceSeated:     { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048712/diujbmuft8snqh8eybgf.mp4' },
   toeTipHeelStand:          { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048716/hka0tr7uinskbo8hsysw.mp4' },
   trunkFlexibilityStanding: { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048728/ngmclq9t9fqzxgmn4zux.mp4' },
@@ -277,7 +277,7 @@ export default function ExerciseSessionScreen() {
         <Video
           source={videoSource}
           style={styles.video}
-          resizeMode={ResizeMode.COVER}
+          resizeMode={ResizeMode.CONTAIN}
           shouldPlay={!isPaused}
           isLooping
           isMuted={false}

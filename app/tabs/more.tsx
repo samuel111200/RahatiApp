@@ -551,6 +551,15 @@ export default function MoreScreen() {
           ))}
         </View>
 
+        <TouchableOpacity
+          onPress={() => router.push('/tabs/references')}
+          style={[styles.referencesBtn, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="book-outline" size={20} color="#7C5CBF" />
+          <Text style={styles.referencesBtnText}>{isRTL ? 'المراجع العلمية' : 'References'}</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity onPress={() => open('logout')}
           style={[styles.logoutBtn, { flexDirection: isRTL ? 'row-reverse' : 'row' }]} activeOpacity={0.8}>
           <Ionicons name="log-out-outline" size={20} color={Colors.danger} />
@@ -648,6 +657,8 @@ const styles = StyleSheet.create({
   quickLinksRow: { flexDirection:'row', gap:10, marginBottom:Spacing.xl },
   quickLink:     { flex:1, borderRadius:14, paddingVertical:14, alignItems:'center', gap:6 },
   quickLinkText: { fontSize:11, fontWeight:'700' },
+  referencesBtn:     { alignItems:'center', justifyContent:'center', gap:8, backgroundColor:'#F0EBFA', borderRadius:Radius.xl, paddingVertical:16, marginBottom:Spacing.base },
+  referencesBtnText: { fontSize:FontSize.base, fontWeight:'600', color:'#7C5CBF' },
   logoutBtn:   { alignItems:'center', justifyContent:'center', gap:8, backgroundColor:Colors.dangerLight, borderRadius:Radius.xl, paddingVertical:16, marginBottom:Spacing.base },
   logoutText:  { fontSize:FontSize.base, fontWeight:'600', color:Colors.danger },
   versionText: { textAlign:'center', fontSize:FontSize.xs, color:Colors.textMuted },
