@@ -158,20 +158,7 @@ export default function ExerciseSessionScreen() {
     setCurrentText('');
   }, []);
 
-  // ── Mute toggle ──────────────────────────────────────────
-  function toggleMute() {
-    const newMuted = !isMuted;
-    isMutedRef.current = newMuted;
-    setIsMuted(newMuted);
-    if (newMuted) {
-      stopSpeaking();
-    } else {
-      // resume speech from current step if not paused
-      if (!isPausedRef.current && stepIndexRef.current < stepsToRead.length) {
-        readStep(stepIndexRef.current);
-      }
-    }
-  }
+
 
   // ── Timer ────────────────────────────────────────────────
   const startTimer = useCallback(() => {
@@ -259,18 +246,7 @@ export default function ExerciseSessionScreen() {
             {isPaused ? t.sessionPaused : t.sessionRunning}
           </Text>
         </View>
-        {/* ── Mute Button ── */}
-        <TouchableOpacity
-          onPress={toggleMute}
-          style={[styles.navBtn, isMuted && { backgroundColor: '#F0EBFA' }]}
-          activeOpacity={0.8}
-        >
-          <Ionicons
-            name={isMuted ? 'volume-mute' : 'volume-high'}
-            size={20}
-            color={isMuted ? '#E05C5C' : '#7C5CBF'}
-          />
-        </TouchableOpacity>
+
       </View>
 
       <View style={[styles.videoWrap, { borderColor: color + '33' }]}>
@@ -314,12 +290,7 @@ export default function ExerciseSessionScreen() {
         )}
 
         {/* Muted indicator overlay */}
-        {isMuted && !isPaused && (
-          <View style={styles.mutedOverlay}>
-            <Ionicons name="volume-mute" size={32} color="rgba(255,255,255,0.9)" />
-            <Text style={styles.mutedText}>{t.muted}</Text>
-          </View>
-        )}
+
 
         {isPaused && (
           <View style={styles.pausedOverlay}>
