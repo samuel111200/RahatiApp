@@ -34,6 +34,19 @@ function todayKey() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+function getCalendarDates(isRTL: boolean) {
+  const dates = [];
+  // Generates 14 days in the past, today, and 14 days in the future
+  for (let i = -14; i <= 14; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const dayName = d.toLocaleDateString(isRTL ? 'ar-EG' : 'en-US', { weekday: 'short' });
+    const dayNum = d.getDate();
+    dates.push({ key, dayName, dayNum });
+  }
+  return dates;
+}
 // ─── AM/PM helpers ────────────────────────────────────────
 function to24h(display: string, period: Period): string {
   const [hStr, mStr] = display.split(':');
@@ -111,6 +124,7 @@ export default function TasksScreen() {
   const { user }     = useAuth();
   const uid          = user?.uid ?? '';
   const TODAY        = todayKey();
+  const calendarDates = getCalendarDates(isRTL);
 
   const FILTERS = [
     { k: 'all',   l: t.all    },
@@ -126,6 +140,7 @@ export default function TasksScreen() {
   ];
 
   const [activeSection, setActiveSection] = useState<TaskType>('core');
+  const [selectedDate,  setSelectedDate]  = useState(TODAY);
   const [filter,        setFilter]        = useState('all');
   const [coreTasks,     setCoreTasks]     = useState<Task[]>([]);
   const [extraTasks,    setExtraTasks]    = useState<Task[]>([]);
@@ -147,21 +162,19 @@ export default function TasksScreen() {
   useEffect(() => {
     if (!uid) return;
     const unsub = onSnapshot(collection(db, 'tasks', uid, 'items'), (snap) => {
-      const today = todayKey();
       const all: Task[] = snap.docs.map(d => d.data() as Task);
+
+      // Core tasks show up every day
       const core  = all.filter(tk => tk.type === 'core');
-      const extra = all.filter(tk => tk.type === 'extra' && (!tk.date || tk.date === today));
-      snap.docs.forEach(d => {
-        const tk = d.data() as Task;
-        if (tk.type === 'extra' && tk.date && tk.date !== today) {
-          deleteDoc(d.ref).catch(() => {});
-        }
-      });
+
+      // Extra tasks only show up on their specific assigned date
+      const extra = all.filter(tk => tk.type === 'extra' && tk.date === selectedDate);
+
       setCoreTasks(core);
       setExtraTasks(extra);
     });
     return unsub;
-  }, [uid]);
+  }, [uid, selectedDate]);
 
   const SECTION_TASKS = activeSection === 'core' ? coreTasks : extraTasks;
   const visible = filter === 'all' ? SECTION_TASKS : SECTION_TASKS.filter(tk => tk.cat === filter);
@@ -259,7 +272,7 @@ export default function TasksScreen() {
         key, icon: newIcon.trim() || '📌',
         cat: newCat, energy, color: catColors.color, bg: catColors.bg,
         time: timeStr, done: false, name: newName.trim(), type: newType,
-        ...(newType === 'extra' ? { date: TODAY } : {}),
+        ...(newType === 'extra' ? { date: selectedDate } : {}),
       };
       closeModal();
       await setDoc(doc(db, 'tasks', uid, 'items', key), newTask);
@@ -283,6 +296,35 @@ export default function TasksScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Calendar Strip */}
+        <View style={{ marginBottom: Spacing.base }}>
+          <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={[styles.calendarScroll, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+          >
+            {calendarDates.map((d) => {
+              const isActive = d.key === selectedDate;
+              return (
+                  <TouchableOpacity
+                      key={d.key}
+                      onPress={() => setSelectedDate(d.key)}
+                      activeOpacity={0.7}
+                      style={[styles.calDayBtn, isActive && styles.calDayBtnActive]}
+                  >
+                    <Text style={[styles.calDayName, isActive && styles.calDayTextActive]}>
+                      {d.dayName}
+                    </Text>
+                    <Text style={[styles.calDayNum, isActive && styles.calDayTextActive]}>
+                      {d.dayNum}
+                    </Text>
+                  </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+
         {/* Header */}
         <View style={[styles.topBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <TouchableOpacity style={styles.iconBtn} onPress={openModal} activeOpacity={0.8}>
@@ -582,4 +624,32 @@ const styles = StyleSheet.create({
   catBtnTextActive:{ color: '#fff' },
   submitBtn:  { backgroundColor: Colors.primary, borderRadius: Radius.xl, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
   submitText: { fontSize: FontSize.base, fontWeight: '800', color: '#fff' },
+  calendarScroll: { gap: 10, paddingHorizontal: 4 },
+  calDayBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: Radius.lg,
+    backgroundColor: Colors.white,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+  },
+  calDayBtnActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  calDayName: {
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    marginBottom: 4,
+  },
+  calDayNum: {
+    fontSize: FontSize.base,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  calDayTextActive: {
+    color: '#fff',
+  },
 });

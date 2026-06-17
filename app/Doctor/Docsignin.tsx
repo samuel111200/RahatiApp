@@ -34,22 +34,27 @@ export default function DocSignInScreen() {
   const handleSignIn = async () => {
     if (!validate()) return;
     setLoading(true);
-    try {
-      const { ok, error, role } = await signIn(email, password);
-      if (!ok) {
-        const errMsg = error ? ((t as any)[error] ?? t.signInFailed) : t.signInFailed;
-        Alert.alert(t.error, errMsg);
-        return;
-      }
-      if (role !== 'doctor') {
-        await logout();
-        Alert.alert(t.patientAccount, t.docRolePatientSub);
-        return;
-      }
-      router.replace('/Doctor/Dochome');
-    } finally {
+    const { ok, error, role } = await signIn(email, password);
+
+    if (!ok) {
       setLoading(false);
+      const errMsg = error ? ((t as any)[error] ?? t.signInFailed) : t.signInFailed;
+      Alert.alert(t.error, errMsg);
+      return;
     }
+
+    // --- ADD THIS TO PROTECT AGAINST PATIENTS ---
+    if (role === 'patient') {
+      setLoading(false);
+      // Automatically redirect them to their correct app section
+      router.replace('/tabs/home');
+      return;
+    }
+    // --------------------------------------------
+
+    // ... rest of your doctor login logic ...
+    setLoading(false);
+    router.replace('/Doctor/Dochome');
   };
 
   return (

@@ -38,11 +38,20 @@ export default function EnergyScreen() {
   const handleSave = async () => {
     const today = new Date().toISOString().split('T')[0];
     const uid   = auth.currentUser?.uid ?? 'guest';
+
     await AsyncStorage.setItem(`energy_level_${uid}`, String(energy));
     await AsyncStorage.setItem(`energy_date_${uid}`, today);
+
     if (uid !== 'guest') {
-      setDoc(doc(db, 'users', uid), { energyLevel: energy }, { merge: true }).catch(() => {});
+      // FIX: Added 'lastEnergyUpdate: today' to the Firestore document
+      setDoc(doc(db, 'users', uid), {
+        energyLevel: energy,
+        lastEnergyUpdate: today
+      }, { merge: true }).catch((err) => {
+        console.error("Error saving energy to Firebase:", err);
+      });
     }
+
     router.replace('/tabs/home');
   };
 

@@ -196,10 +196,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     const uid = user?.uid;
+
+    // 1. IMMEDIATELY clear React state so the UI and Router update instantly,
+    // before Firebase even starts its network request.
     setUser(null);
     setIsAuthenticated(false);
-    if (uid) await AsyncStorage.removeItem(`${uid}_user_avatar`);
-    await signOut(auth);
+
+    // 2. Clean up all local storage keys specifically tied to this user session
+    if (uid) {
+      await AsyncStorage.removeItem(`${uid}_user_avatar`);
+      await AsyncStorage.removeItem(`energy_level_${uid}`);
+      await AsyncStorage.removeItem(`energy_date_${uid}`);
+    }
+
+    // 3. Wipe out any legacy cache keys from older versions of your code
+    // that might be causing the app to remember the wrong role
+    await AsyncStorage.multiRemove(['userRole', 'userData', 'role']);
+
+    // 4. Finally, tell Firebase to kill the session securely
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Firebase signOut error: ", error);
+    }
   };
 
   const updateProfile = async (data: Partial<User>) => {

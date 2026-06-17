@@ -10,6 +10,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/Languagecontext';
 import { PrimaryButton, InputField } from '../../components/UI';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
+import { doc, getDoc } from 'firebase/firestore';
+import { db, auth } from '../../utils/firebaseConfig';
 export default function PatientSignInScreen() {
   const { signIn, logout } = useAuth();
   const { t, isRTL } = useLang();
@@ -30,24 +32,58 @@ export default function PatientSignInScreen() {
   };
   const handleSignIn = async () => {
     if (!validate()) return;
+
     setLoading(true);
     const { ok, error, role } = await signIn(email, password);
-    setLoading(false);
 
     if (!ok) {
+      setLoading(false);
       const errMsg = error ? ((t as any)[error] ?? t.signInFailed) : t.signInFailed;
       Alert.alert(t.error, errMsg);
       return;
     }
 
     if (role === 'doctor') {
-      // Doctor account used on patient screen → reject
-      await logout();
-      Alert.alert(t.doctorAccount, t.docRoleDoctorSub);
+      setLoading(false);
+      // Automatically pushing them to their correct home screen is usually better UX
+      router.replace('/Doctor/Dochome');
+
+      // If you prefer to strictly block them from this screen, use your original code instead:
+      // await logout();
+      // Alert.alert(t.doctorAccount, t.docRoleDoctorSub);
       return;
     }
 
-    router.replace('/tabs/home');
+    // --- PATIENT ENERGY BAR LOGIC ---
+    try {
+      const user = auth.currentUser;
+      if (user) {
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const today = new Date().toISOString().split('T')[0];
+
+          if (userData.lastEnergyUpdate === today) {
+            // Already updated today, skip to home
+            router.replace('/tabs/home');
+          } else {
+            // New day or first login, go to energy screen
+            router.replace('/energy');
+          }
+        } else {
+          // Fallback if data is somehow missing
+          router.replace('/energy');
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching user data:", err);
+      // Fallback to home so the patient isn't stuck if the network fails
+      router.replace('/tabs/home');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
