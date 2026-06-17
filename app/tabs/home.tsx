@@ -19,7 +19,7 @@ import MedicationNote from '../../components/Medicationnote';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/Languagecontext';
 import { db } from '../../utils/firebaseConfig';
-import { doc, getDoc, setDoc, collection, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, onSnapshot, deleteDoc } from 'firebase/firestore';
 
 interface PlanTask {
   id: string;
@@ -75,8 +75,8 @@ function formatDate(date: Date, t: any, isRTL: boolean) {
   const day   = (t.calFullDays as string[])[date.getDay()];
   const month = (t.calMonths   as string[])[date.getMonth()];
   return isRTL
-    ? `${day}، ${date.getDate()} ${month}`
-    : `${day}, ${month} ${date.getDate()}`;
+      ? `${day}، ${date.getDate()} ${month}`
+      : `${day}, ${month} ${date.getDate()}`;
 }
 
 function toKey(date: Date) {
@@ -126,7 +126,7 @@ function sortTasksByTime(tasks: PlanTask[]): PlanTask[] {
 
 const CAT_TO_EFFORT: Record<string, number> = { work: 3, study: 2, home: 2 };
 
-function mapRawTask(raw: any, fallbackDate: string, type: 'core' | 'extra'): PlanTask {
+function mapRawTask(raw: any, fallbackDate: string, type: 'core' | 'extra', isRTL: boolean): PlanTask {
   const timeParts = (raw.time ?? '').split(' - ');
 
   const catBgMap: Record<string, { color: string; bg: string }> = {
@@ -138,7 +138,7 @@ function mapRawTask(raw: any, fallbackDate: string, type: 'core' | 'extra'): Pla
 
   return {
     id:          raw.key   ?? raw.id   ?? String(Date.now()),
-    title:       raw.name  ?? raw.title ?? raw.key ?? 'مهمة',
+    title:       raw.name  ?? raw.title ?? raw.key ?? (isRTL ? 'مهمة' : 'Task'),
     timeFrom:    raw.timeFrom ?? timeParts[0] ?? '',
     timeTo:      raw.timeTo   ?? timeParts[1] ?? '',
     emoji:       raw.icon  ?? raw.emoji ?? '📌',
@@ -150,10 +150,10 @@ function mapRawTask(raw: any, fallbackDate: string, type: 'core' | 'extra'): Pla
   };
 }
 
-function mapExerciseToTask(exercise: any, index: number, afterTaskDate: string): PlanTask {
+function mapExerciseToTask(exercise: any, index: number, afterTaskDate: string, isRTL: boolean): PlanTask {
   return {
     id: `exercise_${exercise.key ?? exercise.id ?? index}`,
-    title: exercise.title ?? exercise.titleEn ?? "تمرين",
+    title: isRTL ? (exercise.title || "تمرين") : (exercise.titleEn || exercise.title || "Exercise"),
     timeFrom: "",
     timeTo: "",
     emoji: exercise.emoji ?? "🏋️",
@@ -162,14 +162,17 @@ function mapExerciseToTask(exercise: any, index: number, afterTaskDate: string):
     date: afterTaskDate,
     effortScore: 1,
     isExercise: true,
-    breakDescription: exercise.desc ?? exercise.descEn ?? exercise.description ?? "",
+    breakDescription: isRTL
+        ? (exercise.desc || exercise.description || "")
+        : (exercise.descEn || exercise.desc || exercise.description || ""),
   };
 }
 
 function buildPlanList(
-  coreTasks: PlanTask[],
-  extraTasks: PlanTask[],
-  exercises: any[],
+    coreTasks: PlanTask[],
+    extraTasks: PlanTask[],
+    exercises: any[],
+    isRTL: boolean
 ): PlanTask[] {
   const allTasks = [
     ...sortTasksByTime(coreTasks),
@@ -185,7 +188,7 @@ function buildPlanList(
     result.push(task);
     if (index < allTasks.length - 1) {
       const ex = exercisePool[index % exercisePool.length];
-      result.push(mapExerciseToTask(ex, index, task.date));
+      result.push(mapExerciseToTask(ex, index, task.date, isRTL));
     }
   });
   return result;
@@ -280,17 +283,17 @@ function AmPmToggle({ period, onChange, isRTL }: {
   period: Period; onChange: (p: Period) => void; isRTL: boolean;
 }) {
   const options: { value: Period; label: string }[] = isRTL
-    ? [{ value: 'AM', label: 'ص' }, { value: 'PM', label: 'م' }]
-    : [{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }];
+      ? [{ value: 'AM', label: 'ص' }, { value: 'PM', label: 'م' }]
+      : [{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }];
   return (
-    <View style={ampmSt.wrap}>
-      {options.map(opt => (
-        <TouchableOpacity key={opt.value} onPress={() => onChange(opt.value)} activeOpacity={0.8}
-          style={[ampmSt.btn, period === opt.value && ampmSt.btnActive]}>
-          <Text style={[ampmSt.text, period === opt.value && ampmSt.textActive]}>{opt.label}</Text>
-        </TouchableOpacity>
-      ))}
-    </View>
+      <View style={ampmSt.wrap}>
+        {options.map(opt => (
+            <TouchableOpacity key={opt.value} onPress={() => onChange(opt.value)} activeOpacity={0.8}
+                              style={[ampmSt.btn, period === opt.value && ampmSt.btnActive]}>
+              <Text style={[ampmSt.text, period === opt.value && ampmSt.textActive]}>{opt.label}</Text>
+            </TouchableOpacity>
+        ))}
+      </View>
   );
 }
 
@@ -305,26 +308,26 @@ const ampmSt = StyleSheet.create({
 function DoneBadge({ status }: { status: CompletionStatus }) {
   if (status === 'locked') {
     return (
-      <View style={badge.lockWrap}>
-        <Ionicons name="time-outline" size={14} color="#bbb" />
-      </View>
+        <View style={badge.lockWrap}>
+          <Ionicons name="time-outline" size={14} color="#bbb" />
+        </View>
     );
   }
 
   return (
-    <View
-      style={[
-        badge.circle,
-        status === 'done'    && badge.done,
-        status === 'pending' && badge.pending,
-      ]}
-    >
-      {status === 'done' ? (
-        <Ionicons name="checkmark" size={14} color="#fff" />
-      ) : (
-        <View style={badge.emptyInner} />
-      )}
-    </View>
+      <View
+          style={[
+            badge.circle,
+            status === 'done'    && badge.done,
+            status === 'pending' && badge.pending,
+          ]}
+      >
+        {status === 'done' ? (
+            <Ionicons name="checkmark" size={14} color="#fff" />
+        ) : (
+            <View style={badge.emptyInner} />
+        )}
+      </View>
   );
 }
 
@@ -380,83 +383,83 @@ function CalendarPicker({ visible, selected, onSelect, onClose, minDateKey, t, i
   const selectedKey = toKey(selected);
 
   return (
-    <Modal visible={visible} transparent animationType="fade">
-      <TouchableOpacity style={cal.overlay} activeOpacity={1} onPress={onClose}>
-        <View style={cal.box}>
-          <View style={cal.header}>
-            <TouchableOpacity onPress={() => setViewing(new Date(viewing.getFullYear(), viewing.getMonth() - 1, 1))}>
-              <Ionicons name="chevron-back" size={20} color="#7C5CBF" />
-            </TouchableOpacity>
-            <Text style={cal.monthTitle}>{(t.calMonths as string[])[viewing.getMonth()]} {viewing.getFullYear()}</Text>
-            <TouchableOpacity onPress={() => setViewing(new Date(viewing.getFullYear(), viewing.getMonth() + 1, 1))}>
-              <Ionicons name="chevron-forward" size={20} color="#7C5CBF" />
-            </TouchableOpacity>
-          </View>
-
-          <View style={cal.dayNames}>
-            {(t.calDays as string[]).map((d: string) => (
-              <Text key={d} style={cal.dayName}>{d}</Text>
-            ))}
-          </View>
-
-          <View style={cal.grid}>
-            {cells.map((day, i) => {
-              if (!day) return <View key={`e${i}`} style={cal.cell} />;
-              const d          = new Date(viewing.getFullYear(), viewing.getMonth(), day);
-              const dKey       = toKey(d);
-              const isSelected = dKey === selectedKey;
-              const isToday    = dKey === todayKey;
-              const isBlocked  = dKey < minDateKey;
-              const isYesterday = dKey === minDateKey && dKey < todayKey;
-              return (
-                <TouchableOpacity
-                  key={day}
-                  style={cal.cell}
-                  onPress={() => { if (!isBlocked) { onSelect(d); onClose(); } }}
-                  activeOpacity={isBlocked ? 1 : 0.7}
-                  disabled={isBlocked}
-                >
-                  <View style={[
-                    cal.dayCircle,
-                    isSelected && cal.selectedDay,
-                    isToday && !isSelected && cal.todayDay,
-                    isBlocked && cal.blockedDay,
-                    isYesterday && !isSelected && cal.yesterdayDay,
-                  ]}>
-                    <Text style={[
-                      cal.dayText,
-                      isSelected && cal.selectedDayText,
-                      isToday && !isSelected && cal.todayDayText,
-                      isBlocked && cal.blockedDayText,
-                    ]}>
-                      {day}
-                    </Text>
-                  </View>
-                  {isToday && <View style={cal.todayDot} />}
-                  {isYesterday && !isSelected && <View style={[cal.todayDot, { backgroundColor: '#aaa' }]} />}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <View style={cal.legend}>
-            <View style={cal.legendItem}>
-              <View style={[cal.legendDot, { backgroundColor: '#7C5CBF' }]} />
-              <Text style={cal.legendText}>{t.today}</Text>
+      <Modal visible={visible} transparent animationType="fade">
+        <TouchableOpacity style={cal.overlay} activeOpacity={1} onPress={onClose}>
+          <View style={cal.box}>
+            <View style={cal.header}>
+              <TouchableOpacity onPress={() => setViewing(new Date(viewing.getFullYear(), viewing.getMonth() - 1, 1))}>
+                <Ionicons name="chevron-back" size={20} color="#7C5CBF" />
+              </TouchableOpacity>
+              <Text style={cal.monthTitle}>{(t.calMonths as string[])[viewing.getMonth()]} {viewing.getFullYear()}</Text>
+              <TouchableOpacity onPress={() => setViewing(new Date(viewing.getFullYear(), viewing.getMonth() + 1, 1))}>
+                <Ionicons name="chevron-forward" size={20} color="#7C5CBF" />
+              </TouchableOpacity>
             </View>
-            <View style={cal.legendItem}>
-              <View style={[cal.legendDot, { backgroundColor: '#bbb' }]} />
-              <Text style={cal.legendText}>{t.yesterday}</Text>
+
+            <View style={cal.dayNames}>
+              {(t.calDays as string[]).map((d: string) => (
+                  <Text key={d} style={cal.dayName}>{d}</Text>
+              ))}
+            </View>
+
+            <View style={cal.grid}>
+              {cells.map((day, i) => {
+                if (!day) return <View key={`e${i}`} style={cal.cell} />;
+                const d          = new Date(viewing.getFullYear(), viewing.getMonth(), day);
+                const dKey       = toKey(d);
+                const isSelected = dKey === selectedKey;
+                const isToday    = dKey === todayKey;
+                const isBlocked  = dKey < minDateKey;
+                const isYesterday = dKey === minDateKey && dKey < todayKey;
+                return (
+                    <TouchableOpacity
+                        key={day}
+                        style={cal.cell}
+                        onPress={() => { if (!isBlocked) { onSelect(d); onClose(); } }}
+                        activeOpacity={isBlocked ? 1 : 0.7}
+                        disabled={isBlocked}
+                    >
+                      <View style={[
+                        cal.dayCircle,
+                        isSelected && cal.selectedDay,
+                        isToday && !isSelected && cal.todayDay,
+                        isBlocked && cal.blockedDay,
+                        isYesterday && !isSelected && cal.yesterdayDay,
+                      ]}>
+                        <Text style={[
+                          cal.dayText,
+                          isSelected && cal.selectedDayText,
+                          isToday && !isSelected && cal.todayDayText,
+                          isBlocked && cal.blockedDayText,
+                        ]}>
+                          {day}
+                        </Text>
+                      </View>
+                      {isToday && <View style={cal.todayDot} />}
+                      {isYesterday && !isSelected && <View style={[cal.todayDot, { backgroundColor: '#aaa' }]} />}
+                    </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <View style={cal.legend}>
+              <View style={cal.legendItem}>
+                <View style={[cal.legendDot, { backgroundColor: '#7C5CBF' }]} />
+                <Text style={cal.legendText}>{t.today}</Text>
+              </View>
+              <View style={cal.legendItem}>
+                <View style={[cal.legendDot, { backgroundColor: '#bbb' }]} />
+                <Text style={cal.legendText}>{t.yesterday}</Text>
+              </View>
             </View>
           </View>
-        </View>
-      </TouchableOpacity>
-    </Modal>
+        </TouchableOpacity>
+      </Modal>
   );
 }
 
 // ─── TaskCard with optional delete button ─────────────────────────────────
-function TaskCard({ task, energy, isLast, status, selectedDate, t, showDeleteMode, onDelete }: {
+function TaskCard({ task, energy, isLast, status, selectedDate, t, showDeleteMode, onDelete, onCheck }: {
   task: PlanTask;
   energy: number;
   isLast: boolean;
@@ -465,100 +468,103 @@ function TaskCard({ task, energy, isLast, status, selectedDate, t, showDeleteMod
   t: any;
   showDeleteMode?: boolean;
   onDelete?: (taskId: string) => void;
+  onCheck?: (taskId: string) => void;
 }) {
   const canDo      = canDoTask(energy, task.effortScore);
   const isExercise = !!task.isExercise;
   const isDone     = status === 'done';
 
   return (
-    <View style={card.row}>
-      <View style={card.timelineCol}>
-        <View style={[
-          card.dot,
-          { backgroundColor: isExercise ? '#4CAF82' : task.color },
-          isDone && card.dotDone,
-        ]} />
-        {!isLast && <View style={[card.line, isDone && card.lineDone]} />}
-      </View>
-
-      <View style={[
-        card.box,
-        { backgroundColor: task.bg },
-        isDone && card.boxDone,
-        isExercise && card.exerciseBox,
-        showDeleteMode && !isExercise && card.deleteModeBorder,
-      ]}>
-        {isExercise && (
-          <View style={card.exerciseBadgeRow}>
-            <View style={card.exerciseBadge}>
-              <Ionicons name="fitness-outline" size={11} color="#4CAF82" />
-              <Text style={card.exerciseBadgeText}>{t.quickExerciseBadge}</Text>
-            </View>
-          </View>
-        )}
-
-        <View style={card.cardTop}>
+      <View style={card.row}>
+        <View style={card.timelineCol}>
           <View style={[
-            card.emojiWrap,
-            { backgroundColor: isDone ? '#d4f0e1' : isExercise ? '#d4f0e1' : task.color + '22' },
-          ]}>
-            <Text style={[{ fontSize: 22 }, isDone && { opacity: 0.7 }]}>{task.emoji}</Text>
-          </View>
-
-          <View style={{ flex: 1, marginHorizontal: 10 }}>
-            <Text style={[
-              card.title,
-              { color: isDone ? '#4CAF82' : isExercise ? '#4CAF82' : task.color },
-              isDone && card.titleDone,
-            ]}>
-              {task.title}
-              {isDone && ' ✓'}
-            </Text>
-            {task.timeFrom ? (
-              <Text style={[card.time, isDone && { color: '#4CAF82', opacity: 0.7 }]}>
-                {task.timeFrom}{task.timeTo ? ` - ${task.timeTo}` : ''}
-              </Text>
-            ) : isExercise && task.breakDescription ? (
-              <Text style={[card.time, isDone && { color: '#4CAF82', opacity: 0.7 }]}>
-                {task.breakDescription}
-              </Text>
-            ) : null}
-
-            {!isExercise && task.taskType && (
-              <View style={[card.typePill, { backgroundColor: task.taskType === 'core' ? '#7C5CBF18' : '#F4A32B18' }]}>
-                <Text style={[card.typePillText, { color: task.taskType === 'core' ? '#7C5CBF' : '#C97B3A' }]}>
-                  {task.taskType === 'core' ? t.basicTask : t.extraTaskBadge}
-                </Text>
-              </View>
-            )}
-
-            {status === 'locked' && (
-              <Text style={card.lockedLabel}>{t.lockedLabel}</Text>
-            )}
-            {status === 'done' && (
-              <Text style={card.doneLabel}>{t.doneLabel}</Text>
-            )}
-          </View>
-
-          {/* زر الحذف يظهر فقط في وضع الحذف وللمهام غير التمارين */}
-          {showDeleteMode && !isExercise ? (
-            <TouchableOpacity
-              style={card.deleteBtn}
-              onPress={() => onDelete && onDelete(task.id)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="trash-outline" size={20} color="#E05C5C" />
-            </TouchableOpacity>
-          ) : (
-            <DoneBadge status={status} />
-          )}
+            card.dot,
+            { backgroundColor: isExercise ? '#4CAF82' : task.color },
+            isDone && card.dotDone,
+          ]} />
+          {!isLast && <View style={[card.line, isDone && card.lineDone]} />}
         </View>
 
-        {!isExercise && !canDo && !isDone && !showDeleteMode && (
-          <Text style={card.warning}>{t.energyWarning}</Text>
-        )}
+        <View style={[
+          card.box,
+          { backgroundColor: task.bg },
+          isDone && card.boxDone,
+          isExercise && card.exerciseBox,
+          showDeleteMode && !isExercise && card.deleteModeBorder,
+        ]}>
+          {isExercise && (
+              <View style={card.exerciseBadgeRow}>
+                <View style={card.exerciseBadge}>
+                  <Ionicons name="fitness-outline" size={11} color="#4CAF82" />
+                  <Text style={card.exerciseBadgeText}>{t.quickExerciseBadge}</Text>
+                </View>
+              </View>
+          )}
+
+          <View style={card.cardTop}>
+            <View style={[
+              card.emojiWrap,
+              { backgroundColor: isDone ? '#d4f0e1' : isExercise ? '#d4f0e1' : task.color + '22' },
+            ]}>
+              <Text style={[{ fontSize: 22 }, isDone && { opacity: 0.7 }]}>{task.emoji}</Text>
+            </View>
+
+            <View style={{ flex: 1, marginHorizontal: 10 }}>
+              <Text style={[
+                card.title,
+                { color: isDone ? '#4CAF82' : isExercise ? '#4CAF82' : task.color },
+                isDone && card.titleDone,
+              ]}>
+                {task.title}
+                {isDone && ' ✓'}
+              </Text>
+              {task.timeFrom ? (
+                  <Text style={[card.time, isDone && { color: '#4CAF82', opacity: 0.7 }]}>
+                    {task.timeFrom}{task.timeTo ? ` - ${task.timeTo}` : ''}
+                  </Text>
+              ) : isExercise && task.breakDescription ? (
+                  <Text style={[card.time, isDone && { color: '#4CAF82', opacity: 0.7 }]}>
+                    {task.breakDescription}
+                  </Text>
+              ) : null}
+
+              {!isExercise && task.taskType && (
+                  <View style={[card.typePill, { backgroundColor: task.taskType === 'core' ? '#7C5CBF18' : '#F4A32B18' }]}>
+                    <Text style={[card.typePillText, { color: task.taskType === 'core' ? '#7C5CBF' : '#C97B3A' }]}>
+                      {task.taskType === 'core' ? t.basicTask : t.extraTaskBadge}
+                    </Text>
+                  </View>
+              )}
+
+              {status === 'locked' && (
+                  <Text style={card.lockedLabel}>{t.lockedLabel}</Text>
+              )}
+              {status === 'done' && (
+                  <Text style={card.doneLabel}>{t.doneLabel}</Text>
+              )}
+            </View>
+
+            {/* زر الحذف يظهر فقط في وضع الحذف وللمهام غير التمارين */}
+            {showDeleteMode && !isExercise ? (
+                <TouchableOpacity
+                    style={card.deleteBtn}
+                    onPress={() => onDelete && onDelete(task.id)}
+                    activeOpacity={0.7}
+                >
+                  <Ionicons name="trash-outline" size={20} color="#E05C5C" />
+                </TouchableOpacity>
+            ) : (
+                <TouchableOpacity onPress={() => onCheck && onCheck(task.id)} activeOpacity={0.7} style={{ padding: 5 }}>
+                  <DoneBadge status={status} />
+                </TouchableOpacity>
+            )}
+          </View>
+
+          {!isExercise && !canDo && !isDone && !showDeleteMode && (
+              <Text style={card.warning}>{t.energyWarning}</Text>
+          )}
+        </View>
       </View>
-    </View>
   );
 }
 
@@ -568,29 +574,29 @@ function ProgressBar({ total, done, t }: { total: number; done: number; t: any }
   const color = pct === 100 ? '#4CAF82' : pct >= 50 ? '#F4A32B' : '#7C5CBF';
 
   return (
-    <View style={prog.wrap}>
-      <View style={prog.labelRow}>
-        <Text style={[prog.pct, { color }]}>{pct}%</Text>
-        <Text style={prog.label}>{done} / {total} {t.completedCount}</Text>
+      <View style={prog.wrap}>
+        <View style={prog.labelRow}>
+          <Text style={[prog.pct, { color }]}>{pct}%</Text>
+          <Text style={prog.label}>{done} / {total} {t.completedCount}</Text>
+        </View>
+        <View style={prog.barBg}>
+          <Animated.View style={[prog.barFill, { width: `${pct}%` as any, backgroundColor: color }]} />
+        </View>
+        {pct === 100 && (
+            <Text style={prog.congrats}>{t.allDone}</Text>
+        )}
       </View>
-      <View style={prog.barBg}>
-        <Animated.View style={[prog.barFill, { width: `${pct}%` as any, backgroundColor: color }]} />
-      </View>
-      {pct === 100 && (
-        <Text style={prog.congrats}>{t.allDone}</Text>
-      )}
-    </View>
   );
 }
 
 // ─── Energy Status Banner ────────────────────────────────────────────────────
 function EnergyStatusBanner({
-  realTasks,
-  energy,
-  t,
-  isRTL,
-  onEnterDeleteMode,
-}: {
+                              realTasks,
+                              energy,
+                              t,
+                              isRTL,
+                              onEnterDeleteMode,
+                            }: {
   realTasks: PlanTask[];
   energy: number;
   t: any;
@@ -599,10 +605,10 @@ function EnergyStatusBanner({
 }) {
   if (realTasks.length === 0) {
     return (
-      <View style={[enBanner.wrap, { backgroundColor: '#F5F5F5' }]}>
-        <Text style={{ fontSize: 16 }}>🌿</Text>
-        <Text style={[enBanner.text, { color: '#888' }]}>{t.energyZero}</Text>
-      </View>
+        <View style={[enBanner.wrap, { backgroundColor: '#F5F5F5' }]}>
+          <Text style={{ fontSize: 16 }}>🌿</Text>
+          <Text style={[enBanner.text, { color: '#888' }]}>{t.energyZero}</Text>
+        </View>
     );
   }
 
@@ -610,51 +616,51 @@ function EnergyStatusBanner({
 
   if (state === 'ok') {
     return (
-      <View style={[enBanner.wrap, { backgroundColor: '#E8F5EF' }]}>
-        <Text style={{ fontSize: 16 }}>⚡</Text>
-        <View style={{ flex: 1 }}>
-          <Text style={[enBanner.text, { color: '#4CAF82' }]}>
-            {t.energySufficientNew
-              ? t.energySufficientNew
-              : `طاقتك تكفي لإتمام هذه المهام ✓`}
-          </Text>
-          <Text style={enBanner.subText}>
-            {`متوسط الجهد المطلوب: ${avgEffortPct}% | طاقتك: ${energy}%`}
-          </Text>
+        <View style={[enBanner.wrap, { backgroundColor: '#E8F5EF' }]}>
+          <Text style={{ fontSize: 16 }}>⚡</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[enBanner.text, { color: '#4CAF82' }]}>
+              {t.energySufficientNew
+                  ? t.energySufficientNew
+                  : `طاقتك تكفي لإتمام هذه المهام ✓`}
+            </Text>
+            <Text style={enBanner.subText}>
+              {`متوسط الجهد المطلوب: ${avgEffortPct}% | طاقتك: ${energy}%`}
+            </Text>
+          </View>
         </View>
-      </View>
     );
   }
 
   // state === 'low'
   return (
-    <View style={[enBanner.wrap, { backgroundColor: '#FDEAEA', borderColor: '#E05C5C', borderWidth: 1.5 }]}>
-      <Text style={{ fontSize: 16 }}>⚠️</Text>
-      <View style={{ flex: 1 }}>
-        <Text style={[enBanner.text, { color: '#E05C5C', fontWeight: '800' }]}>
-          {t.energyInsufficientNew
-            ? t.energyInsufficientNew
-            : `طاقتك لا تكفي لاستكمال هذه المهام`}
-        </Text>
-        <Text style={[enBanner.subText, { color: '#C04040' }]}>
-          {`متوسط الجهد المطلوب: ${avgEffortPct}% | طاقتك: ${energy}%`}
-        </Text>
-        <Text style={[enBanner.subText, { color: '#C04040', marginTop: 2 }]}>
-          {t.energyDeleteHint
-            ? t.energyDeleteHint
-            : `احذف إحدى هذه المهام لتتناسب مع طاقتك:`}
-        </Text>
-
-        <TouchableOpacity style={enBanner.deleteBtn} onPress={onEnterDeleteMode} activeOpacity={0.8}>
-          <Ionicons name="trash-outline" size={15} color="#fff" />
-          <Text style={enBanner.deleteBtnText}>
-            {t.energyDeleteAction
-              ? t.energyDeleteAction
-              : `حذف مهمة`}
+      <View style={[enBanner.wrap, { backgroundColor: '#FDEAEA', borderColor: '#E05C5C', borderWidth: 1.5 }]}>
+        <Text style={{ fontSize: 16 }}>⚠️</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[enBanner.text, { color: '#E05C5C', fontWeight: '800' }]}>
+            {t.energyInsufficientNew
+                ? t.energyInsufficientNew
+                : `طاقتك لا تكفي لاستكمال هذه المهام`}
           </Text>
-        </TouchableOpacity>
+          <Text style={[enBanner.subText, { color: '#C04040' }]}>
+            {`متوسط الجهد المطلوب: ${avgEffortPct}% | طاقتك: ${energy}%`}
+          </Text>
+          <Text style={[enBanner.subText, { color: '#C04040', marginTop: 2 }]}>
+            {t.energyDeleteHint
+                ? t.energyDeleteHint
+                : `احذف إحدى هذه المهام لتتناسب مع طاقتك:`}
+          </Text>
+
+          <TouchableOpacity style={enBanner.deleteBtn} onPress={onEnterDeleteMode} activeOpacity={0.8}>
+            <Ionicons name="trash-outline" size={15} color="#fff" />
+            <Text style={enBanner.deleteBtnText}>
+              {t.energyDeleteAction
+                  ? t.energyDeleteAction
+                  : `حذف مهمة`}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
   );
 }
 
@@ -754,8 +760,8 @@ export default function PlanScreen() {
     const unsub = onSnapshot(collection(db, 'tasks', user.uid, 'items'), (snap) => {
       const today = toKey(new Date());
       const all   = snap.docs.map(d => d.data() as any);
-      setCoreTasks(all.filter(t => t.type === 'core').map((t: any) => mapRawTask(t, today, 'core')));
-      setExtraTasks(all.filter(t => t.type === 'extra' && (!t.date || t.date === today)).map((t: any) => mapRawTask(t, today, 'extra')));
+      setCoreTasks(all.filter(t => t.type === 'core').map((t: any) => mapRawTask(t, today, 'core', isRTL)));
+      setExtraTasks(all.filter(t => t.type === 'extra').map((t: any) => mapRawTask(t, today, 'extra', isRTL)));
     });
     return unsub;
   }, [user?.uid]);
@@ -814,7 +820,7 @@ export default function PlanScreen() {
   const dayExtraTasks = extraTasks.filter(t => t.date === selectedKey);
 
   const exercisePool = doctorExercises.length > 0 ? doctorExercises : localExercises;
-  const withExercises = buildPlanList(dayCoreTasks, dayExtraTasks, exercisePool);
+  const withExercises = buildPlanList(dayCoreTasks, dayExtraTasks, exercisePool, isRTL);
 
   // المهام الحقيقية (بدون تمارين)
   const realTasks = withExercises.filter(t => !t.isExercise);
@@ -829,14 +835,13 @@ export default function PlanScreen() {
     }
   }, [energyState, deleteMode]);
 
-  // ─── حذف مهمة (فقط locally من state) ──────────────────────────────────
-  const handleDeleteTask = (taskId: string) => {
-    // نحدد هي core ولا extra
-    const isCoreTask = coreTasks.some(t => t.id === taskId);
-    if (isCoreTask) {
-      setCoreTasks(prev => prev.filter(t => t.id !== taskId));
-    } else {
-      setExtraTasks(prev => prev.filter(t => t.id !== taskId));
+  // ─── حذف مهمة (من Firebase) ──────────────────────────────────
+  const handleDeleteTask = async (taskId: string) => {
+    if (!user?.uid) return;
+    try {
+      await deleteDoc(doc(db, 'tasks', user.uid, 'items', taskId));
+    } catch (e) {
+      console.warn('Error deleting task:', e);
     }
   };
 
@@ -868,20 +873,20 @@ export default function PlanScreen() {
       const timeStr = start24 && end24 ? `${start24} - ${end24}` : start24 || '--:--';
       const energy  = Math.min(100, Math.max(5, parseInt(newEnergy) || 20));
       const key     = `task_${Date.now()}`;
-      const today   = toKey(new Date());
+      const selectedKey = toKey(selectedDate); // <-- Use the date selected on the calendar
       const newTask = {
         key, icon: newIcon.trim() || '📌',
         cat: newCat, energy, color: catColors.color, bg: catColors.bg,
         time: timeStr, done: false, name: newName.trim(), type: newTaskType,
-        ...(newTaskType === 'extra' ? { date: today } : {}),
+        ...(newTaskType === 'extra' ? { date: selectedKey } : {}), // <-- Save to selectedKey
       };
       closeModal();
       await setDoc(doc(db, 'tasks', uid, 'items', key), newTask);
       await notify({
         title: t.taskAddedNotif ?? 'تمت الإضافة',
         body: isRTL
-          ? `${newTask.icon} "${newTask.name}" ${newTaskType === 'extra' ? 'اتضافت لليوم ده' : 'اتضافت للمهام الأساسية'}`
-          : `${newTask.icon} "${newTask.name}" added`,
+            ? `${newTask.icon} "${newTask.name}" ${newTaskType === 'extra' ? 'اتضافت لليوم ده' : 'اتضافت للمهام الأساسية'}`
+            : `${newTask.icon} "${newTask.name}" added`,
         emoji: '✅', type: 'add',
         dedupKey: `task_added_${key}`,
       });
@@ -927,9 +932,9 @@ export default function PlanScreen() {
       if (isCompleting) {
         next.add(taskId);
         sendPushNotification(
-          t.taskDoneNotifTitle,
-          task.title,
-          'completion',
+            t.taskDoneNotifTitle,
+            task.title,
+            'completion',
         ).catch(() => {});
       } else {
         next.delete(taskId);
@@ -950,292 +955,306 @@ export default function PlanScreen() {
   const hasTasks = dayCoreTasks.length > 0 || dayExtraTasks.length > 0;
 
   return (
-    <View style={s.safe}>
-      <StatusBar backgroundColor="#f8f5ff" barStyle="dark-content" translucent={false} />
+      <View style={s.safe}>
+        <StatusBar backgroundColor="#f8f5ff" barStyle="dark-content" translucent={false} />
 
-      <View style={s.navbar}>
-        <TouchableOpacity
-          style={[s.navIconBtn, { opacity: isToday ? 0.3 : 1 }]}
-          onPress={() => setSelectedDate(new Date())}
-          disabled={isToday}
-        >
-          <Ionicons name="today-outline" size={20} color="#7C5CBF" />
-        </TouchableOpacity>
-        <Text style={s.navTitle}>
-          {isToday ? t.planToday : selectedKey === yesterday ? t.yesterday : formatDate(selectedDate, t, isRTL)}
-        </Text>
-        <View style={s.calBtnWrapper}>
-          <TouchableOpacity onPress={() => setShowCal(true)} style={s.navIconBtn}>
-            <Ionicons name="calendar-outline" size={22} color="#7C5CBF" />
+        <View style={s.navbar}>
+          <TouchableOpacity
+              style={[s.navIconBtn, { opacity: isToday ? 0.3 : 1 }]}
+              onPress={() => setSelectedDate(new Date())}
+              disabled={isToday}
+          >
+            <Ionicons name="today-outline" size={20} color="#7C5CBF" />
           </TouchableOpacity>
-          <View style={s.calDot} />
-        </View>
-      </View>
-
-      {/* بانر وضع الحذف في الأعلى */}
-      {deleteMode && (
-        <View style={s.deleteModeBar}>
-          <Ionicons name="warning-outline" size={16} color="#E05C5C" />
-          <Text style={s.deleteModeBarText}>
-            {t.deleteModeActive
-              ? t.deleteModeActive
-              : `وضع الحذف — احذف مهمة لتتناسب مع طاقتك`}
+          <Text style={s.navTitle}>
+            {isToday ? t.planToday : selectedKey === yesterday ? t.yesterday : formatDate(selectedDate, t, isRTL)}
           </Text>
-          <TouchableOpacity onPress={() => setDeleteMode(false)} style={s.deleteModeClose}>
-            <Ionicons name="close" size={16} color="#E05C5C" />
-          </TouchableOpacity>
-        </View>
-      )}
-
-      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
-
-        <View style={s.datePill}>
-          <Text style={s.dateText}>{formatDate(selectedDate, t, isRTL)}</Text>
+          <View style={s.calBtnWrapper}>
+            <TouchableOpacity onPress={() => setShowCal(true)} style={s.navIconBtn}>
+              <Ionicons name="calendar-outline" size={22} color="#7C5CBF" />
+            </TouchableOpacity>
+            <View style={s.calDot} />
+          </View>
         </View>
 
-        {isPastDay && (
-          <View style={s.modeBanner}>
-            <Ionicons name="eye-outline" size={15} color="#888" />
-            <Text style={s.modeBannerText}>{t.pastDayViewMode}</Text>
-          </View>
-        )}
-
-        {isFutureDay && (
-          <View style={s.modeBanner}>
-            <Ionicons name="calendar-outline" size={15} color="#7C5CBF" />
-            <Text style={[s.modeBannerText, { color: '#7C5CBF' }]}>{t.futureDayPlanMode}</Text>
-          </View>
-        )}
-
-<View style={s.placeholderCard}>
-  <Text style={s.placeholderEmoji}>🌿</Text>
-  <Text style={s.placeholderText}>
-    {t.organizedByEnergy} {energy}%
-  </Text>
-</View>
-
-{!isPastDay && (
-  <TouchableOpacity style={s.addTaskBtn} onPress={openModal} activeOpacity={0.85}>
-    <Ionicons name="add-circle-outline" size={18} color="#7C5CBF" />
-    <Text style={s.addTaskBtnText}>{t.addNewTask ?? 'إضافة مهمة'}</Text>
-  </TouchableOpacity>
-)}
-
-        {hasTasks && (
-          <ProgressBar total={realTasks.length} done={doneCount} t={t} />
-        )}
-
-        {hasTasks && (
-          <View style={s.summaryRow}>
-            <View style={s.summaryPill}>
-              <Text style={s.summaryEmoji}>⭐</Text>
-              <Text style={s.summaryText}>{dayCoreTasks.length} {t.coreTasksCount}</Text>
+        {/* بانر وضع الحذف في الأعلى */}
+        {deleteMode && (
+            <View style={s.deleteModeBar}>
+              <Ionicons name="warning-outline" size={16} color="#E05C5C" />
+              <Text style={s.deleteModeBarText}>
+                {t.deleteModeActive
+                    ? t.deleteModeActive
+                    : `وضع الحذف — احذف مهمة لتتناسب مع طاقتك`}
+              </Text>
+              <TouchableOpacity onPress={() => setDeleteMode(false)} style={s.deleteModeClose}>
+                <Ionicons name="close" size={16} color="#E05C5C" />
+              </TouchableOpacity>
             </View>
-            {dayExtraTasks.length > 0 && (
-              <View style={[s.summaryPill, { backgroundColor: '#FEF3E2' }]}>
-                <Text style={s.summaryEmoji}>⚡</Text>
-                <Text style={[s.summaryText, { color: '#C97B3A' }]}>{dayExtraTasks.length} {t.extraTasksCount}</Text>
+        )}
+
+        <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+
+          <View style={s.datePill}>
+            <Text style={s.dateText}>{formatDate(selectedDate, t, isRTL)}</Text>
+          </View>
+
+          {isPastDay && (
+              <View style={s.modeBanner}>
+                <Ionicons name="eye-outline" size={15} color="#888" />
+                <Text style={s.modeBannerText}>{t.pastDayViewMode}</Text>
               </View>
-            )}
-            {exercisePool.length > 0 && (dayCoreTasks.length + dayExtraTasks.length) >= 2 && (
-              <View style={[s.summaryPill, { backgroundColor: '#E8F5EF' }]}>
-                <Text style={s.summaryEmoji}>🏋️</Text>
-                <Text style={[s.summaryText, { color: '#4CAF82' }]}>{dayCoreTasks.length + dayExtraTasks.length} {t.exercisesCount}</Text>
+          )}
+
+          {isFutureDay && (
+              <View style={s.modeBanner}>
+                <Ionicons name="calendar-outline" size={15} color="#7C5CBF" />
+                <Text style={[s.modeBannerText, { color: '#7C5CBF' }]}>{t.futureDayPlanMode}</Text>
               </View>
-            )}
-          </View>
-        )}
+          )}
 
-        {/* ─── بانر الطاقة الجديد بالحساب الصحيح ─── */}
-        {hasTasks && (
-          <EnergyStatusBanner
-            realTasks={realTasks}
-            energy={energy}
-            t={t}
-            isRTL={isRTL}
-            onEnterDeleteMode={() => setDeleteMode(true)}
-          />
-        )}
-
-        {hasTasks && (
-          <View style={s.legend}>
-            <View style={s.legendItem}>
-              <View style={[s.legendDot, { backgroundColor: '#4CAF82' }]} />
-              <Text style={s.legendText}>{t.done}</Text>
-            </View>
-            <View style={s.legendItem}>
-              <View style={[s.legendDot, { backgroundColor: '#ddd' }]} />
-              <Text style={s.legendText}>{t.notDoneYet}</Text>
-            </View>
-            <View style={s.legendItem}>
-              <Ionicons name="time-outline" size={12} color="#bbb" />
-              <Text style={s.legendText}>{t.notTimeYet}</Text>
-            </View>
-            <View style={s.legendItem}>
-              <Ionicons name="fitness-outline" size={12} color="#4CAF82" />
-              <Text style={s.legendText}>{t.exercise}</Text>
-            </View>
-          </View>
-        )}
-
-        {!hasTasks ? (
-          <View style={s.emptyState}>
-            <Text style={{ fontSize: 40 }}>{isPastDay ? '📋' : '📭'}</Text>
-            <Text style={s.emptyText}>
-              {isPastDay ? t.noTasksPastDay : t.noTasksToday}
+          <View style={s.placeholderCard}>
+            <Text style={s.placeholderEmoji}>🌿</Text>
+            <Text style={s.placeholderText}>
+              {t.organizedByEnergy} {energy}%
             </Text>
-            {!isPastDay && (
-              <TouchableOpacity
-                style={s.goToTasksBtn}
-                onPress={openModal}
-                activeOpacity={0.85}
-              >
+          </View>
+
+          {!isPastDay && (
+              <TouchableOpacity style={s.addTaskBtn} onPress={openModal} activeOpacity={0.85}>
                 <Ionicons name="add-circle-outline" size={18} color="#7C5CBF" />
-                <Text style={s.goToTasksText}>
-                  {isFutureDay ? t.planForDay : t.addTasksFromTasksPage}
-                </Text>
+                <Text style={s.addTaskBtnText}>{t.addNewTask ?? 'إضافة مهمة'}</Text>
               </TouchableOpacity>
-            )}
-          </View>
-        ) : (
-          <View style={s.timeline}>
-            {withExercises.map((task, index) => (
-              <TouchableOpacity
-                key={task.id}
-                onPress={() => task.isExercise ? handleExerciseTap(task) : handleToggleDone(task.id)}
-                activeOpacity={deleteMode ? 1 : 0.85}
-                disabled={deleteMode && !task.isExercise}
-              >
-                <TaskCard
-                  task={task}
+          )}
+
+          {hasTasks && (
+              <ProgressBar total={realTasks.length} done={doneCount} t={t} />
+          )}
+
+          {hasTasks && (
+              <View style={s.summaryRow}>
+                <View style={s.summaryPill}>
+                  <Text style={s.summaryEmoji}>⭐</Text>
+                  <Text style={s.summaryText}>{dayCoreTasks.length} {t.coreTasksCount}</Text>
+                </View>
+                {dayExtraTasks.length > 0 && (
+                    <View style={[s.summaryPill, { backgroundColor: '#FEF3E2' }]}>
+                      <Text style={s.summaryEmoji}>⚡</Text>
+                      <Text style={[s.summaryText, { color: '#C97B3A' }]}>{dayExtraTasks.length} {t.extraTasksCount}</Text>
+                    </View>
+                )}
+                {exercisePool.length > 0 && (dayCoreTasks.length + dayExtraTasks.length) >= 2 && (
+                    <View style={[s.summaryPill, { backgroundColor: '#E8F5EF' }]}>
+                      <Text style={s.summaryEmoji}>🏋️</Text>
+                      <Text style={[s.summaryText, { color: '#4CAF82' }]}>{dayCoreTasks.length + dayExtraTasks.length} {t.exercisesCount}</Text>
+                    </View>
+                )}
+              </View>
+          )}
+
+          {/* ─── بانر الطاقة الجديد بالحساب الصحيح ─── */}
+          {hasTasks && (
+              <EnergyStatusBanner
+                  realTasks={realTasks}
                   energy={energy}
-                  isLast={index === withExercises.length - 1}
-                  status={getStatus(task)}
-                  selectedDate={selectedDate}
                   t={t}
-                  showDeleteMode={deleteMode}
-                  onDelete={handleDeleteTask}
-                />
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </ScrollView>
-
-      <CalendarPicker
-        visible={showCal}
-        selected={selectedDate}
-        onSelect={setSelectedDate}
-        onClose={() => setShowCal(false)}
-        minDateKey={yesterday}
-        t={t}
-        isRTL={isRTL}
-      />
-      <MedicationNote />
-      {/* Add Task Modal */}
-      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={closeModal} statusBarTranslucent={false}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
-          <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }} activeOpacity={1} onPress={closeModal} />
-          <View style={s.modalSheet}>
-            <ScrollView contentContainerStyle={{ paddingBottom: 36 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-              <View style={s.modalHandle} />
-              <View style={s.modalHeaderRow}>
-                <Text style={s.modalTitle}>{t.addNewTask ?? 'إضافة مهمة'}</Text>
-                <TouchableOpacity onPress={closeModal} style={s.modalCloseBtn} activeOpacity={0.7}>
-                  <Ionicons name="close" size={20} color="#888" />
-                </TouchableOpacity>
-              </View>
-
-              {/* Task Type */}
-              <Text style={[s.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskType ?? 'نوع المهمة'}</Text>
-              <View style={s.typeRow}>
-                <TouchableOpacity style={[s.typeBtn, newTaskType === 'core' && s.typeBtnActive]} onPress={() => setNewTaskType('core')} activeOpacity={0.8}>
-                  <Ionicons name="star" size={16} color={newTaskType === 'core' ? '#fff' : '#7C5CBF'} />
-                  <Text style={[s.typeBtnText, newTaskType === 'core' && s.typeBtnTextActive]}>{t.taskTypeCore ?? 'أساسية'}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[s.typeBtn, newTaskType === 'extra' && s.typeBtnActive]} onPress={() => setNewTaskType('extra')} activeOpacity={0.8}>
-                  <Ionicons name="flash" size={16} color={newTaskType === 'extra' ? '#fff' : '#7C5CBF'} />
-                  <Text style={[s.typeBtnText, newTaskType === 'extra' && s.typeBtnTextActive]}>{t.taskTypeExtra ?? 'إضافية'}</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Task Name */}
-              <Text style={[s.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskName ?? 'اسم المهمة'}</Text>
-              <TextInput
-                style={[s.fieldInput, nameError && s.fieldInputError, { textAlign: isRTL ? 'right' : 'left' }]}
-                placeholder={t.taskNamePlaceholder ?? 'أدخل اسم المهمة'}
-                placeholderTextColor="#aaa"
-                value={newName} onChangeText={(v) => { setNewName(v); if (v.trim()) setNameError(false); }}
-                returnKeyType="next"
+                  isRTL={isRTL}
+                  onEnterDeleteMode={() => setDeleteMode(true)}
               />
-              {nameError && <Text style={[s.errorText, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskNameRequired ?? 'اسم المهمة مطلوب'}</Text>}
+          )}
 
-              {/* Icon */}
-              <Text style={[s.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskIcon ?? 'أيقونة'}</Text>
-              <TextInput
-                style={[s.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
-                placeholder="📌" placeholderTextColor="#aaa"
-                value={newIcon} onChangeText={setNewIcon}
-              />
-
-              {/* Time */}
-              <Text style={[s.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskTime ?? 'الوقت'}</Text>
-              <View style={[s.timeRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                <View style={s.timeSlot}>
-                  <TextInput
-                    style={s.timeInput}
-                    placeholder={t.taskTimeFromPlaceholder ?? '09:00'}
-                    placeholderTextColor="#aaa"
-                    value={newTimeStart} onChangeText={setNewTimeStart}
-                    keyboardType="numbers-and-punctuation" textAlign="center"
-                  />
-                  <AmPmToggle period={newPeriodStart} onChange={setNewPeriodStart} isRTL={isRTL} />
+          {hasTasks && (
+              <View style={s.legend}>
+                <View style={s.legendItem}>
+                  <View style={[s.legendDot, { backgroundColor: '#4CAF82' }]} />
+                  <Text style={s.legendText}>{t.done}</Text>
                 </View>
-                <Text style={s.timeSep}>—</Text>
-                <View style={s.timeSlot}>
-                  <TextInput
-                    style={s.timeInput}
-                    placeholder={t.taskTimeToPlaceholder ?? '10:00'}
-                    placeholderTextColor="#aaa"
-                    value={newTimeEnd} onChangeText={setNewTimeEnd}
-                    keyboardType="numbers-and-punctuation" textAlign="center"
-                  />
-                  <AmPmToggle period={newPeriodEnd} onChange={setNewPeriodEnd} isRTL={isRTL} />
+                <View style={s.legendItem}>
+                  <View style={[s.legendDot, { backgroundColor: '#ddd' }]} />
+                  <Text style={s.legendText}>{t.notDoneYet}</Text>
+                </View>
+                <View style={s.legendItem}>
+                  <Ionicons name="time-outline" size={12} color="#bbb" />
+                  <Text style={s.legendText}>{t.notTimeYet}</Text>
+                </View>
+                <View style={s.legendItem}>
+                  <Ionicons name="fitness-outline" size={12} color="#4CAF82" />
+                  <Text style={s.legendText}>{t.exercise}</Text>
                 </View>
               </View>
+          )}
 
-              {/* Category */}
-              <Text style={[s.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskCategory2 ?? 'التصنيف'}</Text>
-              <View style={[s.catRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                {CAT_OPTIONS.map(opt => (
-                  <TouchableOpacity key={opt.k}
-                    style={[s.catBtn, newCat === opt.k && s.catBtnActive]}
-                    onPress={() => setNewCat(opt.k)} activeOpacity={0.8}>
-                    <Text style={[s.catBtnText, newCat === opt.k && s.catBtnTextActive]}>
-                      {isRTL ? opt.labelAr : opt.labelEn}
-                    </Text>
-                  </TouchableOpacity>
+          {!hasTasks ? (
+              <View style={s.emptyState}>
+                <Text style={{ fontSize: 40 }}>{isPastDay ? '📋' : '📭'}</Text>
+                <Text style={s.emptyText}>
+                  {isPastDay ? t.noTasksPastDay : t.noTasksToday}
+                </Text>
+                {!isPastDay && (
+                    <TouchableOpacity
+                        style={s.goToTasksBtn}
+                        onPress={openModal}
+                        activeOpacity={0.85}
+                    >
+                      <Ionicons name="add-circle-outline" size={18} color="#7C5CBF" />
+                      <Text style={s.goToTasksText}>
+                        {isFutureDay ? t.planForDay : t.addTasksFromTasksPage}
+                      </Text>
+                    </TouchableOpacity>
+                )}
+              </View>
+          ) : (
+              <View style={s.timeline}>
+                {withExercises.map((task, index) => (
+                    <TouchableOpacity
+                        key={task.id}
+                        onPress={() => task.isExercise ? handleExerciseTap(task) : handleToggleDone(task.id)}
+                        onLongPress={() => {
+                          if (!task.isExercise) {
+                            Alert.alert(
+                                t.deleteTask ?? 'حذف المهمة',
+                                isRTL ? `هل تريد حذف "${task.title}"؟` : `Do you want to delete "${task.title}"?`,
+                                [
+                                  { text: t.cancel ?? 'إلغاء', style: 'cancel' },
+                                  { text: t.deleteTask ?? 'حذف', style: 'destructive', onPress: () => handleDeleteTask(task.id) }
+                                ]
+                            );
+                          }
+                        }}
+                        delayLongPress={500}
+                        activeOpacity={deleteMode ? 1 : 0.85}
+                        disabled={deleteMode && !task.isExercise}
+                    >
+                      <TaskCard
+                          task={task}
+                          energy={energy}
+                          isLast={index === withExercises.length - 1}
+                          status={getStatus(task)}
+                          selectedDate={selectedDate}
+                          t={t}
+                          showDeleteMode={deleteMode}
+                          onDelete={handleDeleteTask}
+                          onCheck={handleToggleDone}
+                      />
+                    </TouchableOpacity>
                 ))}
               </View>
+          )}
+        </ScrollView>
 
-              {/* Energy */}
-              <Text style={[s.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskEnergyConsumed ?? 'الطاقة المستهلكة %'}</Text>
-              <TextInput
-                style={[s.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
-                placeholder={t.taskEnergyPlaceholder ?? '20'}
-                placeholderTextColor="#aaa"
-                keyboardType="number-pad"
-                value={newEnergy} onChangeText={setNewEnergy}
-              />
+        <CalendarPicker
+            visible={showCal}
+            selected={selectedDate}
+            onSelect={setSelectedDate}
+            onClose={() => setShowCal(false)}
+            minDateKey={yesterday}
+            t={t}
+            isRTL={isRTL}
+        />
+        <MedicationNote />
+        {/* Add Task Modal */}
+        <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={closeModal} statusBarTranslucent={false}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
+            <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }} activeOpacity={1} onPress={closeModal} />
+            <View style={s.modalSheet}>
+              <ScrollView contentContainerStyle={{ paddingBottom: 36 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                <View style={s.modalHandle} />
+                <View style={s.modalHeaderRow}>
+                  <Text style={s.modalTitle}>{t.addNewTask ?? 'إضافة مهمة'}</Text>
+                  <TouchableOpacity onPress={closeModal} style={s.modalCloseBtn} activeOpacity={0.7}>
+                    <Ionicons name="close" size={20} color="#888" />
+                  </TouchableOpacity>
+                </View>
 
-              <TouchableOpacity style={[s.submitBtn, saving && { opacity: 0.6 }]} onPress={addTask} activeOpacity={0.85} disabled={saving}>
-                <Text style={s.submitText}>{saving ? (t.savingDots ?? '...') : (t.addTaskBtn ?? 'إضافة')}</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-    </View>
+                {/* Task Type */}
+                <Text style={[s.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskType ?? 'نوع المهمة'}</Text>
+                <View style={s.typeRow}>
+                  <TouchableOpacity style={[s.typeBtn, newTaskType === 'core' && s.typeBtnActive]} onPress={() => setNewTaskType('core')} activeOpacity={0.8}>
+                    <Ionicons name="star" size={16} color={newTaskType === 'core' ? '#fff' : '#7C5CBF'} />
+                    <Text style={[s.typeBtnText, newTaskType === 'core' && s.typeBtnTextActive]}>{t.taskTypeCore ?? 'أساسية'}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[s.typeBtn, newTaskType === 'extra' && s.typeBtnActive]} onPress={() => setNewTaskType('extra')} activeOpacity={0.8}>
+                    <Ionicons name="flash" size={16} color={newTaskType === 'extra' ? '#fff' : '#7C5CBF'} />
+                    <Text style={[s.typeBtnText, newTaskType === 'extra' && s.typeBtnTextActive]}>{t.taskTypeExtra ?? 'إضافية'}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Task Name */}
+                <Text style={[s.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskName ?? 'اسم المهمة'}</Text>
+                <TextInput
+                    style={[s.fieldInput, nameError && s.fieldInputError, { textAlign: isRTL ? 'right' : 'left' }]}
+                    placeholder={t.taskNamePlaceholder ?? 'أدخل اسم المهمة'}
+                    placeholderTextColor="#aaa"
+                    value={newName} onChangeText={(v) => { setNewName(v); if (v.trim()) setNameError(false); }}
+                    returnKeyType="next"
+                />
+                {nameError && <Text style={[s.errorText, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskNameRequired ?? 'اسم المهمة مطلوب'}</Text>}
+
+                {/* Icon */}
+                <Text style={[s.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskIcon ?? 'أيقونة'}</Text>
+                <TextInput
+                    style={[s.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
+                    placeholder="📌" placeholderTextColor="#aaa"
+                    value={newIcon} onChangeText={setNewIcon}
+                />
+
+                {/* Time */}
+                <Text style={[s.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskTime ?? 'الوقت'}</Text>
+                <View style={[s.timeRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  <View style={s.timeSlot}>
+                    <TextInput
+                        style={s.timeInput}
+                        placeholder={t.taskTimeFromPlaceholder ?? '09:00'}
+                        placeholderTextColor="#aaa"
+                        value={newTimeStart} onChangeText={setNewTimeStart}
+                        keyboardType="numbers-and-punctuation" textAlign="center"
+                    />
+                    <AmPmToggle period={newPeriodStart} onChange={setNewPeriodStart} isRTL={isRTL} />
+                  </View>
+                  <Text style={s.timeSep}>—</Text>
+                  <View style={s.timeSlot}>
+                    <TextInput
+                        style={s.timeInput}
+                        placeholder={t.taskTimeToPlaceholder ?? '10:00'}
+                        placeholderTextColor="#aaa"
+                        value={newTimeEnd} onChangeText={setNewTimeEnd}
+                        keyboardType="numbers-and-punctuation" textAlign="center"
+                    />
+                    <AmPmToggle period={newPeriodEnd} onChange={setNewPeriodEnd} isRTL={isRTL} />
+                  </View>
+                </View>
+
+                {/* Category */}
+                <Text style={[s.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskCategory2 ?? 'التصنيف'}</Text>
+                <View style={[s.catRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  {CAT_OPTIONS.map(opt => (
+                      <TouchableOpacity key={opt.k}
+                                        style={[s.catBtn, newCat === opt.k && s.catBtnActive]}
+                                        onPress={() => setNewCat(opt.k)} activeOpacity={0.8}>
+                        <Text style={[s.catBtnText, newCat === opt.k && s.catBtnTextActive]}>
+                          {isRTL ? opt.labelAr : opt.labelEn}
+                        </Text>
+                      </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Energy */}
+                <Text style={[s.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskEnergyConsumed ?? 'الطاقة المستهلكة %'}</Text>
+                <TextInput
+                    style={[s.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
+                    placeholder={t.taskEnergyPlaceholder ?? '20'}
+                    placeholderTextColor="#aaa"
+                    keyboardType="number-pad"
+                    value={newEnergy} onChangeText={setNewEnergy}
+                />
+
+                <TouchableOpacity style={[s.submitBtn, saving && { opacity: 0.6 }]} onPress={addTask} activeOpacity={0.85} disabled={saving}>
+                  <Text style={s.submitText}>{saving ? (t.savingDots ?? '...') : (t.addTaskBtn ?? 'إضافة')}</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+      </View>
   );
 }
 
@@ -1322,28 +1341,28 @@ const s = StyleSheet.create({
     padding: 4,
   },
   addTaskBtn: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 8,
-  backgroundColor: '#fff',
-  borderRadius: 14,
-  borderWidth: 1.5,
-  borderColor: '#7C5CBF',
-  paddingVertical: 11,
-  paddingHorizontal: 20,
-  marginBottom: 14,
-  shadowColor: '#7C5CBF',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.08,
-  shadowRadius: 4,
-  elevation: 2,
-},
-addTaskBtnText: {
-  fontSize: 14,
-  fontWeight: '700',
-  color: '#7C5CBF',
-},
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#7C5CBF',
+    paddingVertical: 11,
+    paddingHorizontal: 20,
+    marginBottom: 14,
+    shadowColor: '#7C5CBF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  addTaskBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#7C5CBF',
+  },
   // ─── Add Task Modal ─────────────────────────────────────────────────────────
   modalSheet:     { backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, maxHeight: '90%' },
   modalHandle:    { width: 40, height: 4, backgroundColor: '#E0D6F5', borderRadius: 2, alignSelf: 'center', marginBottom: 12 },

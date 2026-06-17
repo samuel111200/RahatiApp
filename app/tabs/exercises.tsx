@@ -198,7 +198,7 @@ const DEFAULT_THERAPY_EXERCISES: Exercise[] = [
     descEn: 'Strengthens hip joints and muscles and improves leg mobility while seated',
     steps: [],
     stepsEn: [
-      ],
+    ],
     animType: 'hipMarch',
     type: 'therapy',
   },
@@ -607,7 +607,7 @@ const DEFAULT_STRENGTH_EXERCISES: Exercise[] = [
     descEn: 'Strengthens thigh and glute muscles and improves the ability to sit and stand safely',
     steps: [],
     stepsEn: [
-      ],
+    ],
     animType: 'bounce',
     type: 'strength',
   },
@@ -626,7 +626,7 @@ const DEFAULT_STRENGTH_EXERCISES: Exercise[] = [
     descEn: 'Strengthens arm and leg muscles together while improving coordination and balance',
     steps: [],
     stepsEn: [
-      ],
+    ],
     animType: 'hipMarch',
     type: 'strength',
   },
@@ -645,7 +645,7 @@ const DEFAULT_STRENGTH_EXERCISES: Exercise[] = [
     descEn: 'Strengthens back, arm, and trunk muscles using a resistance band while standing',
     steps: [],
     stepsEn: [
-      ],
+    ],
     animType: 'standingRow',
     type: 'strength',
   },
@@ -746,14 +746,14 @@ const DEFAULT_COORDINATION_EXERCISES: Exercise[] = [
 
 // ─── Default exercise lookup (key → Exercise) ─────────────
 const ALL_DEFAULT_EXERCISES_MAP: Record<string, Exercise> = Object.fromEntries(
-  [
-    ...DEFAULT_THERAPY_EXERCISES,
-    ...DEFAULT_YOGA_EXERCISES,
-    ...DEFAULT_AEROBIC_EXERCISES,
-    ...DEFAULT_ENDURANCE_EXERCISES,
-    ...DEFAULT_STRENGTH_EXERCISES,
-    ...DEFAULT_COORDINATION_EXERCISES,
-  ].map(e => [e.key, e]),
+    [
+      ...DEFAULT_THERAPY_EXERCISES,
+      ...DEFAULT_YOGA_EXERCISES,
+      ...DEFAULT_AEROBIC_EXERCISES,
+      ...DEFAULT_ENDURANCE_EXERCISES,
+      ...DEFAULT_STRENGTH_EXERCISES,
+      ...DEFAULT_COORDINATION_EXERCISES,
+    ].map(e => [e.key, e]),
 );
 
 // ════════════════════════════════════════════════════════════
@@ -793,42 +793,42 @@ export default function ExercisesScreen() {
     const uid = user?.uid;
     if (!uid) return;
     const unsub = onSnapshot(
-      collection(db, 'exercises', uid, 'items'),
-      (snap) => {
-        const list: Exercise[] = snap.docs.map(d => {
-          const data = d.data() as any;
-          const sectionKey = (data.type ?? 'therapy') as SectionKey;
-          // Full data: prefer what doctor stored in Firestore, fall back to shared map
-          const shared = SHARED_MAP[data.systemKey];
-          return {
-            key:             `doctor_${d.id}`,
-            doctorItemId:    d.id,
-            systemKey:       data.systemKey ?? '',
-            emoji:           data.emoji || shared?.emoji || '🏋️',
-            title:           data.title || shared?.titleAr || '',
-            titleEn:         data.titleEn || shared?.titleEn || data.title || '',
-            duration:        `${data.durationMin} دقيقة`,
-            durationEn:      `${data.durationMin} min`,
-            durationSeconds: (data.durationMin ?? 5) * 60,
-            color:           data.color  || shared?.color  || SECTION_COLOR_MAP[sectionKey] || '#7C5CBF',
-            bg:              data.bg     || shared?.bg     || '#F0EBFA',
-            accent:          data.accent || shared?.accent || '#E0D6F5',
-            desc:            data.description || shared?.descAr || '',
-            descEn:          data.descEn      || shared?.descEn || data.description || '',
-            // Steps: stored steps first (doctor may have customized), fall back to shared map
-            steps:   (data.steps?.length   ? data.steps   : shared?.steps)   ?? [],
-            stepsEn: (data.stepsEn?.length ? data.stepsEn : shared?.stepsEn) ?? [],
-            animType:   (data.animType || shared?.animType || 'bounce') as Exercise['animType'],
-            type:       sectionKey,
-            fromDoctor: true,
-            completed:  data.completed ?? false,
-            doctorNote: data.doctorNote || '',
-          } as Exercise & { doctorNote?: string };
-        });
-        setDoctorExercises(list.sort((a, b) =>
-          (b as any).assignedAt - (a as any).assignedAt
-        ));
-      },
+        collection(db, 'exercises', uid, 'items'),
+        (snap) => {
+          const list: Exercise[] = snap.docs.map(d => {
+            const data = d.data() as any;
+            const sectionKey = (data.type ?? 'therapy') as SectionKey;
+            // Full data: prefer what doctor stored in Firestore, fall back to shared map
+            const shared = SHARED_MAP[data.systemKey];
+            return {
+              key:             `doctor_${d.id}`,
+              doctorItemId:    d.id,
+              systemKey:       data.systemKey ?? '',
+              emoji:           data.emoji || shared?.emoji || '🏋️',
+              title:           data.title || shared?.title || '',
+              titleEn:         data.titleEn || shared?.titleEn || data.title || '',
+              duration:        `${data.durationMin} دقيقة`,
+              durationEn:      `${data.durationMin} min`,
+              durationSeconds: (data.durationMin ?? 5) * 60,
+              color:           data.color  || shared?.color  || SECTION_COLOR_MAP[sectionKey] || '#7C5CBF',
+              bg:              data.bg     || shared?.bg     || '#F0EBFA',
+              accent:          data.accent || shared?.accent || '#E0D6F5',
+              desc:            data.description || shared?.desc || '',
+              descEn:          data.descEn      || shared?.descEn || data.description || '',
+              // Steps: stored steps first (doctor may have customized), fall back to shared map
+              steps:   (data.steps?.length   ? data.steps   : shared?.steps)   ?? [],
+              stepsEn: (data.stepsEn?.length ? data.stepsEn : shared?.stepsEn) ?? [],
+              animType:   (data.animType || shared?.animType || 'bounce') as Exercise['animType'],
+              type:       sectionKey,
+              fromDoctor: true,
+              completed:  data.completed ?? false,
+              doctorNote: data.doctorNote || '',
+            } as Exercise & { doctorNote?: string };
+          });
+          setDoctorExercises(list.sort((a, b) =>
+              (b as any).assignedAt - (a as any).assignedAt
+          ));
+        },
     );
     return unsub;
   }, [user?.uid]);
@@ -877,9 +877,9 @@ export default function ExercisesScreen() {
   }, []));
 
   async function loadSection(
-    key: string,
-    defaults: Exercise[],
-    setter: React.Dispatch<React.SetStateAction<Exercise[]>>,
+      key: string,
+      defaults: Exercise[],
+      setter: React.Dispatch<React.SetStateAction<Exercise[]>>,
   ) {
     const stored = await AsyncStorage.getItem(key);
     if (stored) {
@@ -956,8 +956,8 @@ export default function ExercisesScreen() {
   })();
 
   const ex = getAllExercises().find(e => e.key === selected)
-    ?? therapyList[0]
-    ?? DEFAULT_THERAPY_EXERCISES[0];
+      ?? therapyList[0]
+      ?? DEFAULT_THERAPY_EXERCISES[0];
 
   function speakAllSteps(exercise: Exercise) {
     const stepsToRead = isRTL ? exercise.steps : exercise.stepsEn;
@@ -1072,8 +1072,8 @@ export default function ExercisesScreen() {
       await notify({
         title: t.exerciseAdded,
         body: isRTL
-          ? `"${newEx.title}" اتضاف لـ${sectionConfig.labelAr}`
-          : `"${newEx.titleEn}" added to ${sectionConfig.labelEn}`,
+            ? `"${newEx.title}" اتضاف لـ${sectionConfig.labelAr}`
+            : `"${newEx.titleEn}" added to ${sectionConfig.labelEn}`,
         emoji: newEx.emoji, type: 'add',
       });
     } catch (e) {
@@ -1109,420 +1109,420 @@ export default function ExercisesScreen() {
       const badge  = SECTION_BADGE[item.type];
 
       return (
-        <TouchableOpacity
-          key={item.key}
-          onPress={() => setSelected(item.key)}
-          onLongPress={() => {
-            // Doctor exercises: toggle done on long press
-            if (item.fromDoctor) {
-              toggleDoctorExerciseDone(item);
-              return;
-            }
-            if (!item.custom) return;
-            const title = isRTL ? item.title : item.titleEn;
-            Alert.alert(
-              t.exerciseOptions,
-              `"${title}"`,
-              [
-                { text: t.cancel, style: 'cancel' },
+          <TouchableOpacity
+              key={item.key}
+              onPress={() => setSelected(item.key)}
+              onLongPress={() => {
+                // Doctor exercises: toggle done on long press
+                if (item.fromDoctor) {
+                  toggleDoctorExerciseDone(item);
+                  return;
+                }
+                if (!item.custom) return;
+                const title = isRTL ? item.title : item.titleEn;
+                Alert.alert(
+                    t.exerciseOptions,
+                    `"${title}"`,
+                    [
+                      { text: t.cancel, style: 'cancel' },
+                      {
+                        text: t.deleteTask,
+                        style: 'destructive',
+                        onPress: () => handleDeleteExercise(item),
+                      },
+                    ],
+                );
+              }}
+              delayLongPress={600}
+              activeOpacity={0.88}
+              style={[
+                styles.card,
                 {
-                  text: t.deleteTask,
-                  style: 'destructive',
-                  onPress: () => handleDeleteExercise(item),
+                  backgroundColor: item.fromDoctor
+                      ? (item.completed ? '#F0FFF4' : '#F8F5FF')
+                      : item.bg,
+                  width: CARD_W,
                 },
-              ],
-            );
-          }}
-          delayLongPress={600}
-          activeOpacity={0.88}
-          style={[
-            styles.card,
-            {
-              backgroundColor: item.fromDoctor
-                ? (item.completed ? '#F0FFF4' : '#F8F5FF')
-                : item.bg,
-              width: CARD_W,
-            },
-            iSel && { borderWidth: 2.5, borderColor: item.color },
-            // Doctor exercises get a subtle purple border always
-            item.fromDoctor && !iSel && {
-              borderWidth: 1.5,
-              borderColor: '#7C5CBF40',
-            },
-          ]}
-        >
-          <View style={[styles.cardTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <View style={[
-              styles.emojiCircle,
-              { backgroundColor: item.fromDoctor ? '#E8DFFA' : item.accent },
+                iSel && { borderWidth: 2.5, borderColor: item.color },
+                // Doctor exercises get a subtle purple border always
+                item.fromDoctor && !iSel && {
+                  borderWidth: 1.5,
+                  borderColor: '#7C5CBF40',
+                },
+              ]}
+          >
+            <View style={[styles.cardTopRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <View style={[
+                styles.emojiCircle,
+                { backgroundColor: item.fromDoctor ? '#E8DFFA' : item.accent },
+              ]}>
+                <Text style={{ fontSize: 30 }}>{item.emoji}</Text>
+              </View>
+
+              {iSel && (
+                  <View style={[styles.selectedCheck, { backgroundColor: item.color }]}>
+                    <Ionicons name="checkmark" size={14} color="#fff" />
+                  </View>
+              )}
+
+              {/* ── Doctor badge ── */}
+              {item.fromDoctor && (
+                  <View style={styles.doctorBadge}>
+                    <Ionicons name="medical" size={10} color="#fff" />
+                    <Text style={styles.doctorBadgeText}>{t.doctorExercise}</Text>
+                  </View>
+              )}
+
+              {/* ── Done badge for doctor exercises ── */}
+              {item.fromDoctor && item.completed && (
+                  <View style={styles.doneBadge}>
+                    <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
+                    <Text style={styles.doneBadgeText}>{t.docExercisesDone}</Text>
+                  </View>
+              )}
+
+              {!item.fromDoctor && (
+                  <View style={[styles.exerciseTypeBadge, { backgroundColor: badge.bg }]}>
+                    <Text style={[styles.exerciseTypeBadgeText, { color: badge.color }]}>
+                      {badge.label}
+                    </Text>
+                  </View>
+              )}
+            </View>
+
+            <Text style={[
+              styles.cardTitle,
+              {
+                color: item.fromDoctor ? '#7C5CBF' : item.color,
+                textAlign: isRTL ? 'right' : 'left',
+              },
             ]}>
-              <Text style={{ fontSize: 30 }}>{item.emoji}</Text>
+              {iTitle}
+            </Text>
+
+            <View style={[styles.durationRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Ionicons name="time-outline" size={13} color={item.fromDoctor ? '#7C5CBF' : item.color} />
+              <Text style={[styles.durationText, { color: item.fromDoctor ? '#7C5CBF' : item.color }]}>
+                {' '}{iDur}
+              </Text>
             </View>
 
-            {iSel && (
-              <View style={[styles.selectedCheck, { backgroundColor: item.color }]}>
-                <Ionicons name="checkmark" size={14} color="#fff" />
-              </View>
-            )}
-
-            {/* ── Doctor badge ── */}
-            {item.fromDoctor && (
-              <View style={styles.doctorBadge}>
-                <Ionicons name="medical" size={10} color="#fff" />
-                <Text style={styles.doctorBadgeText}>{t.doctorExercise}</Text>
-              </View>
-            )}
-
-            {/* ── Done badge for doctor exercises ── */}
-            {item.fromDoctor && item.completed && (
-              <View style={styles.doneBadge}>
-                <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
-                <Text style={styles.doneBadgeText}>{t.docExercisesDone}</Text>
-              </View>
-            )}
-
-            {!item.fromDoctor && (
-              <View style={[styles.exerciseTypeBadge, { backgroundColor: badge.bg }]}>
-                <Text style={[styles.exerciseTypeBadgeText, { color: badge.color }]}>
-                  {badge.label}
+            {!!iDesc && (
+                <Text style={[styles.cardDesc, { textAlign: isRTL ? 'right' : 'left' }]}>
+                  {iDesc}
                 </Text>
-              </View>
             )}
-          </View>
 
-          <Text style={[
-            styles.cardTitle,
-            {
-              color: item.fromDoctor ? '#7C5CBF' : item.color,
-              textAlign: isRTL ? 'right' : 'left',
-            },
-          ]}>
-            {iTitle}
-          </Text>
-
-          <View style={[styles.durationRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <Ionicons name="time-outline" size={13} color={item.fromDoctor ? '#7C5CBF' : item.color} />
-            <Text style={[styles.durationText, { color: item.fromDoctor ? '#7C5CBF' : item.color }]}>
-              {' '}{iDur}
-            </Text>
-          </View>
-
-          {!!iDesc && (
-            <Text style={[styles.cardDesc, { textAlign: isRTL ? 'right' : 'left' }]}>
-              {iDesc}
-            </Text>
-          )}
-
-          {/* Doctor exercise: steps + note + done button */}
-          {item.fromDoctor ? (
-            <View style={styles.doctorCardFooter}>
-              {/* Doctor note */}
-              {!!(item as any).doctorNote && (
-                <View style={styles.doctorNoteBox}>
-                  <Ionicons name="information-circle-outline" size={13} color="#7C5CBF" />
-                  <Text style={styles.doctorNoteText}>{(item as any).doctorNote}</Text>
-                </View>
-              )}
-              {/* Steps — same as regular exercises */}
-              {iSteps.length > 0 && (
-                <ScrollView
-                  style={[styles.stepsScroll, { maxHeight: 140 }]}
-                  showsVerticalScrollIndicator={false}
-                  nestedScrollEnabled={true}
-                >
-                  {iSteps.map((step, i) => (
-                    <TouchableOpacity
-                      key={i}
-                      onPress={() => speakStep(step, isRTL)}
-                      style={[styles.stepRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-                      activeOpacity={0.7}
-                    >
-                      <View style={[styles.stepNum, { backgroundColor: '#7C5CBF99' }]}>
-                        <Text style={styles.stepNumText}>{i + 1}</Text>
+            {/* Doctor exercise: steps + note + done button */}
+            {item.fromDoctor ? (
+                <View style={styles.doctorCardFooter}>
+                  {/* Doctor note */}
+                  {!!(item as any).doctorNote && (
+                      <View style={styles.doctorNoteBox}>
+                        <Ionicons name="information-circle-outline" size={13} color="#7C5CBF" />
+                        <Text style={styles.doctorNoteText}>{(item as any).doctorNote}</Text>
                       </View>
-                      <Text style={[styles.stepText, { textAlign: isRTL ? 'right' : 'left' }]}>{step}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              )}
-              <TouchableOpacity
-                style={[
-                  styles.doctorDoneBtn,
-                  { backgroundColor: item.completed ? '#4CAF5015' : '#7C5CBF15', marginTop: iSteps.length > 0 ? 8 : 0 },
-                ]}
-                onPress={() => toggleDoctorExerciseDone(item)}
-                activeOpacity={0.8}
-              >
-                <Ionicons
-                  name={item.completed ? 'checkmark-circle' : 'ellipse-outline'}
-                  size={18}
-                  color={item.completed ? '#4CAF50' : '#7C5CBF'}
-                />
-                <Text style={[styles.doctorDoneBtnText, { color: item.completed ? '#4CAF50' : '#7C5CBF' }]}>
-                  {item.completed ? t.exerciseDoneDr : t.exerciseTapWhenDone}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.stepsArea}>
-              <ScrollView
-                style={styles.stepsScroll}
-                showsVerticalScrollIndicator={false}
-                nestedScrollEnabled={true}
-              >
-                {iSteps.map((step, i) => (
+                  )}
+                  {/* Steps — same as regular exercises */}
+                  {iSteps.length > 0 && (
+                      <ScrollView
+                          style={[styles.stepsScroll, { maxHeight: 140 }]}
+                          showsVerticalScrollIndicator={false}
+                          nestedScrollEnabled={true}
+                      >
+                        {iSteps.map((step, i) => (
+                            <TouchableOpacity
+                                key={i}
+                                onPress={() => speakStep(step, isRTL)}
+                                style={[styles.stepRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                                activeOpacity={0.7}
+                            >
+                              <View style={[styles.stepNum, { backgroundColor: '#7C5CBF99' }]}>
+                                <Text style={styles.stepNumText}>{i + 1}</Text>
+                              </View>
+                              <Text style={[styles.stepText, { textAlign: isRTL ? 'right' : 'left' }]}>{step}</Text>
+                            </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                  )}
                   <TouchableOpacity
-                    key={i}
-                    onPress={() => speakStep(step, isRTL)}
-                    style={[styles.stepRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-                    activeOpacity={0.7}
+                      style={[
+                        styles.doctorDoneBtn,
+                        { backgroundColor: item.completed ? '#4CAF5015' : '#7C5CBF15', marginTop: iSteps.length > 0 ? 8 : 0 },
+                      ]}
+                      onPress={() => toggleDoctorExerciseDone(item)}
+                      activeOpacity={0.8}
                   >
-                    <View style={[styles.stepNum, { backgroundColor: item.color + 'AA' }]}>
-                      <Text style={styles.stepNumText}>{i + 1}</Text>
-                    </View>
-                    <Text style={[styles.stepText, { textAlign: isRTL ? 'right' : 'left' }]}>
-                      {step}
+                    <Ionicons
+                        name={item.completed ? 'checkmark-circle' : 'ellipse-outline'}
+                        size={18}
+                        color={item.completed ? '#4CAF50' : '#7C5CBF'}
+                    />
+                    <Text style={[styles.doctorDoneBtnText, { color: item.completed ? '#4CAF50' : '#7C5CBF' }]}>
+                      {item.completed ? t.exerciseDoneDr : t.exerciseTapWhenDone}
                     </Text>
                   </TouchableOpacity>
-                ))}
-              </ScrollView>
-              {iSel && iSteps.length > 0 && (
-                <TouchableOpacity
-                  style={[styles.speakBtn, { borderColor: item.color, backgroundColor: item.bg }]}
-                  onPress={() => isSpeaking ? stopSpeaking() : speakAllSteps(item)}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons
-                    name={isSpeaking ? 'stop-circle-outline' : 'volume-high-outline'}
-                    size={16}
-                    color={item.color}
-                  />
-                  <Text style={[styles.speakBtnText, { color: item.color }]}>
-                    {isSpeaking ? t.stopReadSteps : t.readSteps}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-        </TouchableOpacity>
+                </View>
+            ) : (
+                <View style={styles.stepsArea}>
+                  <ScrollView
+                      style={styles.stepsScroll}
+                      showsVerticalScrollIndicator={false}
+                      nestedScrollEnabled={true}
+                  >
+                    {iSteps.map((step, i) => (
+                        <TouchableOpacity
+                            key={i}
+                            onPress={() => speakStep(step, isRTL)}
+                            style={[styles.stepRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+                            activeOpacity={0.7}
+                        >
+                          <View style={[styles.stepNum, { backgroundColor: item.color + 'AA' }]}>
+                            <Text style={styles.stepNumText}>{i + 1}</Text>
+                          </View>
+                          <Text style={[styles.stepText, { textAlign: isRTL ? 'right' : 'left' }]}>
+                            {step}
+                          </Text>
+                        </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                  {iSel && iSteps.length > 0 && (
+                      <TouchableOpacity
+                          style={[styles.speakBtn, { borderColor: item.color, backgroundColor: item.bg }]}
+                          onPress={() => isSpeaking ? stopSpeaking() : speakAllSteps(item)}
+                          activeOpacity={0.8}
+                      >
+                        <Ionicons
+                            name={isSpeaking ? 'stop-circle-outline' : 'volume-high-outline'}
+                            size={16}
+                            color={item.color}
+                        />
+                        <Text style={[styles.speakBtnText, { color: item.color }]}>
+                          {isSpeaking ? t.stopReadSteps : t.readSteps}
+                        </Text>
+                      </TouchableOpacity>
+                  )}
+                </View>
+            )}
+          </TouchableOpacity>
       );
     });
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-      <View style={styles.container}>
+      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+        <View style={styles.container}>
 
-        <View style={[styles.navbar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <TouchableOpacity onPress={openAddModal} style={styles.navBtn}>
-            <Ionicons name="add" size={24} color="#7C5CBF" />
-          </TouchableOpacity>
-          <Text style={styles.navTitle}>{t.dailyExercises}</Text>
-          <View style={{ width: 40 }} />
-        </View>
-
-        {/* ── Section Tabs ── */}
-        <ScrollView
-          horizontal showsHorizontalScrollIndicator={false}
-          contentContainerStyle={[styles.sectionToggleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-          style={styles.sectionToggleScroll}
-        >
-          {SECTION_CONFIGS.map((section) => {
-            const isActive = activeSection === section.key;
-            const count = getSectionCount(section.key);
-            const docCountInSection = doctorExercises.filter(e => e.type === section.key).length;
-            return (
-              <TouchableOpacity
-                key={section.key}
-                style={[styles.sectionBtn, isActive && { backgroundColor: section.color }]}
-                onPress={() => setActiveSection(section.key)}
-                activeOpacity={0.8}
-              >
-                <Ionicons name={section.icon} size={14} color={isActive ? '#fff' : section.color} />
-                <Text style={[styles.sectionBtnText, { color: isActive ? '#fff' : section.color }]}>
-                  {isRTL ? section.labelAr : section.labelEn}
-                </Text>
-                <View style={[
-                  styles.sectionCount,
-                  { backgroundColor: isActive ? 'rgba(255,255,255,0.3)' : section.color + '22' },
-                ]}>
-                  <Text style={[styles.sectionCountText, { color: isActive ? '#fff' : section.color }]}>
-                    {count}
-                  </Text>
-                </View>
-                {/* Small doctor indicator on tab if has doctor exercises */}
-                {docCountInSection > 0 && (
-                  <View style={styles.tabDoctorDot} />
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        <View style={styles.sectionDesc}>
-          <Ionicons name={activeSectionConfig.icon} size={13} color={activeSectionConfig.color + '99'} />
-          <Text style={[styles.sectionDescText, { color: activeSectionConfig.color + '99' }]}>
-            {isRTL ? activeSectionConfig.descAr : activeSectionConfig.descEn}
-          </Text>
-        </View>
-
-        {SECTION_EXERCISES.length === 0 ? (
-          <View style={styles.emptySection}>
-            <Text style={{ fontSize: 44 }}>{activeSectionConfig.emoji}</Text>
-            <Text style={styles.emptySectionText}>
-              {isRTL
-                ? `مفيش تمارين في قسم ${activeSectionConfig.labelAr} بعد`
-                : `No ${activeSectionConfig.labelEn} exercises yet`}
-            </Text>
-            <TouchableOpacity
-              style={[
-                styles.emptyAddBtn,
-                {
-                  borderColor: activeSectionConfig.color,
-                  backgroundColor: activeSectionConfig.color + '11',
-                },
-              ]}
-              onPress={() => { setNewType(activeSection); openAddModal(); }}
-            >
-              <Ionicons name="add" size={16} color={activeSectionConfig.color} />
-              <Text style={[styles.emptyAddText, { color: activeSectionConfig.color }]}>{t.addExercise}</Text>
+          <View style={[styles.navbar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <TouchableOpacity onPress={openAddModal} style={styles.navBtn}>
+              <Ionicons name="add" size={24} color="#7C5CBF" />
             </TouchableOpacity>
+            <Text style={styles.navTitle}>{t.dailyExercises}</Text>
+            <View style={{ width: 40 }} />
           </View>
-        ) : (
+
+          {/* ── Section Tabs ── */}
           <ScrollView
-            horizontal showsHorizontalScrollIndicator={false}
-            decelerationRate="fast" snapToInterval={CARD_W + 14}
-            contentContainerStyle={styles.cardsRow} style={{ flexGrow: 0 }}
+              horizontal showsHorizontalScrollIndicator={false}
+              contentContainerStyle={[styles.sectionToggleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+              style={styles.sectionToggleScroll}
           >
-            {renderCards(SECTION_EXERCISES)}
-          </ScrollView>
-        )}
-
-        <View style={styles.dotsRow}>
-          {SECTION_EXERCISES.map((e) => (
-            <TouchableOpacity key={e.key} onPress={() => setSelected(e.key)}>
-              <View style={[
-                styles.dot,
-                selected === e.key && { width: 20, backgroundColor: activeSectionConfig.color },
-                e.fromDoctor && { backgroundColor: '#7C5CBF60' },
-              ]} />
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <View style={styles.timerWrap}>
-          <TouchableOpacity
-            style={[styles.timerBtn, { backgroundColor: ex.bg, borderColor: ex.color }]}
-            onPress={startSession} activeOpacity={0.85}
-          >
-            <Ionicons name="play-circle-outline" size={26} color={ex.color} />
-            <Text style={[styles.timerBtnText, { color: ex.color }]}>
-              {t.startDot}{exDur}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* ── Add Modal ── */}
-      <Modal
-        visible={showAdd} transparent animationType="slide"
-        onRequestClose={closeAddModal} statusBarTranslucent={false}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-        >
-          <TouchableOpacity
-            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }}
-            activeOpacity={1} onPress={closeAddModal}
-          />
-          <View style={modal.addBox}>
-            <View style={modal.addHeader}>
-              <Text style={modal.addTitle}>{t.addNewExercise}</Text>
-              <TouchableOpacity onPress={closeAddModal} style={modal.closeBtn} activeOpacity={0.7}>
-                <Ionicons name="close" size={20} color="#888" />
-              </TouchableOpacity>
-            </View>
-            <ScrollView
-              contentContainerStyle={{ paddingBottom: 24 }}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              <Text style={modal.label}>{t.exerciseType}</Text>
-              <ScrollView
-                horizontal showsHorizontalScrollIndicator={false}
-                contentContainerStyle={modal.typeRow}
-              >
-                {SECTION_CONFIGS.map((section) => {
-                  const isActive = newType === section.key;
-                  return (
-                    <TouchableOpacity
+            {SECTION_CONFIGS.map((section) => {
+              const isActive = activeSection === section.key;
+              const count = getSectionCount(section.key);
+              const docCountInSection = doctorExercises.filter(e => e.type === section.key).length;
+              return (
+                  <TouchableOpacity
                       key={section.key}
-                      style={[
-                        modal.typeBtn,
-                        { borderColor: section.color },
-                        isActive && { backgroundColor: section.color },
-                      ]}
-                      onPress={() => setNewType(section.key)} activeOpacity={0.8}
-                    >
-                      <Text style={{ fontSize: 16 }}>{section.emoji}</Text>
-                      <Text style={[modal.typeBtnText, { color: isActive ? '#fff' : section.color }]}>
-                        {isRTL ? section.labelAr : section.labelEn}
+                      style={[styles.sectionBtn, isActive && { backgroundColor: section.color }]}
+                      onPress={() => setActiveSection(section.key)}
+                      activeOpacity={0.8}
+                  >
+                    <Ionicons name={section.icon} size={14} color={isActive ? '#fff' : section.color} />
+                    <Text style={[styles.sectionBtnText, { color: isActive ? '#fff' : section.color }]}>
+                      {isRTL ? section.labelAr : section.labelEn}
+                    </Text>
+                    <View style={[
+                      styles.sectionCount,
+                      { backgroundColor: isActive ? 'rgba(255,255,255,0.3)' : section.color + '22' },
+                    ]}>
+                      <Text style={[styles.sectionCountText, { color: isActive ? '#fff' : section.color }]}>
+                        {count}
                       </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+                    </View>
+                    {/* Small doctor indicator on tab if has doctor exercises */}
+                    {docCountInSection > 0 && (
+                        <View style={styles.tabDoctorDot} />
+                    )}
+                  </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
 
-              <Text style={modal.label}>{t.exerciseEmoji}</Text>
-              <TextInput
-                style={modal.emojiInput}
-                value={newEmoji} onChangeText={setNewEmoji}
-                placeholder="🏋️" maxLength={4} textAlign="center"
-              />
-
-              <Text style={modal.label}>{t.exerciseNameLabel}</Text>
-              <TextInput
-                style={[modal.input, { textAlign: isRTL ? 'right' : 'left' }]}
-                value={newName} onChangeText={setNewName}
-                placeholder={t.exerciseNamePlaceholder}
-                placeholderTextColor="#bbb" returnKeyType="next"
-              />
-
-              <Text style={modal.label}>{t.exerciseDurationLabel}</Text>
-              <TextInput
-                style={[modal.input, { textAlign: isRTL ? 'right' : 'left' }]}
-                value={newMinutes} onChangeText={setNewMinutes}
-                placeholder={t.exerciseDurationPlaceholder}
-                placeholderTextColor="#bbb" keyboardType="numeric" returnKeyType="next"
-              />
-
-              <Text style={modal.label}>{t.exerciseDescLabel}</Text>
-              <TextInput
-                style={[modal.input, modal.inputMulti, { textAlign: isRTL ? 'right' : 'left' }]}
-                value={newDesc} onChangeText={setNewDesc}
-                placeholder={t.exerciseDescPlaceholder}
-                placeholderTextColor="#bbb" multiline numberOfLines={2}
-              />
-
-              <TouchableOpacity
-                style={[
-                  modal.saveBtn,
-                  { backgroundColor: SECTION_CONFIGS.find(s => s.key === newType)?.color ?? '#7C5CBF' },
-                  savingEx && { opacity: 0.6 },
-                ]}
-                onPress={handleAddExercise} disabled={savingEx} activeOpacity={0.85}
-              >
-                <Text style={modal.saveBtnText}>
-                  {savingEx ? t.saving : t.saveExercise}
-                </Text>
-              </TouchableOpacity>
-            </ScrollView>
+          <View style={styles.sectionDesc}>
+            <Ionicons name={activeSectionConfig.icon} size={13} color={activeSectionConfig.color + '99'} />
+            <Text style={[styles.sectionDescText, { color: activeSectionConfig.color + '99' }]}>
+              {isRTL ? activeSectionConfig.descAr : activeSectionConfig.descEn}
+            </Text>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
-    </SafeAreaView>
+
+          {SECTION_EXERCISES.length === 0 ? (
+              <View style={styles.emptySection}>
+                <Text style={{ fontSize: 44 }}>{activeSectionConfig.emoji}</Text>
+                <Text style={styles.emptySectionText}>
+                  {isRTL
+                      ? `مفيش تمارين في قسم ${activeSectionConfig.labelAr} بعد`
+                      : `No ${activeSectionConfig.labelEn} exercises yet`}
+                </Text>
+                <TouchableOpacity
+                    style={[
+                      styles.emptyAddBtn,
+                      {
+                        borderColor: activeSectionConfig.color,
+                        backgroundColor: activeSectionConfig.color + '11',
+                      },
+                    ]}
+                    onPress={() => { setNewType(activeSection); openAddModal(); }}
+                >
+                  <Ionicons name="add" size={16} color={activeSectionConfig.color} />
+                  <Text style={[styles.emptyAddText, { color: activeSectionConfig.color }]}>{t.addExercise}</Text>
+                </TouchableOpacity>
+              </View>
+          ) : (
+              <ScrollView
+                  horizontal showsHorizontalScrollIndicator={false}
+                  decelerationRate="fast" snapToInterval={CARD_W + 14}
+                  contentContainerStyle={styles.cardsRow} style={{ flexGrow: 0 }}
+              >
+                {renderCards(SECTION_EXERCISES)}
+              </ScrollView>
+          )}
+
+          <View style={styles.dotsRow}>
+            {SECTION_EXERCISES.map((e) => (
+                <TouchableOpacity key={e.key} onPress={() => setSelected(e.key)}>
+                  <View style={[
+                    styles.dot,
+                    selected === e.key && { width: 20, backgroundColor: activeSectionConfig.color },
+                    e.fromDoctor && { backgroundColor: '#7C5CBF60' },
+                  ]} />
+                </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.timerWrap}>
+            <TouchableOpacity
+                style={[styles.timerBtn, { backgroundColor: ex.bg, borderColor: ex.color }]}
+                onPress={startSession} activeOpacity={0.85}
+            >
+              <Ionicons name="play-circle-outline" size={26} color={ex.color} />
+              <Text style={[styles.timerBtnText, { color: ex.color }]}>
+                {t.startDot}{exDur}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ── Add Modal ── */}
+        <Modal
+            visible={showAdd} transparent animationType="slide"
+            onRequestClose={closeAddModal} statusBarTranslucent={false}
+        >
+          <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={{ flex: 1 }}
+              keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+          >
+            <TouchableOpacity
+                style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }}
+                activeOpacity={1} onPress={closeAddModal}
+            />
+            <View style={modal.addBox}>
+              <View style={modal.addHeader}>
+                <Text style={modal.addTitle}>{t.addNewExercise}</Text>
+                <TouchableOpacity onPress={closeAddModal} style={modal.closeBtn} activeOpacity={0.7}>
+                  <Ionicons name="close" size={20} color="#888" />
+                </TouchableOpacity>
+              </View>
+              <ScrollView
+                  contentContainerStyle={{ paddingBottom: 24 }}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+              >
+                <Text style={modal.label}>{t.exerciseType}</Text>
+                <ScrollView
+                    horizontal showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={modal.typeRow}
+                >
+                  {SECTION_CONFIGS.map((section) => {
+                    const isActive = newType === section.key;
+                    return (
+                        <TouchableOpacity
+                            key={section.key}
+                            style={[
+                              modal.typeBtn,
+                              { borderColor: section.color },
+                              isActive && { backgroundColor: section.color },
+                            ]}
+                            onPress={() => setNewType(section.key)} activeOpacity={0.8}
+                        >
+                          <Text style={{ fontSize: 16 }}>{section.emoji}</Text>
+                          <Text style={[modal.typeBtnText, { color: isActive ? '#fff' : section.color }]}>
+                            {isRTL ? section.labelAr : section.labelEn}
+                          </Text>
+                        </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+
+                <Text style={modal.label}>{t.exerciseEmoji}</Text>
+                <TextInput
+                    style={modal.emojiInput}
+                    value={newEmoji} onChangeText={setNewEmoji}
+                    placeholder="🏋️" maxLength={4} textAlign="center"
+                />
+
+                <Text style={modal.label}>{t.exerciseNameLabel}</Text>
+                <TextInput
+                    style={[modal.input, { textAlign: isRTL ? 'right' : 'left' }]}
+                    value={newName} onChangeText={setNewName}
+                    placeholder={t.exerciseNamePlaceholder}
+                    placeholderTextColor="#bbb" returnKeyType="next"
+                />
+
+                <Text style={modal.label}>{t.exerciseDurationLabel}</Text>
+                <TextInput
+                    style={[modal.input, { textAlign: isRTL ? 'right' : 'left' }]}
+                    value={newMinutes} onChangeText={setNewMinutes}
+                    placeholder={t.exerciseDurationPlaceholder}
+                    placeholderTextColor="#bbb" keyboardType="numeric" returnKeyType="next"
+                />
+
+                <Text style={modal.label}>{t.exerciseDescLabel}</Text>
+                <TextInput
+                    style={[modal.input, modal.inputMulti, { textAlign: isRTL ? 'right' : 'left' }]}
+                    value={newDesc} onChangeText={setNewDesc}
+                    placeholder={t.exerciseDescPlaceholder}
+                    placeholderTextColor="#bbb" multiline numberOfLines={2}
+                />
+
+                <TouchableOpacity
+                    style={[
+                      modal.saveBtn,
+                      { backgroundColor: SECTION_CONFIGS.find(s => s.key === newType)?.color ?? '#7C5CBF' },
+                      savingEx && { opacity: 0.6 },
+                    ]}
+                    onPress={handleAddExercise} disabled={savingEx} activeOpacity={0.85}
+                >
+                  <Text style={modal.saveBtnText}>
+                    {savingEx ? t.saving : t.saveExercise}
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+      </SafeAreaView>
   );
 }
 

@@ -78,7 +78,9 @@ function formatTime(time: string, isRTL: boolean): string {
   // Handle range like "09:00 - 10:00"
   if (time.includes(' - ')) {
     const [start, end] = time.split(' - ');
-    return `${formatTime(start.trim(), isRTL)} — ${formatTime(end.trim(), isRTL)}`;
+    return isRTL
+        ? `${formatTime(start.trim(), isRTL)} إلى ${formatTime(end.trim(), isRTL)}`
+        : `${formatTime(start.trim(), isRTL)} — ${formatTime(end.trim(), isRTL)}`;
   }
   const { display, period } = to12h(time);
   const label = isRTL ? (period === 'AM' ? 'ص' : 'م') : period;
@@ -90,24 +92,24 @@ function AmPmToggle({ period, onChange, isRTL }: {
   period: Period; onChange: (p: Period) => void; isRTL: boolean;
 }) {
   const options: { value: Period; label: string }[] = isRTL
-    ? [{ value: 'AM', label: 'ص' }, { value: 'PM', label: 'م' }]
-    : [{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }];
+      ? [{ value: 'AM', label: 'ص' }, { value: 'PM', label: 'م' }]
+      : [{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' }];
 
   return (
-    <View style={ampmSt.wrap}>
-      {options.map(opt => (
-        <TouchableOpacity
-          key={opt.value}
-          onPress={() => onChange(opt.value)}
-          activeOpacity={0.8}
-          style={[ampmSt.btn, period === opt.value && ampmSt.btnActive]}
-        >
-          <Text style={[ampmSt.text, period === opt.value && ampmSt.textActive]}>
-            {opt.label}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
+      <View style={ampmSt.wrap}>
+        {options.map(opt => (
+            <TouchableOpacity
+                key={opt.value}
+                onPress={() => onChange(opt.value)}
+                activeOpacity={0.8}
+                style={[ampmSt.btn, period === opt.value && ampmSt.btnActive]}
+            >
+              <Text style={[ampmSt.text, period === opt.value && ampmSt.textActive]}>
+                {opt.label}
+              </Text>
+            </TouchableOpacity>
+        ))}
+      </View>
   );
 }
 
@@ -142,8 +144,7 @@ export default function TasksScreen() {
   const [activeSection, setActiveSection] = useState<TaskType>('core');
   const [selectedDate,  setSelectedDate]  = useState(TODAY);
   const [filter,        setFilter]        = useState('all');
-  const [coreTasks,     setCoreTasks]     = useState<Task[]>([]);
-  const [extraTasks,    setExtraTasks]    = useState<Task[]>([]);
+  const [allTasks,      setAllTasks]      = useState<Task[]>([]);
   const [modalVisible,  setModalVisible]  = useState(false);
   const [newName,       setNewName]       = useState('');
   const [newIcon,       setNewIcon]       = useState('');
@@ -162,19 +163,14 @@ export default function TasksScreen() {
   useEffect(() => {
     if (!uid) return;
     const unsub = onSnapshot(collection(db, 'tasks', uid, 'items'), (snap) => {
-      const all: Task[] = snap.docs.map(d => d.data() as Task);
-
-      // Core tasks show up every day
-      const core  = all.filter(tk => tk.type === 'core');
-
-      // Extra tasks only show up on their specific assigned date
-      const extra = all.filter(tk => tk.type === 'extra' && tk.date === selectedDate);
-
-      setCoreTasks(core);
-      setExtraTasks(extra);
+      setAllTasks(snap.docs.map(d => d.data() as Task));
     });
     return unsub;
-  }, [uid, selectedDate]);
+  }, [uid]);
+
+  // Core tasks show up every day; extra tasks only on their assigned date
+  const coreTasks  = allTasks.filter(tk => tk.type === 'core');
+  const extraTasks = allTasks.filter(tk => tk.type === 'extra' && tk.date === selectedDate);
 
   const SECTION_TASKS = activeSection === 'core' ? coreTasks : extraTasks;
   const visible = filter === 'all' ? SECTION_TASKS : SECTION_TASKS.filter(tk => tk.cat === filter);
@@ -185,12 +181,12 @@ export default function TasksScreen() {
       const label        = getLabel(task);
       const convertLabel = task.type === 'core' ? t.moveToExtra : t.moveToCore;
       Alert.alert(
-        t.taskOptions, `"${label}"`,
-        [
-          { text: t.cancel, style: 'cancel' },
-          { text: convertLabel, onPress: () => handleConvertTask(task) },
-          { text: t.deleteTask, style: 'destructive', onPress: () => handleDeleteTask(task) },
-        ]
+          t.taskOptions, `"${label}"`,
+          [
+            { text: t.cancel, style: 'cancel' },
+            { text: convertLabel, onPress: () => handleConvertTask(task) },
+            { text: t.deleteTask, style: 'destructive', onPress: () => handleDeleteTask(task) },
+          ]
       );
     }, 600);
   }
@@ -215,8 +211,8 @@ export default function TasksScreen() {
       await notify({
         title: t.taskMoved,
         body: isRTL
-          ? `"${getLabel(task)}" اتحولت لـ${newTaskType === 'core' ? t.taskMovedToCore : t.taskMovedToExtra}`
-          : `"${getLabel(task)}" moved to ${newTaskType === 'core' ? t.taskMovedToCore : t.taskMovedToExtra}`,
+            ? `تم تحويل "${getLabel(task)}" إلى ${newTaskType === 'core' ? t.taskMovedToCore : t.taskMovedToExtra}`
+            : `"${getLabel(task)}" moved to ${newTaskType === 'core' ? t.taskMovedToCore : t.taskMovedToExtra}`,
         emoji: task.icon, type: 'add',
         dedupKey: `task_convert_${task.key}_${newTaskType}_${todayKey()}`,
       });
@@ -235,6 +231,13 @@ export default function TasksScreen() {
       });
     } catch (e) { console.warn('handleDeleteTask error:', e); }
   }
+
+  const toggleTaskDone = async (task: Task) => {
+    if (!uid) return;
+    try {
+      await updateDoc(doc(db, 'tasks', uid, 'items', task.key), { done: !task.done });
+    } catch (e) { console.warn('toggleTaskDone error:', e); }
+  };
 
   const openModal = () => {
     setNewName(''); setNewIcon('');
@@ -263,8 +266,8 @@ export default function TasksScreen() {
       const start24 = newTimeStart.trim() ? to24h(newTimeStart.trim(), newPeriodStart) : '';
       const end24   = newTimeEnd.trim()   ? to24h(newTimeEnd.trim(),   newPeriodEnd)   : '';
       const timeStr = start24 && end24
-        ? `${start24} - ${end24}`
-        : start24 || '--:--';
+          ? `${start24} - ${end24}`
+          : start24 || '--:--';
 
       const energy = Math.min(100, Math.max(5, parseInt(newEnergy) || 20));
       const key = `task_${Date.now()}`;
@@ -280,8 +283,8 @@ export default function TasksScreen() {
       await notify({
         title: t.taskAddedNotif,
         body: isRTL
-          ? `${newTask.icon} "${newTask.name}" ${newType === 'extra' ? 'اتضافت لليوم ده' : 'اتضافت للمهام الأساسية'}`
-          : `${newTask.icon} "${newTask.name}" added to ${newType === 'extra' ? 'today' : 'core tasks'}`,
+            ? `${newTask.icon} "${newTask.name}" ${newType === 'extra' ? 'تمت إضافتها لهذا اليوم' : 'تمت إضافتها للمهام الأساسية'}`
+            : `${newTask.icon} "${newTask.name}" added to ${newType === 'extra' ? 'today' : 'core tasks'}`,
         emoji: '✅', type: 'add',
         dedupKey: `task_added_${key}`,
       });
@@ -289,277 +292,284 @@ export default function TasksScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Calendar Strip */}
-        <View style={{ marginBottom: Spacing.base }}>
-          <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={[styles.calendarScroll, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-          >
-            {calendarDates.map((d) => {
-              const isActive = d.key === selectedDate;
-              return (
-                  <TouchableOpacity
-                      key={d.key}
-                      onPress={() => setSelectedDate(d.key)}
-                      activeOpacity={0.7}
-                      style={[styles.calDayBtn, isActive && styles.calDayBtnActive]}
-                  >
-                    <Text style={[styles.calDayName, isActive && styles.calDayTextActive]}>
-                      {d.dayName}
-                    </Text>
-                    <Text style={[styles.calDayNum, isActive && styles.calDayTextActive]}>
-                      {d.dayNum}
-                    </Text>
-                  </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-
-
-        {/* Header */}
-        <View style={[styles.topBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <TouchableOpacity style={styles.iconBtn} onPress={openModal} activeOpacity={0.8}>
-            <Ionicons name="add" size={22} color={Colors.primary} />
-          </TouchableOpacity>
-          <Text style={styles.title}>{t.myTasks}</Text>
-          <View style={{ width: 40 }} />
-        </View>
-
-        {/* Section Toggle */}
-        <View style={styles.sectionToggle}>
-          <TouchableOpacity
-            style={[styles.sectionBtn, activeSection === 'core' && styles.sectionBtnActive]}
-            onPress={() => { setActiveSection('core'); setFilter('all'); }} activeOpacity={0.8}
-          >
-            <Ionicons name="star" size={14} color={activeSection === 'core' ? '#fff' : '#7C5CBF'} />
-            <Text style={[styles.sectionBtnText, activeSection === 'core' && styles.sectionBtnTextActive]}>
-              {t.coreTasks}
-            </Text>
-            <View style={[styles.sectionCount, { backgroundColor: activeSection === 'core' ? 'rgba(255,255,255,0.3)' : '#7C5CBF22' }]}>
-              <Text style={[styles.sectionCountText, { color: activeSection === 'core' ? '#fff' : '#7C5CBF' }]}>
-                {coreTasks.length}
-              </Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.sectionBtn, activeSection === 'extra' && styles.sectionBtnActive]}
-            onPress={() => { setActiveSection('extra'); setFilter('all'); }} activeOpacity={0.8}
-          >
-            <Ionicons name="flash" size={14} color={activeSection === 'extra' ? '#fff' : '#7C5CBF'} />
-            <Text style={[styles.sectionBtnText, activeSection === 'extra' && styles.sectionBtnTextActive]}>
-              {t.extraTasks}
-            </Text>
-            <View style={[styles.sectionCount, { backgroundColor: activeSection === 'extra' ? 'rgba(255,255,255,0.3)' : '#7C5CBF22' }]}>
-              <Text style={[styles.sectionCountText, { color: activeSection === 'extra' ? '#fff' : '#7C5CBF' }]}>
-                {extraTasks.length}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        <View style={[styles.sectionHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <Ionicons name={activeSection === 'core' ? 'refresh-circle-outline' : 'calendar-outline'} size={13} color="#7C5CBF99" />
-          <Text style={styles.sectionHintText}>
-            {activeSection === 'core' ? t.coreTasksHint : t.extraTasksHint}
-          </Text>
-        </View>
-
-        {/* Filters */}
+      <SafeAreaView style={styles.safe}>
+        <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
         <ScrollView
-          horizontal showsHorizontalScrollIndicator={false}
-          contentContainerStyle={[styles.filters, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-          style={{ marginBottom: Spacing.base, alignSelf: 'center' }}
-          keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
         >
-          {FILTERS.map(f => (
-            <Chip key={f.k} label={f.l} active={filter === f.k} onPress={() => setFilter(f.k)} />
-          ))}
-        </ScrollView>
-
-        {/* Task List */}
-        <View style={styles.taskList}>
-          {SECTION_TASKS.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={{ fontSize: 44 }}>{activeSection === 'core' ? '⭐' : '⚡'}</Text>
-              <Text style={styles.emptyText}>
-                {activeSection === 'core' ? t.noCoreTasksYet : t.noExtraTasksToday}
-              </Text>
-              <TouchableOpacity style={styles.emptyAddBtn} onPress={openModal}>
-                <Ionicons name="add" size={16} color="#7C5CBF" />
-                <Text style={styles.emptyAddText}>{t.addTask}</Text>
-              </TouchableOpacity>
-            </View>
-          ) : visible.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={{ fontSize: 36 }}>📭</Text>
-              <Text style={styles.emptyText}>{t.noTasksInCategory}</Text>
-            </View>
-          ) : (
-            visible.map((task) => (
-              <TouchableOpacity
-                key={task.key}
-                onPressIn={() => handleLongPressStart(task)}
-                onPressOut={() => handleLongPressEnd(task.key)}
-                activeOpacity={0.85}
-                style={[styles.taskCard, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-              >
-                <View style={[styles.taskIcon, { backgroundColor: task.bg }]}>
-                  <Text style={{ fontSize: 28 }}>{task.icon}</Text>
-                </View>
-                <View style={[styles.taskInfo, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-                  <View style={[styles.taskTitleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <Text style={styles.taskTitle}>{getLabel(task)}</Text>
-                    <View style={[styles.typeBadge, { backgroundColor: task.type === 'core' ? '#7C5CBF22' : '#F4A32B22' }]}>
-                      <Text style={[styles.typeBadgeText, { color: task.type === 'core' ? '#7C5CBF' : '#C97B3A' }]}>
-                        {task.type === 'core' ? '⭐' : '⚡'}
+          {/* Calendar Strip */}
+          <View style={{ marginBottom: Spacing.base }}>
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={[styles.calendarScroll, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+            >
+              {calendarDates.map((d) => {
+                const isActive = d.key === selectedDate;
+                return (
+                    <TouchableOpacity
+                        key={d.key}
+                        onPress={() => setSelectedDate(d.key)}
+                        activeOpacity={0.7}
+                        style={[styles.calDayBtn, isActive && styles.calDayBtnActive]}
+                    >
+                      <Text style={[styles.calDayName, isActive && styles.calDayTextActive]}>
+                        {d.dayName}
                       </Text>
-                    </View>
-                  </View>
-                  <View style={[styles.taskMetaRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <Ionicons name="time-outline" size={12} color={Colors.textMuted} />
-                    {/* Display time with AM/PM label */}
-                    <Text style={styles.taskTime}> {formatTime(task.time, isRTL)}</Text>
-                  </View>
-                  <View style={[styles.energyRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                    <View style={styles.energyTrack}>
-                      <View style={[styles.energyFill, { width: `${task.energy}%` as any, backgroundColor: task.color }]} />
-                    </View>
-                    <View style={[styles.energyBadge, { backgroundColor: task.bg }]}>
-                      <Text style={[styles.energyPct, { color: task.color }]}>{task.energy}%</Text>
-                    </View>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))
-          )}
-        </View>
-        <View style={{ height: 100 }} />
-      </ScrollView>
-
-      {/* Add Task Modal */}
-      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={closeModal} statusBarTranslucent={false}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
-          <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }} activeOpacity={1} onPress={closeModal} />
-          <View style={styles.modalSheet}>
-            <ScrollView contentContainerStyle={{ paddingBottom: 36 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-              <View style={styles.modalHandle} />
-              <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalTitle}>{t.addNewTask}</Text>
-                <TouchableOpacity onPress={closeModal} style={styles.modalCloseBtn} activeOpacity={0.7}>
-                  <Ionicons name="close" size={20} color="#888" />
-                </TouchableOpacity>
-              </View>
-
-              {/* Task Type */}
-              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskType}</Text>
-              <View style={styles.typeRow}>
-                <TouchableOpacity style={[styles.typeBtn, newType === 'core' && styles.typeBtnActive]} onPress={() => setNewType('core')} activeOpacity={0.8}>
-                  <Ionicons name="star" size={16} color={newType === 'core' ? '#fff' : '#7C5CBF'} />
-                  <Text style={[styles.typeBtnText, newType === 'core' && styles.typeBtnTextActive]}>{t.taskTypeCore}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.typeBtn, newType === 'extra' && styles.typeBtnActive]} onPress={() => setNewType('extra')} activeOpacity={0.8}>
-                  <Ionicons name="flash" size={16} color={newType === 'extra' ? '#fff' : '#7C5CBF'} />
-                  <Text style={[styles.typeBtnText, newType === 'extra' && styles.typeBtnTextActive]}>{t.taskTypeExtra}</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Task Name */}
-              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskName}</Text>
-              <TextInput
-                style={[styles.fieldInput, nameError && styles.fieldInputError, { textAlign: isRTL ? 'right' : 'left' }]}
-                placeholder={t.taskNamePlaceholder}
-                placeholderTextColor={Colors.textMuted}
-                value={newName} onChangeText={(v) => { setNewName(v); if (v.trim()) setNameError(false); }}
-                autoFocus={false} returnKeyType="next"
-              />
-              {nameError && <Text style={[styles.errorText, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskNameRequired}</Text>}
-
-              {/* Icon */}
-              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskIcon}</Text>
-              <TextInput
-                style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
-                placeholder="📌" placeholderTextColor={Colors.textMuted}
-                value={newIcon} onChangeText={setNewIcon}
-              />
-
-              {/* Time with AM/PM toggles */}
-              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskTime}</Text>
-              <View style={[styles.timeRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                {/* Start time */}
-                <View style={styles.timeSlot}>
-                  <TextInput
-                    style={styles.timeInput}
-                    placeholder={t.taskTimeFromPlaceholder}
-                    placeholderTextColor={Colors.textMuted}
-                    value={newTimeStart} onChangeText={setNewTimeStart}
-                    keyboardType="numbers-and-punctuation"
-                    textAlign="center"
-                  />
-                  <AmPmToggle period={newPeriodStart} onChange={setNewPeriodStart} isRTL={isRTL} />
-                </View>
-
-                <Text style={styles.timeSep}>—</Text>
-
-                {/* End time */}
-                <View style={styles.timeSlot}>
-                  <TextInput
-                    style={styles.timeInput}
-                    placeholder={t.taskTimeToPlaceholder}
-                    placeholderTextColor={Colors.textMuted}
-                    value={newTimeEnd} onChangeText={setNewTimeEnd}
-                    keyboardType="numbers-and-punctuation"
-                    textAlign="center"
-                  />
-                  <AmPmToggle period={newPeriodEnd} onChange={setNewPeriodEnd} isRTL={isRTL} />
-                </View>
-              </View>
-
-              {/* Category */}
-              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskCategory2}</Text>
-              <View style={[styles.catRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                {CAT_OPTIONS.map(opt => (
-                  <TouchableOpacity
-                    key={opt.k}
-                    style={[styles.catBtn, newCat === opt.k && styles.catBtnActive]}
-                    onPress={() => setNewCat(opt.k)} activeOpacity={0.8}
-                  >
-                    <Text style={[styles.catBtnText, newCat === opt.k && styles.catBtnTextActive]}>{opt.l}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Energy */}
-              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskEnergyConsumed}</Text>
-              <TextInput
-                style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
-                placeholder={t.taskEnergyPlaceholder}
-                placeholderTextColor={Colors.textMuted}
-                keyboardType="number-pad"
-                value={newEnergy} onChangeText={setNewEnergy}
-              />
-
-              <TouchableOpacity
-                style={[styles.submitBtn, saving && { opacity: 0.6 }]}
-                onPress={addTask} activeOpacity={0.85} disabled={saving}
-              >
-                <Text style={styles.submitText}>
-                  {saving ? t.savingDots : t.addTaskBtn}
-                </Text>
-              </TouchableOpacity>
+                      <Text style={[styles.calDayNum, isActive && styles.calDayTextActive]}>
+                        {d.dayNum}
+                      </Text>
+                    </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
-    </SafeAreaView>
+
+
+          {/* Header */}
+          <View style={[styles.topBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <TouchableOpacity style={styles.iconBtn} onPress={openModal} activeOpacity={0.8}>
+              <Ionicons name="add" size={22} color={Colors.primary} />
+            </TouchableOpacity>
+            <Text style={styles.title}>{t.myTasks}</Text>
+            <View style={{ width: 40 }} />
+          </View>
+
+          {/* Section Toggle */}
+          <View style={styles.sectionToggle}>
+            <TouchableOpacity
+                style={[styles.sectionBtn, activeSection === 'core' && styles.sectionBtnActive]}
+                onPress={() => { setActiveSection('core'); setFilter('all'); }} activeOpacity={0.8}
+            >
+              <Ionicons name="star" size={14} color={activeSection === 'core' ? '#fff' : '#7C5CBF'} />
+              <Text style={[styles.sectionBtnText, activeSection === 'core' && styles.sectionBtnTextActive]}>
+                {t.coreTasks}
+              </Text>
+              <View style={[styles.sectionCount, { backgroundColor: activeSection === 'core' ? 'rgba(255,255,255,0.3)' : '#7C5CBF22' }]}>
+                <Text style={[styles.sectionCountText, { color: activeSection === 'core' ? '#fff' : '#7C5CBF' }]}>
+                  {coreTasks.length}
+                </Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+                style={[styles.sectionBtn, activeSection === 'extra' && styles.sectionBtnActive]}
+                onPress={() => { setActiveSection('extra'); setFilter('all'); }} activeOpacity={0.8}
+            >
+              <Ionicons name="flash" size={14} color={activeSection === 'extra' ? '#fff' : '#7C5CBF'} />
+              <Text style={[styles.sectionBtnText, activeSection === 'extra' && styles.sectionBtnTextActive]}>
+                {t.extraTasks}
+              </Text>
+              <View style={[styles.sectionCount, { backgroundColor: activeSection === 'extra' ? 'rgba(255,255,255,0.3)' : '#7C5CBF22' }]}>
+                <Text style={[styles.sectionCountText, { color: activeSection === 'extra' ? '#fff' : '#7C5CBF' }]}>
+                  {extraTasks.length}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          <View style={[styles.sectionHint, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <Ionicons name={activeSection === 'core' ? 'refresh-circle-outline' : 'calendar-outline'} size={13} color="#7C5CBF99" />
+            <Text style={styles.sectionHintText}>
+              {activeSection === 'core' ? t.coreTasksHint : t.extraTasksHint}
+            </Text>
+          </View>
+
+          {/* Filters */}
+          <ScrollView
+              horizontal showsHorizontalScrollIndicator={false}
+              contentContainerStyle={[styles.filters, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+              style={{ marginBottom: Spacing.base, alignSelf: 'center' }}
+              keyboardShouldPersistTaps="handled"
+          >
+            {FILTERS.map(f => (
+                <Chip key={f.k} label={f.l} active={filter === f.k} onPress={() => setFilter(f.k)} />
+            ))}
+          </ScrollView>
+
+          {/* Task List */}
+          <View style={styles.taskList}>
+            {SECTION_TASKS.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Text style={{ fontSize: 44 }}>{activeSection === 'core' ? '⭐' : '⚡'}</Text>
+                  <Text style={styles.emptyText}>
+                    {activeSection === 'core' ? t.noCoreTasksYet : t.noExtraTasksToday}
+                  </Text>
+                  <TouchableOpacity style={styles.emptyAddBtn} onPress={openModal}>
+                    <Ionicons name="add" size={16} color="#7C5CBF" />
+                    <Text style={styles.emptyAddText}>{t.addTask}</Text>
+                  </TouchableOpacity>
+                </View>
+            ) : visible.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Text style={{ fontSize: 36 }}>📭</Text>
+                  <Text style={styles.emptyText}>{t.noTasksInCategory}</Text>
+                </View>
+            ) : (
+                visible.map((task) => (
+                    <TouchableOpacity
+                        key={task.key}
+                        onPressIn={() => handleLongPressStart(task)}
+                        onPressOut={() => handleLongPressEnd(task.key)}
+                        activeOpacity={0.85}
+                        style={[styles.taskCard, { flexDirection: isRTL ? 'row-reverse' : 'row', opacity: task.done ? 0.6 : 1 }]}
+                    >
+                      <TouchableOpacity onPress={() => toggleTaskDone(task)} style={{ paddingHorizontal: 5 }}>
+                        <Ionicons
+                            name={task.done ? 'checkmark-circle' : 'ellipse-outline'}
+                            size={28}
+                            color={task.done ? '#1D9E75' : '#ccc'}
+                        />
+                      </TouchableOpacity>
+                      <View style={[styles.taskIcon, { backgroundColor: task.bg }]}>
+                        <Text style={{ fontSize: 28 }}>{task.icon}</Text>
+                      </View>
+                      <View style={[styles.taskInfo, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+                        <View style={[styles.taskTitleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                          <Text style={styles.taskTitle}>{getLabel(task)}</Text>
+                          <View style={[styles.typeBadge, { backgroundColor: task.type === 'core' ? '#7C5CBF22' : '#F4A32B22' }]}>
+                            <Text style={[styles.typeBadgeText, { color: task.type === 'core' ? '#7C5CBF' : '#C97B3A' }]}>
+                              {task.type === 'core' ? '⭐' : '⚡'}
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={[styles.taskMetaRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                          <Ionicons name="time-outline" size={12} color={Colors.textMuted} />
+                          {/* Display time with AM/PM label */}
+                          <Text style={styles.taskTime}> {formatTime(task.time, isRTL)}</Text>
+                        </View>
+                        <View style={[styles.energyRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                          <View style={styles.energyTrack}>
+                            <View style={[styles.energyFill, { width: `${task.energy}%` as any, backgroundColor: task.color }]} />
+                          </View>
+                          <View style={[styles.energyBadge, { backgroundColor: task.bg }]}>
+                            <Text style={[styles.energyPct, { color: task.color }]}>{task.energy}%</Text>
+                          </View>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                ))
+            )}
+          </View>
+          <View style={{ height: 100 }} />
+        </ScrollView>
+
+        {/* Add Task Modal */}
+        <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={closeModal} statusBarTranslucent={false}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
+            <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }} activeOpacity={1} onPress={closeModal} />
+            <View style={styles.modalSheet}>
+              <ScrollView contentContainerStyle={{ paddingBottom: 36 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                <View style={styles.modalHandle} />
+                <View style={styles.modalHeaderRow}>
+                  <Text style={styles.modalTitle}>{t.addNewTask}</Text>
+                  <TouchableOpacity onPress={closeModal} style={styles.modalCloseBtn} activeOpacity={0.7}>
+                    <Ionicons name="close" size={20} color="#888" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Task Type */}
+                <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskType}</Text>
+                <View style={styles.typeRow}>
+                  <TouchableOpacity style={[styles.typeBtn, newType === 'core' && styles.typeBtnActive]} onPress={() => setNewType('core')} activeOpacity={0.8}>
+                    <Ionicons name="star" size={16} color={newType === 'core' ? '#fff' : '#7C5CBF'} />
+                    <Text style={[styles.typeBtnText, newType === 'core' && styles.typeBtnTextActive]}>{t.taskTypeCore}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.typeBtn, newType === 'extra' && styles.typeBtnActive]} onPress={() => setNewType('extra')} activeOpacity={0.8}>
+                    <Ionicons name="flash" size={16} color={newType === 'extra' ? '#fff' : '#7C5CBF'} />
+                    <Text style={[styles.typeBtnText, newType === 'extra' && styles.typeBtnTextActive]}>{t.taskTypeExtra}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Task Name */}
+                <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskName}</Text>
+                <TextInput
+                    style={[styles.fieldInput, nameError && styles.fieldInputError, { textAlign: isRTL ? 'right' : 'left' }]}
+                    placeholder={t.taskNamePlaceholder}
+                    placeholderTextColor={Colors.textMuted}
+                    value={newName} onChangeText={(v) => { setNewName(v); if (v.trim()) setNameError(false); }}
+                    autoFocus={false} returnKeyType="next"
+                />
+                {nameError && <Text style={[styles.errorText, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskNameRequired}</Text>}
+
+                {/* Icon */}
+                <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskIcon}</Text>
+                <TextInput
+                    style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
+                    placeholder="📌" placeholderTextColor={Colors.textMuted}
+                    value={newIcon} onChangeText={setNewIcon}
+                />
+
+                {/* Time with AM/PM toggles */}
+                <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskTime}</Text>
+                <View style={[styles.timeRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  {/* Start time */}
+                  <View style={styles.timeSlot}>
+                    <TextInput
+                        style={styles.timeInput}
+                        placeholder={t.taskTimeFromPlaceholder}
+                        placeholderTextColor={Colors.textMuted}
+                        value={newTimeStart} onChangeText={setNewTimeStart}
+                        keyboardType="numbers-and-punctuation"
+                        textAlign="center"
+                    />
+                    <AmPmToggle period={newPeriodStart} onChange={setNewPeriodStart} isRTL={isRTL} />
+                  </View>
+
+                  <Text style={styles.timeSep}>—</Text>
+
+                  {/* End time */}
+                  <View style={styles.timeSlot}>
+                    <TextInput
+                        style={styles.timeInput}
+                        placeholder={t.taskTimeToPlaceholder}
+                        placeholderTextColor={Colors.textMuted}
+                        value={newTimeEnd} onChangeText={setNewTimeEnd}
+                        keyboardType="numbers-and-punctuation"
+                        textAlign="center"
+                    />
+                    <AmPmToggle period={newPeriodEnd} onChange={setNewPeriodEnd} isRTL={isRTL} />
+                  </View>
+                </View>
+
+                {/* Category */}
+                <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskCategory2}</Text>
+                <View style={[styles.catRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  {CAT_OPTIONS.map(opt => (
+                      <TouchableOpacity
+                          key={opt.k}
+                          style={[styles.catBtn, newCat === opt.k && styles.catBtnActive]}
+                          onPress={() => setNewCat(opt.k)} activeOpacity={0.8}
+                      >
+                        <Text style={[styles.catBtnText, newCat === opt.k && styles.catBtnTextActive]}>{opt.l}</Text>
+                      </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Energy */}
+                <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.taskEnergyConsumed}</Text>
+                <TextInput
+                    style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]}
+                    placeholder={t.taskEnergyPlaceholder}
+                    placeholderTextColor={Colors.textMuted}
+                    keyboardType="number-pad"
+                    value={newEnergy} onChangeText={setNewEnergy}
+                />
+
+                <TouchableOpacity
+                    style={[styles.submitBtn, saving && { opacity: 0.6 }]}
+                    onPress={addTask} activeOpacity={0.85} disabled={saving}
+                >
+                  <Text style={styles.submitText}>
+                    {saving ? t.savingDots : t.addTaskBtn}
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+      </SafeAreaView>
   );
 }
 
