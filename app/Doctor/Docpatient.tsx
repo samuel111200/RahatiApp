@@ -22,7 +22,7 @@ import { useChats } from '../../context/Chatscontext';
 import { sendPushToUser } from '../../utils/pushNotifications';
 import { subscribeToPresence } from '../../utils/presence';
 import { activeChatRef } from '../../utils/activeChatRef';
-import { ALL_DEFAULT_EXERCISES_MAP } from '../../utils/defaultExercises';
+import { ALL_DEFAULT_EXERCISES_MAP, ALL_DEFAULT_EXERCISES } from '../../utils/defaultExercises';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -77,23 +77,7 @@ const EX_SECTION_CONFIGS = [
 ];
 
 type SysEx = { key: string; emoji: string; titleAr: string; titleEn: string; type: ExSectionKey; durationMin: number; descAr: string; descEn: string; };
-const SYSTEM_EXERCISES: SysEx[] = [
-  { key: 'wristCurls',      emoji: '🤲', titleAr: 'ثني الرسغ',                 titleEn: 'Wrist Curls',              type: 'therapy',      durationMin: 5, descAr: 'يزيد الثبات ويقلل الرعشة',              descEn: 'Increases stability and reduces tremors' },
-  { key: 'childsPose',      emoji: '🧘', titleAr: 'وضعية الطفل',               titleEn: "Child's Pose",             type: 'yoga',         durationMin: 5, descAr: 'تخفف الإرهاق وترخي المفاصل',            descEn: 'Relieves fatigue and relaxes joints' },
-  { key: 'warriorTwo',      emoji: '🥋', titleAr: 'وضعية المحارب الثاني',      titleEn: 'Warrior II',               type: 'yoga',         durationMin: 3, descAr: 'تبني التحمل وتحسن التوازن',              descEn: 'Builds endurance and improves balance' },
-  { key: 'jabPunches',      emoji: '👊', titleAr: 'اللكمات الأمامية',           titleEn: 'Jab Punches',              type: 'yoga',         durationMin: 5, descAr: 'تنشط الدورة الدموية',                   descEn: 'Boosts circulation' },
-  { key: 'comboPunches',    emoji: '🥊', titleAr: 'اللكمات المركبة',            titleEn: 'Combination Punches',      type: 'yoga',         durationMin: 5, descAr: 'تقوي الذراعين والكتفين',                descEn: 'Strengthens arms and shoulders' },
-  { key: 'singleLegStand',  emoji: '🦩', titleAr: 'الوقوف على ساق واحدة',      titleEn: 'Single Leg Stand',         type: 'aerobic',      durationMin: 5, descAr: 'يحسن التوازن والتنسيق',                 descEn: 'Improves balance and coordination' },
-  { key: 'armBottles',      emoji: '💪', titleAr: 'تمارين الذراعين بالزجاجات', titleEn: 'Arm Exercises with Bottles', type: 'endurance',  durationMin: 5, descAr: 'تقوي العضلات بأدوات بسيطة',             descEn: 'Strengthens muscles with simple tools' },
-  { key: 'seatedEndurance', emoji: '🪑', titleAr: 'تمارين التحمل الجلوسية',    titleEn: 'Seated Endurance',         type: 'endurance',    durationMin: 5, descAr: 'مناسب للجلوس الطويل',                   descEn: 'Suitable for extended sitting' },
-  { key: 'neckFlexibility', emoji: '🧘', titleAr: 'مرونة الرقبة (استلقاء)',    titleEn: 'Neck Flexibility (Lying)', type: 'endurance',    durationMin: 5, descAr: 'يخفف توتر الرقبة والكتفين',             descEn: 'Relieves neck and shoulder tension' },
-  { key: 'standUpStrength', emoji: '🏋️', titleAr: 'النهوض لقوة الساقين',       titleEn: 'Stand Up for Leg Strength', type: 'endurance',   durationMin: 5, descAr: 'يقوي عضلات الفخذ والساقين',             descEn: 'Strengthens thigh and leg muscles' },
-  { key: 'upperBodyStretch',emoji: '🔄', titleAr: 'تمدد الجزء العلوي',         titleEn: 'Upper Body Stretch',       type: 'endurance',    durationMin: 5, descAr: 'يحسن المرونة ويخفف التوتر',             descEn: 'Improves flexibility and relieves tension' },
-  { key: 'marchingInPlace', emoji: '🚶', titleAr: 'المشي في المكان',            titleEn: 'Marching in Place',        type: 'strength',     durationMin: 5, descAr: 'ينشط الدورة الدموية',                   descEn: 'Activates circulation' },
-  { key: 'chairSquat',      emoji: '🪑', titleAr: 'القرفصاء مع الكرسي',        titleEn: 'Chair Squat',              type: 'strength',     durationMin: 5, descAr: 'يقوي عضلات الفخذ والأرداف',             descEn: 'Strengthens thigh and glute muscles' },
-  { key: 'towelArmStrength',emoji: '🧣', titleAr: 'تقوية الذراع بالمنشفة',     titleEn: 'Arm Strength with Towel',  type: 'coordination', durationMin: 5, descAr: 'يحسن قوة الذراع والتنسيق',              descEn: 'Improves arm strength and coordination' },
-  { key: 'seatedBicycle',   emoji: '🚴', titleAr: 'الدراجة الجلوسية',           titleEn: 'Seated Bicycle',           type: 'coordination', durationMin: 5, descAr: 'يحسن التنسيق الحركي',                   descEn: 'Improves motor coordination' },
-];
+const SYSTEM_EXERCISES = ALL_DEFAULT_EXERCISES;
 
 type AttachmentType = 'image' | 'file';
 type PickedAttachment = {
