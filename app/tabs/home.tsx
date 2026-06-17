@@ -1007,12 +1007,19 @@ export default function PlanScreen() {
           </View>
         )}
 
-        <View style={s.placeholderCard}>
-          <Text style={s.placeholderEmoji}>🌿</Text>
-          <Text style={s.placeholderText}>
-            {t.organizedByEnergy} {energy}%
-          </Text>
-        </View>
+<View style={s.placeholderCard}>
+  <Text style={s.placeholderEmoji}>🌿</Text>
+  <Text style={s.placeholderText}>
+    {t.organizedByEnergy} {energy}%
+  </Text>
+</View>
+
+{!isPastDay && (
+  <TouchableOpacity style={s.addTaskBtn} onPress={openModal} activeOpacity={0.85}>
+    <Ionicons name="add-circle-outline" size={18} color="#7C5CBF" />
+    <Text style={s.addTaskBtnText}>{t.addNewTask ?? 'إضافة مهمة'}</Text>
+  </TouchableOpacity>
+)}
 
         {hasTasks && (
           <ProgressBar total={realTasks.length} done={doneCount} t={t} />
@@ -1125,14 +1132,6 @@ export default function PlanScreen() {
         isRTL={isRTL}
       />
       <MedicationNote />
-
-      {/* FAB: Add Task */}
-      {!isPastDay && (
-        <TouchableOpacity style={s.fab} onPress={openModal} activeOpacity={0.85}>
-          <Ionicons name="add" size={28} color="#fff" />
-        </TouchableOpacity>
-      )}
-
       {/* Add Task Modal */}
       <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={closeModal} statusBarTranslucent={false}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
@@ -1322,17 +1321,29 @@ const s = StyleSheet.create({
   deleteModeClose: {
     padding: 4,
   },
-  // ─── FAB ───────────────────────────────────────────────────────────────────
-  fab: {
-    position: 'absolute',
-    bottom: 155,
-    right: 20,
-    width: 52, height: 52, borderRadius: 26,
-    backgroundColor: '#7C5CBF',
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#7C5CBF', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35, shadowRadius: 8, elevation: 6,
-  },
+  addTaskBtn: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 8,
+  backgroundColor: '#fff',
+  borderRadius: 14,
+  borderWidth: 1.5,
+  borderColor: '#7C5CBF',
+  paddingVertical: 11,
+  paddingHorizontal: 20,
+  marginBottom: 14,
+  shadowColor: '#7C5CBF',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.08,
+  shadowRadius: 4,
+  elevation: 2,
+},
+addTaskBtnText: {
+  fontSize: 14,
+  fontWeight: '700',
+  color: '#7C5CBF',
+},
   // ─── Add Task Modal ─────────────────────────────────────────────────────────
   modalSheet:     { backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, maxHeight: '90%' },
   modalHandle:    { width: 40, height: 4, backgroundColor: '#E0D6F5', borderRadius: 2, alignSelf: 'center', marginBottom: 12 },
