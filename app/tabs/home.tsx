@@ -605,27 +605,31 @@ function EnergyStatusBanner({
 }) {
   if (realTasks.length === 0) {
     return (
-        <View style={[enBanner.wrap, { backgroundColor: '#F5F5F5' }]}>
+        <View style={[enBanner.wrap, { backgroundColor: '#F5F5F5', flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <Text style={{ fontSize: 16 }}>🌿</Text>
-          <Text style={[enBanner.text, { color: '#888' }]}>{t.energyZero}</Text>
+          <Text style={[enBanner.text, { color: '#888', textAlign: isRTL ? 'right' : 'left' }]}>
+            {t.energyZero ?? (isRTL ? 'لا توجد مهام متبقية' : 'No tasks remaining')}
+          </Text>
         </View>
     );
   }
 
   const { state, avgEffortPct, tasksAboveEnergy } = calcEnergyState(realTasks, energy);
 
+  const effortText = isRTL
+      ? `متوسط الجهد المطلوب: ${avgEffortPct}% | طاقتك: ${energy}%`
+      : `Avg Effort Required: ${avgEffortPct}% | Your Energy: ${energy}%`;
+
   if (state === 'ok') {
     return (
-        <View style={[enBanner.wrap, { backgroundColor: '#E8F5EF' }]}>
+        <View style={[enBanner.wrap, { backgroundColor: '#E8F5EF', flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <Text style={{ fontSize: 16 }}>⚡</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={[enBanner.text, { color: '#4CAF82' }]}>
-              {t.energySufficientNew
-                  ? t.energySufficientNew
-                  : `طاقتك تكفي لإتمام هذه المهام ✓`}
+          <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+            <Text style={[enBanner.text, { color: '#4CAF82', textAlign: isRTL ? 'right' : 'left' }]}>
+              {t.energySufficientNew ?? (isRTL ? 'طاقتك تكفي لإتمام هذه المهام ✓' : 'Your energy is enough to complete these tasks ✓')}
             </Text>
-            <Text style={enBanner.subText}>
-              {`متوسط الجهد المطلوب: ${avgEffortPct}% | طاقتك: ${energy}%`}
+            <Text style={[enBanner.subText, { textAlign: isRTL ? 'right' : 'left' }]}>
+              {effortText}
             </Text>
           </View>
         </View>
@@ -634,29 +638,23 @@ function EnergyStatusBanner({
 
   // state === 'low'
   return (
-      <View style={[enBanner.wrap, { backgroundColor: '#FDEAEA', borderColor: '#E05C5C', borderWidth: 1.5 }]}>
+      <View style={[enBanner.wrap, { backgroundColor: '#FDEAEA', borderColor: '#E05C5C', borderWidth: 1.5, flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         <Text style={{ fontSize: 16 }}>⚠️</Text>
-        <View style={{ flex: 1 }}>
-          <Text style={[enBanner.text, { color: '#E05C5C', fontWeight: '800' }]}>
-            {t.energyInsufficientNew
-                ? t.energyInsufficientNew
-                : `طاقتك لا تكفي لاستكمال هذه المهام`}
+        <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+          <Text style={[enBanner.text, { color: '#E05C5C', fontWeight: '800', textAlign: isRTL ? 'right' : 'left' }]}>
+            {t.energyInsufficientNew ?? (isRTL ? 'طاقتك لا تكفي لاستكمال هذه المهام' : 'Your energy is not enough for these tasks')}
           </Text>
-          <Text style={[enBanner.subText, { color: '#C04040' }]}>
-            {`متوسط الجهد المطلوب: ${avgEffortPct}% | طاقتك: ${energy}%`}
+          <Text style={[enBanner.subText, { color: '#C04040', textAlign: isRTL ? 'right' : 'left' }]}>
+            {effortText}
           </Text>
-          <Text style={[enBanner.subText, { color: '#C04040', marginTop: 2 }]}>
-            {t.energyDeleteHint
-                ? t.energyDeleteHint
-                : `احذف إحدى هذه المهام لتتناسب مع طاقتك:`}
+          <Text style={[enBanner.subText, { color: '#C04040', marginTop: 2, textAlign: isRTL ? 'right' : 'left' }]}>
+            {t.energyDeleteHint ?? (isRTL ? 'احذف إحدى هذه المهام لتتناسب مع طاقتك:' : 'Delete a task to match your energy level:')}
           </Text>
 
-          <TouchableOpacity style={enBanner.deleteBtn} onPress={onEnterDeleteMode} activeOpacity={0.8}>
+          <TouchableOpacity style={[enBanner.deleteBtn, { flexDirection: isRTL ? 'row-reverse' : 'row' }]} onPress={onEnterDeleteMode} activeOpacity={0.8}>
             <Ionicons name="trash-outline" size={15} color="#fff" />
             <Text style={enBanner.deleteBtnText}>
-              {t.energyDeleteAction
-                  ? t.energyDeleteAction
-                  : `حذف مهمة`}
+              {t.energyDeleteAction ?? (isRTL ? 'حذف مهمة' : 'Delete Task')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -958,33 +956,18 @@ export default function PlanScreen() {
       <View style={s.safe}>
         <StatusBar backgroundColor="#f8f5ff" barStyle="dark-content" translucent={false} />
 
-        <View style={s.navbar}>
-          <TouchableOpacity
-              style={[s.navIconBtn, { opacity: isToday ? 0.3 : 1 }]}
-              onPress={() => setSelectedDate(new Date())}
-              disabled={isToday}
-          >
-            <Ionicons name="today-outline" size={20} color="#7C5CBF" />
-          </TouchableOpacity>
+        <View style={[s.navbar, { justifyContent: 'center' }]}>
           <Text style={s.navTitle}>
             {isToday ? t.planToday : selectedKey === yesterday ? t.yesterday : formatDate(selectedDate, t, isRTL)}
           </Text>
-          <View style={s.calBtnWrapper}>
-            <TouchableOpacity onPress={() => setShowCal(true)} style={s.navIconBtn}>
-              <Ionicons name="calendar-outline" size={22} color="#7C5CBF" />
-            </TouchableOpacity>
-            <View style={s.calDot} />
-          </View>
         </View>
 
         {/* بانر وضع الحذف في الأعلى */}
         {deleteMode && (
-            <View style={s.deleteModeBar}>
+            <View style={[s.deleteModeBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <Ionicons name="warning-outline" size={16} color="#E05C5C" />
-              <Text style={s.deleteModeBarText}>
-                {t.deleteModeActive
-                    ? t.deleteModeActive
-                    : `وضع الحذف — احذف مهمة لتتناسب مع طاقتك`}
+              <Text style={[s.deleteModeBarText, { textAlign: isRTL ? 'right' : 'left' }]}>
+                {t.deleteModeActive ?? (isRTL ? 'وضع الحذف — احذف مهمة لتتناسب مع طاقتك' : 'Delete Mode — Remove a task to match your energy')}
               </Text>
               <TouchableOpacity onPress={() => setDeleteMode(false)} style={s.deleteModeClose}>
                 <Ionicons name="close" size={16} color="#E05C5C" />
