@@ -893,8 +893,7 @@ function ExerciseManagementModal({
           })}
         </ScrollView>
 
-        <ScrollView contentContainerStyle={exStyles.listContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          {mode === 'library' && (() => {
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={exStyles.listContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">          {mode === 'library' && (() => {
             const libList = SYSTEM_EXERCISES.filter(e => e.type === activeSection);
             const libCfg  = EX_SECTION_CONFIGS.find(s => s.key === activeSection)!;
             if (libList.length === 0) return (
@@ -1833,7 +1832,8 @@ const exStyles = StyleSheet.create({
   headerSub:    { fontSize: 12, color: DOC_COLOR, marginTop: 2 },
   tabsScroll:   { flexGrow: 0, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F0EBFA' },
   tabsRow:      { paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row' },
-  tabBtn:       { flexDirection: 'row', alignItems: 'center', paddingVertical: 7, paddingHorizontal: 12, borderRadius: 12, backgroundColor: '#F5F5F5', marginRight: 8 },
+  tabBtn:       { flexDirection: 'row', alignItems: 'center', paddingVertical: 7, paddingHorizontal: 12, borderRadius: 12, backgroundColor: '#F5F5F5', marginRight: 8, flexShrink: 0 },
+  typeBtn:      { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderRadius: 10, paddingVertical: 7, paddingHorizontal: 10, backgroundColor: '#F8F8F8', marginRight: 8, flexShrink: 0 },
   tabLabel:     { fontSize: 12, fontWeight: '700', marginLeft: 5 },
   tabBadge:     { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginLeft: 5 },
   tabBadgeText: { fontSize: 10, fontWeight: '800' },
@@ -1885,7 +1885,6 @@ const exStyles = StyleSheet.create({
   addForm:      { backgroundColor: '#F8F5FF', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#E8DFFA', marginTop: 4 },
   addFormTitle: { fontSize: 14, fontWeight: '700', color: DOC_COLOR, marginBottom: 10 },
   typeRow:      { paddingBottom: 4 },
-  typeBtn:      { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderRadius: 10, paddingVertical: 7, paddingHorizontal: 10, backgroundColor: '#F8F8F8', marginRight: 8 },
   typeBtnText:  { fontSize: 11, fontWeight: '700', marginLeft: 5 },
   input:        { borderWidth: 1.5, borderColor: '#E0D6F5', borderRadius: 10, fontSize: 14, padding: 10, backgroundColor: '#fff', color: '#333', marginTop: 10 },
   attachRow:    { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: '#E0D6F5', borderStyle: 'dashed', borderRadius: 10, padding: 10, backgroundColor: '#fff', marginTop: 10 },
