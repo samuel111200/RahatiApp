@@ -18,7 +18,10 @@
       "infoPlist": {
         "NSMicrophoneUsageDescription": "يحتاج التطبيق إلى الميكروفون لإرسال الرسائل الصوتية",
         "NSCameraUsageDescription": "يحتاج التطبيق إلى الكاميرا لإرسال الصور",
-        "UIBackgroundModes": ["remote-notification", "audio"]
+        "UIBackgroundModes": [
+          "remote-notification",
+          "audio"
+        ]
       }
     },
     "android": {
@@ -38,7 +41,8 @@
         "android.permission.ACCESS_MEDIA_LOCATION",
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO",
-        "android.permission.READ_MEDIA_AUDIO"
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ]
     },
     "web": {
@@ -85,9 +89,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "9173fa5b-8197-45a4-ac98-581081c3b0db"
+        "projectId": "b72407ff-96b3-4597-9d7f-0f0623c302ec"
       }
     },
-    "owner": "abdelrhmanahmed2004"
+    "owner": "abdelrhman-ahmed"
   }
 }
