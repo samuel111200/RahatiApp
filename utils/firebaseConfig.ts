@@ -24,6 +24,7 @@ export const db = getFirestore(app);
 
 // ─── Firestore document types ─────────────────────────────
 export type FSUser = {
+  lastEnergyUpdate?: string;
   firstName: string;
   lastName: string;
   email: string;

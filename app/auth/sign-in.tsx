@@ -12,6 +12,11 @@ import { PrimaryButton, InputField } from '../../components/UI';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
 import { doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../../utils/firebaseConfig';
+
+const getLocalToday = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 export default function PatientSignInScreen() {
   const { signIn, logout } = useAuth();
   const { t, isRTL } = useLang();
@@ -63,7 +68,7 @@ export default function PatientSignInScreen() {
 
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          const today = new Date().toISOString().split('T')[0];
+          const today = getLocalToday();
 
           if (userData.lastEnergyUpdate === today) {
             // Already updated today, skip to home
@@ -87,89 +92,89 @@ export default function PatientSignInScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.orbTR} />
-          <View style={styles.orbBL} />
-          <View style={styles.roleBadgeRow}>
-            <View style={styles.roleBadge}>
-              <Text style={styles.roleBadgeEmoji}>🧑‍⚕️</Text>
-              <Text style={styles.roleBadgeText}>{t.patientLogin}</Text>
+      <SafeAreaView style={styles.safe}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <ScrollView
+              contentContainerStyle={styles.scroll}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.orbTR} />
+            <View style={styles.orbBL} />
+            <View style={styles.roleBadgeRow}>
+              <View style={styles.roleBadge}>
+                <Text style={styles.roleBadgeEmoji}>🧑‍⚕️</Text>
+                <Text style={styles.roleBadgeText}>{t.patientLogin}</Text>
+              </View>
             </View>
-          </View>
 
-          <View style={[styles.titleBlock, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-            <Text style={styles.title}>{t.signIn}</Text>
-            <Text style={styles.subtitle}>{t.welcome}</Text>
-          </View>
+            <View style={[styles.titleBlock, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+              <Text style={styles.title}>{t.signIn}</Text>
+              <Text style={styles.subtitle}>{t.welcome}</Text>
+            </View>
 
-          <View style={styles.card}>
-            <InputField
-              label={t.email}
-              placeholder="example@email.com"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              error={errors.email}
-              rtl={isRTL}
-            />
-            <InputField
-              label={t.password}
-              placeholder="••••••••"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPass}
-              error={errors.password}
-              rtl={isRTL}
-              rightIcon={
-                <TouchableOpacity onPress={() => setShowPass(!showPass)}>
-                  <Ionicons
-                    name={showPass ? 'eye-off-outline' : 'eye-outline'}
-                    size={20}
-                    color={Colors.textMuted}
-                  />
-                </TouchableOpacity>
-              }
-            />
-          </View>
-
-          <TouchableOpacity
-            onPress={() => router.push('/auth/sign-up-1')}
-            style={styles.signUpRow}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.signUpText}>
-              {t.noAccount}{' '}
-              <Text style={styles.signUpLink}>{t.signUp}</Text>
-            </Text>
-          </TouchableOpacity>
-
-          <PrimaryButton title={t.signIn} onPress={handleSignIn} loading={loading} />
-
-          <TouchableOpacity
-            onPress={() => router.replace('/Doctor/RoleChoose')}
-            style={styles.switchRoleBtn}
-            activeOpacity={0.7}
-          >
-            <View style={styles.switchRoleInner}>
-              <Ionicons name="swap-horizontal-outline" size={18} color={Colors.primary} />
-              <Text style={styles.switchRoleText}>{t.switchToDoctorRole}</Text>
-              <Ionicons
-                name={isRTL ? 'chevron-back' : 'chevron-forward'}
-                size={16}
-                color={Colors.primary}
+            <View style={styles.card}>
+              <InputField
+                  label={t.email}
+                  placeholder="example@email.com"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  error={errors.email}
+                  rtl={isRTL}
+              />
+              <InputField
+                  label={t.password}
+                  placeholder="••••••••"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPass}
+                  error={errors.password}
+                  rtl={isRTL}
+                  rightIcon={
+                    <TouchableOpacity onPress={() => setShowPass(!showPass)}>
+                      <Ionicons
+                          name={showPass ? 'eye-off-outline' : 'eye-outline'}
+                          size={20}
+                          color={Colors.textMuted}
+                      />
+                    </TouchableOpacity>
+                  }
               />
             </View>
-          </TouchableOpacity>
 
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+            <TouchableOpacity
+                onPress={() => router.push('/auth/sign-up-1')}
+                style={styles.signUpRow}
+                activeOpacity={0.7}
+            >
+              <Text style={styles.signUpText}>
+                {t.noAccount}{' '}
+                <Text style={styles.signUpLink}>{t.signUp}</Text>
+              </Text>
+            </TouchableOpacity>
+
+            <PrimaryButton title={t.signIn} onPress={handleSignIn} loading={loading} />
+
+            <TouchableOpacity
+                onPress={() => router.replace('/Doctor/RoleChoose')}
+                style={styles.switchRoleBtn}
+                activeOpacity={0.7}
+            >
+              <View style={styles.switchRoleInner}>
+                <Ionicons name="swap-horizontal-outline" size={18} color={Colors.primary} />
+                <Text style={styles.switchRoleText}>{t.switchToDoctorRole}</Text>
+                <Ionicons
+                    name={isRTL ? 'chevron-back' : 'chevron-forward'}
+                    size={16}
+                    color={Colors.primary}
+                />
+              </View>
+            </TouchableOpacity>
+
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
   );
 }
 

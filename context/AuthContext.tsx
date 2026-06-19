@@ -24,6 +24,7 @@ export interface User {
   provider?: 'email' | 'google' | 'facebook';
   photoUrl?: string;
   createdAt?: number;
+  lastEnergyUpdate?: string;
 }
 
 interface AuthContextType {
@@ -52,17 +53,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (snap.exists()) {
             const data = snap.data() as FSUser;
             setUser({
-              uid:       fbUser.uid,
-              firstName: data.firstName,
-              lastName:  data.lastName,
-              age:       data.age ?? '',
-              gender:    data.gender ?? '',
-              email:     data.email,
-              role:      data.role,
-              specialty: data.specialty,
-              provider:  'email',
-              photoUrl:  data.photoUrl,
-              createdAt: data.createdAt,
+              uid:              fbUser.uid,
+              firstName:        data.firstName,
+              lastName:         data.lastName,
+              age:              data.age ?? '',
+              gender:           data.gender ?? '',
+              email:            data.email,
+              role:             data.role,
+              specialty:        data.specialty,
+              provider:         'email',
+              photoUrl:         data.photoUrl,
+              createdAt:        data.createdAt,
+              lastEnergyUpdate: data.lastEnergyUpdate,
             });
             setIsAuthenticated(true);
             // Always refresh push token on app open so Firestore has a valid token
@@ -92,8 +94,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user?.uid]);
 
   const signIn = async (
-    email: string,
-    password: string,
+      email: string,
+      password: string,
   ): Promise<{ ok: boolean; error?: string; role?: 'doctor' | 'patient' }> => {
     try {
       const cred = await signInWithEmailAndPassword(auth, email, password);
@@ -101,20 +103,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (snap.exists()) {
         const data = snap.data() as FSUser;
         setUser({
-          uid:       cred.user.uid,
-          firstName: data.firstName,
-          lastName:  data.lastName,
-          age:       data.age ?? '',
-          gender:    data.gender ?? '',
-          email:     data.email,
-          role:      data.role,
-          specialty: data.specialty,
-          provider:  'email',
-          photoUrl:  data.photoUrl,
-          createdAt: data.createdAt,
+          uid:              cred.user.uid,
+          firstName:        data.firstName,
+          lastName:         data.lastName,
+          age:              data.age ?? '',
+          gender:           data.gender ?? '',
+          email:            data.email,
+          role:             data.role,
+          specialty:        data.specialty,
+          provider:         'email',
+          photoUrl:         data.photoUrl,
+          createdAt:        data.createdAt,
+          lastEnergyUpdate: data.lastEnergyUpdate,
         });
         setIsAuthenticated(true);
         registerPushToken(cred.user.uid).catch(() => {});
+        await AsyncStorage.setItem('app_role', data.role);
         return { ok: true, role: data.role };
       }
       await signOut(auth);
@@ -122,23 +126,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (e: any) {
       const code = e?.code ?? '';
       const errorKey =
-        code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential'
-          ? 'invalidCredential'
-          : 'authError';
+          code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential'
+              ? 'invalidCredential'
+              : 'authError';
       return { ok: false, error: errorKey };
     }
   };
 
   const signUp = async (
-    personal: Omit<User, 'email' | 'provider' | 'uid'>,
-    account: { email: string; password: string },
+      personal: Omit<User, 'email' | 'provider' | 'uid'>,
+      account: { email: string; password: string },
   ): Promise<{ ok: boolean; error?: string; role?: 'doctor' | 'patient' }> => {
     try {
       // Step 1 — create Firebase Auth user (only this can return ok:false)
       const cred = await createUserWithEmailAndPassword(auth, account.email, account.password);
       const uid  = cred.user.uid;
       const role: 'doctor' | 'patient' =
-        personal.role ?? (personal.specialty ? 'doctor' : 'patient');
+          personal.role ?? (personal.specialty ? 'doctor' : 'patient');
 
       // Step 2 — save full profile to Firestore (separate try so rules errors
       // don't block navigation; user is already authenticated at this point)
@@ -167,18 +171,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (e: any) {
       const code = e?.code ?? '';
       const msg =
-        code === 'auth/email-already-in-use'
-          ? 'هذا البريد الإلكتروني مستخدم بالفعل'
-          : code === 'auth/weak-password'
-          ? 'كلمة المرور ضعيفة جداً'
-          : 'حدث خطأ، حاول مرة أخرى';
+          code === 'auth/email-already-in-use'
+              ? 'هذا البريد الإلكتروني مستخدم بالفعل'
+              : code === 'auth/weak-password'
+                  ? 'كلمة المرور ضعيفة جداً'
+                  : 'حدث خطأ، حاول مرة أخرى';
       return { ok: false, error: msg };
     }
   };
 
   const signInWithSocial = async (
-    provider: 'google' | 'facebook',
-    profile: { email: string; firstName: string; lastName: string; photoUrl?: string },
+      provider: 'google' | 'facebook',
+      profile: { email: string; firstName: string; lastName: string; photoUrl?: string },
   ) => {
     const socialUser: User = {
       firstName: profile.firstName,
@@ -211,7 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // 3. Wipe out any legacy cache keys from older versions of your code
     // that might be causing the app to remember the wrong role
-    await AsyncStorage.multiRemove(['userRole', 'userData', 'role']);
+    await AsyncStorage.multiRemove(['userRole', 'userData', 'role', 'app_role']);
 
     // 4. Finally, tell Firebase to kill the session securely
     try {
@@ -234,12 +238,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{
-      user, isAuthenticated, isLoading,
-      signIn, signUp, signInWithSocial, logout, updateProfile,
-    }}>
-      {children}
-    </AuthContext.Provider>
+      <AuthContext.Provider value={{
+        user, isAuthenticated, isLoading,
+        signIn, signUp, signInWithSocial, logout, updateProfile,
+      }}>
+        {children}
+      </AuthContext.Provider>
   );
 }
 

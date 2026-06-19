@@ -11,6 +11,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth, db } from '../utils/firebaseConfig';
 import { doc, setDoc } from 'firebase/firestore';
 import { useLang } from '../context/Languagecontext';
+import { useAuth } from '../context/AuthContext';
+
+const getLocalToday = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 const SIZE = 220;
 const RADIUS = 90;
@@ -25,6 +31,7 @@ export default function EnergyScreen() {
   const [energy, setEnergy] = useState(55);
   const router = useRouter();
   const { isRTL } = useLang();
+  const { updateProfile } = useAuth();
 
   const getState = (val: number) => {
     if (val <= 25) return { face: '😩', label: isRTL ? 'منهك' : 'Exhausted', color: '#E24B4A' };
@@ -39,20 +46,24 @@ export default function EnergyScreen() {
   const emptyLength  = CIRCUMFERENCE - filledLength;
 
   const handleSave = async () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalToday();
     const uid   = auth.currentUser?.uid ?? 'guest';
 
     await AsyncStorage.setItem(`energy_level_${uid}`, String(energy));
     await AsyncStorage.setItem(`energy_date_${uid}`, today);
 
     if (uid !== 'guest') {
-      // FIX: Added 'lastEnergyUpdate: today' to the Firestore document
-      setDoc(doc(db, 'users', uid), {
-        energyLevel: energy,
-        lastEnergyUpdate: today
-      }, { merge: true }).catch((err) => {
+      try {
+        await setDoc(doc(db, 'users', uid), {
+          energyLevel: energy,
+          lastEnergyUpdate: today
+        }, { merge: true });
+
+        // Sync local context so the app immediately knows energy is done for today
+        await updateProfile({ lastEnergyUpdate: today });
+      } catch (err) {
         console.error("Error saving energy to Firebase:", err);
-      });
+      }
     }
 
     router.replace('/tabs/home');

@@ -11,6 +11,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/Languagecontext';
 import { PrimaryButton, InputField } from '../../components/UI';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth } from '../../utils/firebaseConfig';
 
 export default function DocSignInScreen() {
   const { signIn, logout } = useAuth();
@@ -43,104 +45,111 @@ export default function DocSignInScreen() {
       return;
     }
 
-    // --- ADD THIS TO PROTECT AGAINST PATIENTS ---
+    // Block patients who accidentally use the doctor login screen
     if (role === 'patient') {
       setLoading(false);
-      // Automatically redirect them to their correct app section
       router.replace('/tabs/home');
       return;
     }
-    // --------------------------------------------
 
-    // ... rest of your doctor login logic ...
+    // Doctor login succeeded — clear any stale patient energy cache
+    // so a previously-logged-in patient's data doesn't bleed into this session
+    try {
+      const uid = auth.currentUser?.uid;
+      if (uid) {
+        await AsyncStorage.removeItem(`energy_level_${uid}`);
+        await AsyncStorage.removeItem(`energy_date_${uid}`);
+      }
+    } catch {}
+
     setLoading(false);
     router.replace('/Doctor/Dochome');
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.orbTR} />
-          <View style={styles.orbBL} />
-          <View style={styles.roleBadgeRow}>
-            <View style={styles.roleBadge}>
-              <Text style={styles.roleBadgeEmoji}>🩺</Text>
-              <Text style={styles.roleBadgeText}>{t.doctorLogin}</Text>
+      <SafeAreaView style={styles.safe}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <ScrollView
+              contentContainerStyle={styles.scroll}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.orbTR} />
+            <View style={styles.orbBL} />
+            <View style={styles.roleBadgeRow}>
+              <View style={styles.roleBadge}>
+                <Text style={styles.roleBadgeEmoji}>🩺</Text>
+                <Text style={styles.roleBadgeText}>{t.doctorLogin}</Text>
+              </View>
             </View>
-          </View>
 
-          <View style={[styles.titleBlock, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-            <Text style={styles.title}>{t.signIn}</Text>
-            <Text style={styles.subtitle}>{t.welcome}</Text>
-          </View>
+            <View style={[styles.titleBlock, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+              <Text style={styles.title}>{t.signIn}</Text>
+              <Text style={styles.subtitle}>{t.welcome}</Text>
+            </View>
 
-          <View style={styles.card}>
-            <InputField
-              label={t.email}
-              placeholder="example@email.com"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              error={errors.email}
-              rtl={isRTL}
-            />
-            <InputField
-              label={t.password}
-              placeholder="••••••••"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPass}
-              error={errors.password}
-              rtl={isRTL}
-              rightIcon={
-                <TouchableOpacity onPress={() => setShowPass(!showPass)}>
-                  <Ionicons
-                    name={showPass ? 'eye-off-outline' : 'eye-outline'}
-                    size={20}
-                    color={Colors.textMuted}
-                  />
-                </TouchableOpacity>
-              }
-            />
-          </View>
-
-          <TouchableOpacity
-            onPress={() => router.push('/Doctor/DocsignUp1')}
-            style={styles.signUpRow}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.signUpText}>
-              {t.noAccount}{' '}
-              <Text style={styles.signUpLink}>{t.signUp}</Text>
-            </Text>
-          </TouchableOpacity>
-
-          <PrimaryButton title={t.signIn} onPress={handleSignIn} loading={loading} />
-
-          <TouchableOpacity
-            onPress={() => router.replace('/Doctor/RoleChoose')}
-            style={styles.switchRoleBtn}
-            activeOpacity={0.7}
-          >
-            <View style={styles.switchRoleInner}>
-              <Ionicons name="swap-horizontal-outline" size={18} color={Colors.primary} />
-              <Text style={styles.switchRoleText}>{t.switchToPatientRole}</Text>
-              <Ionicons
-                name={isRTL ? 'chevron-back' : 'chevron-forward'}
-                size={16}
-                color={Colors.primary}
+            <View style={styles.card}>
+              <InputField
+                  label={t.email}
+                  placeholder="example@email.com"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  error={errors.email}
+                  rtl={isRTL}
+              />
+              <InputField
+                  label={t.password}
+                  placeholder="••••••••"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPass}
+                  error={errors.password}
+                  rtl={isRTL}
+                  rightIcon={
+                    <TouchableOpacity onPress={() => setShowPass(!showPass)}>
+                      <Ionicons
+                          name={showPass ? 'eye-off-outline' : 'eye-outline'}
+                          size={20}
+                          color={Colors.textMuted}
+                      />
+                    </TouchableOpacity>
+                  }
               />
             </View>
-          </TouchableOpacity>
 
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+            <TouchableOpacity
+                onPress={() => router.push('/Doctor/DocsignUp1')}
+                style={styles.signUpRow}
+                activeOpacity={0.7}
+            >
+              <Text style={styles.signUpText}>
+                {t.noAccount}{' '}
+                <Text style={styles.signUpLink}>{t.signUp}</Text>
+              </Text>
+            </TouchableOpacity>
+
+            <PrimaryButton title={t.signIn} onPress={handleSignIn} loading={loading} />
+
+            <TouchableOpacity
+                onPress={() => router.replace('/Doctor/RoleChoose')}
+                style={styles.switchRoleBtn}
+                activeOpacity={0.7}
+            >
+              <View style={styles.switchRoleInner}>
+                <Ionicons name="swap-horizontal-outline" size={18} color={Colors.primary} />
+                <Text style={styles.switchRoleText}>{t.switchToPatientRole}</Text>
+                <Ionicons
+                    name={isRTL ? 'chevron-back' : 'chevron-forward'}
+                    size={16}
+                    color={Colors.primary}
+                />
+              </View>
+            </TouchableOpacity>
+
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
   );
 }
 
