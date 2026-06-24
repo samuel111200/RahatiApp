@@ -452,6 +452,8 @@ const AR = {
 
   // ── Auth extra ────────────────────────────────────────────────────────────
   signInFailed: 'فشل تسجيل الدخول، حاول مجدداً',
+  emailAlreadyInUse: 'هذا البريد الإلكتروني مستخدم بالفعل',
+  wrongPortal: 'هذا الحساب مسجل بدور مختلف. يرجى استخدام الصفحة الصحيحة.',
   signUpFailed: 'فشل إنشاء الحساب، حاول مجدداً',
   patientLogin: 'دخول المريض',
   doctorLogin: 'دخول الدكتور',
@@ -1215,6 +1217,8 @@ const EN: typeof AR = {
 
   // ── Auth extra ────────────────────────────────────────────────────────────
   signInFailed: 'Sign in failed, please try again',
+  emailAlreadyInUse: 'This email is already registered',
+  wrongPortal: 'This account is registered under a different role. Please use the correct portal.',
   signUpFailed: 'Sign up failed, please try again',
   patientLogin: 'Patient Login',
   doctorLogin: 'Doctor Login',
@@ -1563,9 +1567,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const isRTL = lang === 'ar';
 
   return (
-    <LangContext.Provider value={{ lang, t, setLang, isRTL }}>
-      {children}
-    </LangContext.Provider>
+      <LangContext.Provider value={{ lang, t, setLang, isRTL }}>
+        {children}
+      </LangContext.Provider>
   );
 }
 

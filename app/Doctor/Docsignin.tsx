@@ -11,8 +11,6 @@ import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/Languagecontext';
 import { PrimaryButton, InputField } from '../../components/UI';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { auth } from '../../utils/firebaseConfig';
 
 export default function DocSignInScreen() {
   const { signIn, logout } = useAuth();
@@ -36,31 +34,26 @@ export default function DocSignInScreen() {
   const handleSignIn = async () => {
     if (!validate()) return;
     setLoading(true);
-    const { ok, error, role } = await signIn(email, password);
+    // Pass 'doctor' so AuthContext rejects the sign-in before any session is
+    // established — no AuthGuard race, no need for a follow-up logout().
+    const { ok, error } = await signIn(email, password, 'doctor');
 
     if (!ok) {
       setLoading(false);
-      const errMsg = error ? ((t as any)[error] ?? t.signInFailed) : t.signInFailed;
-      Alert.alert(t.error, errMsg);
-      return;
-    }
-
-    // Block patients who accidentally use the doctor login screen
-    if (role === 'patient') {
-      setLoading(false);
-      router.replace('/tabs/home');
-      return;
-    }
-
-    // Doctor login succeeded — clear any stale patient energy cache
-    // so a previously-logged-in patient's data doesn't bleed into this session
-    try {
-      const uid = auth.currentUser?.uid;
-      if (uid) {
-        await AsyncStorage.removeItem(`energy_level_${uid}`);
-        await AsyncStorage.removeItem(`energy_date_${uid}`);
+      if (error === 'wrongPortal') {
+        Alert.alert(
+            t.error || 'Login Error',
+            (t as any).wrongPortal ||
+            (isRTL
+                ? 'هذا الحساب مسجّل بدور مختلف. يرجى استخدام البوابة الصحيحة.'
+                : 'This account is registered under a different role. Please use the correct portal.'),
+        );
+      } else {
+        const errMsg = error ? ((t as any)[error] ?? t.signInFailed) : t.signInFailed;
+        Alert.alert(t.error, errMsg);
       }
-    } catch {}
+      return;
+    }
 
     setLoading(false);
     router.replace('/Doctor/Dochome');
@@ -95,6 +88,7 @@ export default function DocSignInScreen() {
                   value={email}
                   onChangeText={setEmail}
                   keyboardType="email-address"
+                  autoCapitalize="none"
                   error={errors.email}
                   rtl={isRTL}
               />
@@ -132,7 +126,7 @@ export default function DocSignInScreen() {
             <PrimaryButton title={t.signIn} onPress={handleSignIn} loading={loading} />
 
             <TouchableOpacity
-                onPress={() => router.replace('/Doctor/RoleChoose')}
+                onPress={() => logout().then(() => router.replace('/Doctor/RoleChoose'))}
                 style={styles.switchRoleBtn}
                 activeOpacity={0.7}
             >

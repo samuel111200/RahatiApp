@@ -43,97 +43,105 @@ export default function DoctorSignUp2Screen() {
     if (!validate()) return;
     setLoading(true);
     const { ok, error } = await signUp(
-      {
-        firstName: params.firstName,
-        lastName:  params.lastName,
-        age:       params.age,
-        gender:    params.gender,
-        specialty,
-        role:      'doctor',
-      } as any,
-      { email, password },
+        {
+          firstName: params.firstName,
+          lastName:  params.lastName,
+          age:       params.age,
+          gender:    params.gender,
+          specialty,
+          role:      'doctor',
+        } as any,
+        { email, password },
     );
     setLoading(false);
     if (ok) {
       router.replace('/Doctor/Dochome');
+    } else if (error === 'emailAlreadyInUse') {
+      // Show inline field error — never show raw key strings to the user.
+      // Hard-coded fallback in case the translation key is missing.
+      const msg =
+          (t as any).emailAlreadyInUse ||
+          (isRTL ? 'هذا البريد الإلكتروني مستخدم بالفعل' : 'This email is already registered');
+      setErrors({ email: msg });
     } else {
-      Alert.alert(t.error, error ?? t.saveFailed);
+      const msg = (t as any)[error!] ?? t.saveFailed ?? 'Something went wrong';
+      Alert.alert(t.error ?? 'Error', msg);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <SafeAreaView style={styles.safe}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={24} color={Colors.primary} />
-          </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+              <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={24} color={Colors.primary} />
+            </TouchableOpacity>
 
-          <View style={styles.stepWrap}>
-            <StepBar current={2} total={2} />
-            <Text style={[styles.stepLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.step2of2}</Text>
-          </View>
-
-          <View style={[styles.headerRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <View style={styles.stepBadge}><Text style={styles.stepBadgeNum}>02</Text></View>
-            <RahatiLogo />
-          </View>
-
-          <Text style={[styles.title, { textAlign: isRTL ? 'right' : 'left' }]}>{t.accountData}</Text>
-          <Text style={[styles.subtitle, { textAlign: isRTL ? 'right' : 'left' }]}>{t.createAccount}</Text>
-
-          <View style={[styles.summaryCard, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <View style={styles.summaryAvatar}>
-              <Ionicons name="person" size={20} color={Colors.white} />
+            <View style={styles.stepWrap}>
+              <StepBar current={2} total={2} />
+              <Text style={[styles.stepLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.step2of2}</Text>
             </View>
-            <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-              <Text style={styles.summaryName}>{params.firstName} {params.lastName}</Text>
-              <Text style={styles.summaryMeta}>
-                {params.age} {t.years} · {params.gender === 'male' ? t.male : t.female}
-              </Text>
+
+            <View style={[styles.headerRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <View style={styles.stepBadge}><Text style={styles.stepBadgeNum}>02</Text></View>
+              <RahatiLogo />
             </View>
-          </View>
 
-          <View style={styles.card}>
-            <InputField
-              label={t.email} placeholder="doctor@example.com"
-              value={email} onChangeText={setEmail}
-              keyboardType="email-address" error={errors.email} rtl={isRTL}
-            />
-            <InputField
-              label={t.docSpecialty}
-              placeholder={t.specialtyPlaceholder}
-              value={specialty} onChangeText={setSpecialty}
-              error={errors.specialty} rtl={isRTL}
-            />
-            <InputField
-              label={t.password} placeholder="••••••••"
-              value={password} onChangeText={setPassword}
-              secureTextEntry={!showPass} error={errors.password} rtl={isRTL}
-              rightIcon={
-                <TouchableOpacity onPress={() => setShowPass(!showPass)}>
-                  <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={Colors.textMuted} />
-                </TouchableOpacity>
-              }
-            />
-            <InputField
-              label={t.confirmPassword} placeholder="••••••••"
-              value={confirm} onChangeText={setConfirm}
-              secureTextEntry={!showConfirm} error={errors.confirm} rtl={isRTL}
-              rightIcon={
-                <TouchableOpacity onPress={() => setShowConfirm(!showConfirm)}>
-                  <Ionicons name={showConfirm ? 'eye-off-outline' : 'eye-outline'} size={20} color={Colors.textMuted} />
-                </TouchableOpacity>
-              }
-            />
-          </View>
+            <Text style={[styles.title, { textAlign: isRTL ? 'right' : 'left' }]}>{t.accountData}</Text>
+            <Text style={[styles.subtitle, { textAlign: isRTL ? 'right' : 'left' }]}>{t.createAccount}</Text>
 
-          <PrimaryButton title={t.signUp} onPress={handleSignUp} loading={loading} />
+            <View style={[styles.summaryCard, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <View style={styles.summaryAvatar}>
+                <Ionicons name="person" size={20} color={Colors.white} />
+              </View>
+              <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+                <Text style={styles.summaryName}>{params.firstName} {params.lastName}</Text>
+                <Text style={styles.summaryMeta}>
+                  {params.age} {t.years} · {params.gender === 'male' ? t.male : t.female}
+                </Text>
+              </View>
+            </View>
 
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+            <View style={styles.card}>
+              <InputField
+                  label={t.email} placeholder="doctor@example.com"
+                  value={email} onChangeText={setEmail}
+                  keyboardType="email-address" error={errors.email} rtl={isRTL}
+              />
+              <InputField
+                  label={t.docSpecialty}
+                  placeholder={t.specialtyPlaceholder}
+                  value={specialty} onChangeText={setSpecialty}
+                  error={errors.specialty} rtl={isRTL}
+              />
+              <InputField
+                  label={t.password} placeholder="••••••••"
+                  value={password} onChangeText={setPassword}
+                  secureTextEntry={!showPass} error={errors.password} rtl={isRTL}
+                  rightIcon={
+                    <TouchableOpacity onPress={() => setShowPass(!showPass)}>
+                      <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={Colors.textMuted} />
+                    </TouchableOpacity>
+                  }
+              />
+              <InputField
+                  label={t.confirmPassword} placeholder="••••••••"
+                  value={confirm} onChangeText={setConfirm}
+                  secureTextEntry={!showConfirm} error={errors.confirm} rtl={isRTL}
+                  rightIcon={
+                    <TouchableOpacity onPress={() => setShowConfirm(!showConfirm)}>
+                      <Ionicons name={showConfirm ? 'eye-off-outline' : 'eye-outline'} size={20} color={Colors.textMuted} />
+                    </TouchableOpacity>
+                  }
+              />
+            </View>
+
+            <PrimaryButton title={t.signUp} onPress={handleSignUp} loading={loading} />
+
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
   );
 }
 

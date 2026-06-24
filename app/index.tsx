@@ -59,15 +59,23 @@ export default function Index() {
         if (user.role === "doctor") {
           router.replace("/Doctor/Dochome");
         } else {
-          router.replace("/tabs/home");
+          // Mirror the same energy-date check AuthGuard does so a patient who
+          // closes and reopens the app on a new day still hits the energy screen.
+          const uid = user.uid;
+          const savedDate  = await AsyncStorage.getItem(`energy_date_${uid}`);
+          const d = new Date();
+          const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          if (savedDate !== today) {
+            router.replace("/energy");
+          } else {
+            router.replace("/tabs/home");
+          }
         }
       } else {
-        // Not logged in — route to the right sign-in screen
-        if (savedRole === "doctor") {
-          router.replace("/Doctor/Docsignin");
-        } else {
-          router.replace("/auth/sign-in");
-        }
+        // Not logged in — always go to RoleChoose so the user picks
+        // their role explicitly. This prevents a logged-out doctor's
+        // saved app_role from auto-routing a new patient to the wrong portal.
+        router.replace("/Doctor/RoleChoose");
       }
     }
 

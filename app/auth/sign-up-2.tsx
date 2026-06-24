@@ -41,106 +41,111 @@ export default function PatientSignUp2Screen() {
     if (!validate()) return;
     setLoading(true);
     const { ok, error } = await signUp(
-      {
-        firstName: params.firstName,
-        lastName:  params.lastName,
-        age:       params.age,
-        gender:    params.gender,
-        role:      'patient',
-      },
-      { email, password },
+        {
+          firstName: params.firstName,
+          lastName:  params.lastName,
+          age:       params.age,
+          gender:    params.gender,
+          role:      'patient',
+        },
+        { email, password },
     );
     if (ok) {
-      router.replace('/tabs/home');
+      router.replace('/energy');
       return;
     }
     setLoading(false);
-    const isEmailError = error?.includes('مستخدم') || error?.toLowerCase().includes('already') || error?.toLowerCase().includes('email') || error?.toLowerCase().includes('in-use');
-    if (isEmailError) {
-      setErrors({ email: error! });
+    if (error === 'emailAlreadyInUse') {
+      // Resolve display string first — if the translation key is missing the
+      // error would be silently swallowed. Hard-coded fallback prevents that.
+      const msg =
+          (t as any).emailAlreadyInUse ||
+          (isRTL ? 'البريد الإلكتروني مستخدم بالفعل' : 'This email is already registered');
+      setErrors({ email: msg });
     } else {
-      Alert.alert(t.error, error ?? t.saveFailed);
+      const msg = (t as any)[error!] ?? t.saveFailed ?? 'Something went wrong';
+      Alert.alert(t.error ?? 'Error', msg);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <SafeAreaView style={styles.safe}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
-          <View style={styles.headerArea}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-              <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={22} color={Colors.primary} />
-            </TouchableOpacity>
-            <View style={styles.stepRow}>
-              <StepBar current={2} total={2} />
-              <Text style={styles.stepLabel}>{t.step2of2}</Text>
+            <View style={styles.headerArea}>
+              <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={22} color={Colors.primary} />
+              </TouchableOpacity>
+              <View style={styles.stepRow}>
+                <StepBar current={2} total={2} />
+                <Text style={styles.stepLabel}>{t.step2of2}</Text>
+              </View>
             </View>
-          </View>
 
-          <View style={styles.roleBadgeRow}>
-            <View style={styles.roleBadge}>
-              <Text style={styles.roleBadgeEmoji}>🧑‍⚕️</Text>
-              <Text style={styles.roleBadgeText}>
-                {t.patientSignUpBadge}
-              </Text>
+            <View style={styles.roleBadgeRow}>
+              <View style={styles.roleBadge}>
+                <Text style={styles.roleBadgeEmoji}>🧑‍⚕️</Text>
+                <Text style={styles.roleBadgeText}>
+                  {t.patientSignUpBadge}
+                </Text>
+              </View>
             </View>
-          </View>
 
 
-          <Text style={[styles.title, { textAlign: isRTL ? 'right' : 'left' }]}>{t.accountData}</Text>
-          <Text style={[styles.subtitle, { textAlign: isRTL ? 'right' : 'left' }]}>{t.createAccount}</Text>
+            <Text style={[styles.title, { textAlign: isRTL ? 'right' : 'left' }]}>{t.accountData}</Text>
+            <Text style={[styles.subtitle, { textAlign: isRTL ? 'right' : 'left' }]}>{t.createAccount}</Text>
 
-          <View style={[styles.summaryCard, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <View style={styles.summaryAvatar}>
-              <Text style={{ fontSize: 22 }}>🧑‍⚕️</Text>
+            <View style={[styles.summaryCard, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <View style={styles.summaryAvatar}>
+                <Text style={{ fontSize: 22 }}>🧑‍⚕️</Text>
+              </View>
+              <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+                <Text style={styles.summaryName}>{params.firstName} {params.lastName}</Text>
+                <Text style={styles.summaryMeta}>
+                  {params.age} {t.years} · {params.gender === 'male' ? t.male : t.female}
+                </Text>
+              </View>
+              <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />
             </View>
-            <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
-              <Text style={styles.summaryName}>{params.firstName} {params.lastName}</Text>
-              <Text style={styles.summaryMeta}>
-                {params.age} {t.years} · {params.gender === 'male' ? t.male : t.female}
-              </Text>
+
+            <View style={styles.card}>
+              <InputField
+                  label={t.email}
+                  placeholder="example@email.com"
+                  value={email} onChangeText={setEmail}
+                  keyboardType="email-address"
+                  error={errors.email} rtl={isRTL}
+              />
+              <InputField
+                  label={t.password} placeholder="••••••••"
+                  value={password} onChangeText={setPassword}
+                  secureTextEntry={!showPass} error={errors.password} rtl={isRTL}
+                  rightIcon={
+                    <TouchableOpacity onPress={() => setShowPass(!showPass)}>
+                      <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={Colors.textMuted} />
+                    </TouchableOpacity>
+                  }
+              />
+              <InputField
+                  label={t.confirmPassword} placeholder="••••••••"
+                  value={confirm} onChangeText={setConfirm}
+                  secureTextEntry={!showConfirm} error={errors.confirm} rtl={isRTL}
+                  rightIcon={
+                    <TouchableOpacity onPress={() => setShowConfirm(!showConfirm)}>
+                      <Ionicons name={showConfirm ? 'eye-off-outline' : 'eye-outline'} size={20} color={Colors.textMuted} />
+                    </TouchableOpacity>
+                  }
+              />
+
+              <Text style={styles.passHint}>🔒 {t.shortPassword}</Text>
             </View>
-            <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />
-          </View>
 
-          <View style={styles.card}>
-            <InputField
-              label={t.email}
-              placeholder="example@email.com"
-              value={email} onChangeText={setEmail}
-              keyboardType="email-address"
-              error={errors.email} rtl={isRTL}
-            />
-            <InputField
-              label={t.password} placeholder="••••••••"
-              value={password} onChangeText={setPassword}
-              secureTextEntry={!showPass} error={errors.password} rtl={isRTL}
-              rightIcon={
-                <TouchableOpacity onPress={() => setShowPass(!showPass)}>
-                  <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={20} color={Colors.textMuted} />
-                </TouchableOpacity>
-              }
-            />
-            <InputField
-              label={t.confirmPassword} placeholder="••••••••"
-              value={confirm} onChangeText={setConfirm}
-              secureTextEntry={!showConfirm} error={errors.confirm} rtl={isRTL}
-              rightIcon={
-                <TouchableOpacity onPress={() => setShowConfirm(!showConfirm)}>
-                  <Ionicons name={showConfirm ? 'eye-off-outline' : 'eye-outline'} size={20} color={Colors.textMuted} />
-                </TouchableOpacity>
-              }
-            />
+            <PrimaryButton title={t.signUp} onPress={handleSignUp} loading={loading} />
 
-            <Text style={styles.passHint}>🔒 {t.shortPassword}</Text>
-          </View>
-
-          <PrimaryButton title={t.signUp} onPress={handleSignUp} loading={loading} />
-
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
   );
 }
 

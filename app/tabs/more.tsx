@@ -34,10 +34,10 @@ function getPlanDoneKey(date: Date) { return `plan_done_${toKey(date)}`; }
 
 function InfoRow({ label, value, isRTL }: { label: string; value: string; isRTL: boolean }) {
   return (
-    <View style={[styles.infoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{value || '—'}</Text>
-    </View>
+      <View style={[styles.infoRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <Text style={styles.infoLabel}>{label}</Text>
+        <Text style={styles.infoValue}>{value || '—'}</Text>
+      </View>
   );
 }
 
@@ -46,15 +46,15 @@ function MenuRow({ icon, label, value, color, onPress, isLast, isRTL }: {
   onPress: () => void; isLast: boolean; isRTL: boolean;
 }) {
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.75}
-      style={[styles.menuRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }, !isLast && styles.menuRowBorder]}>
-      <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color={Colors.primary + '80'} />
-      {value ? <Text style={styles.menuValue}>{value}</Text> : null}
-      <Text style={[styles.menuLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{label}</Text>
-      <View style={[styles.menuIcon, { backgroundColor: color + '18' }]}>
-        <Ionicons name={icon as any} size={20} color={color} />
-      </View>
-    </TouchableOpacity>
+      <TouchableOpacity onPress={onPress} activeOpacity={0.75}
+                        style={[styles.menuRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }, !isLast && styles.menuRowBorder]}>
+        <Ionicons name={isRTL ? 'chevron-forward' : 'chevron-back'} size={20} color={Colors.primary + '80'} />
+        {value ? <Text style={styles.menuValue}>{value}</Text> : null}
+        <Text style={[styles.menuLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{label}</Text>
+        <View style={[styles.menuIcon, { backgroundColor: color + '18' }]}>
+          <Ionicons name={icon as any} size={20} color={color} />
+        </View>
+      </TouchableOpacity>
   );
 }
 
@@ -76,57 +76,57 @@ function EnergyEditModal({ visible, onClose, currentEnergy, onSave, isRTL, t }: 
   const eColor = value >= 70 ? '#4CAF82' : value >= 40 ? '#F4A32B' : '#E05C5C';
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }} activeOpacity={1} onPress={onClose} />
-      <View style={energyModal.sheet}>
-        <View style={energyModal.handle} />
-        <Text style={energyModal.title}>
-          {t.energyTodayQ}
-        </Text>
-        <Text style={energyModal.sub}>
-          {t.chooseEnergyLevel}
-        </Text>
-        <View style={[energyModal.valueWrap, { borderColor: eColor + '40' }]}>
-          <Text style={[energyModal.valueNum, { color: eColor }]}>{value}%</Text>
-          <Text style={energyModal.valueEmoji}>
-            {value >= 80 ? '🚀' : value >= 60 ? '⚡' : value >= 40 ? '🔋' : value >= 20 ? '😴' : '🪫'}
+      <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+        <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }} activeOpacity={1} onPress={onClose} />
+        <View style={energyModal.sheet}>
+          <View style={energyModal.handle} />
+          <Text style={energyModal.title}>
+            {t.energyTodayQ}
           </Text>
+          <Text style={energyModal.sub}>
+            {t.chooseEnergyLevel}
+          </Text>
+          <View style={[energyModal.valueWrap, { borderColor: eColor + '40' }]}>
+            <Text style={[energyModal.valueNum, { color: eColor }]}>{value}%</Text>
+            <Text style={energyModal.valueEmoji}>
+              {value >= 80 ? '🚀' : value >= 60 ? '⚡' : value >= 40 ? '🔋' : value >= 20 ? '😴' : '🪫'}
+            </Text>
+          </View>
+          <View style={energyModal.barBg}>
+            <View style={[energyModal.barFill, { width: `${value}%`, backgroundColor: eColor }]} />
+          </View>
+          <View style={energyModal.controls}>
+            {['-5', '-1', '+1', '+5'].map(step => (
+                <TouchableOpacity
+                    key={step}
+                    style={[energyModal.controlBtn, { borderColor: eColor }]}
+                    onPress={() => setValue(v => Math.min(100, Math.max(0, v + parseInt(step))))}
+                    activeOpacity={0.8}
+                >
+                  <Text style={[energyModal.controlText, { color: eColor }]}>{step}</Text>
+                </TouchableOpacity>
+            ))}
+          </View>
+          <View style={energyModal.quickRow}>
+            {levels.map(l => (
+                <TouchableOpacity
+                    key={l.val}
+                    style={[energyModal.quickBtn, value === l.val && { backgroundColor: l.color + '22', borderColor: l.color }]}
+                    onPress={() => setValue(l.val)} activeOpacity={0.8}
+                >
+                  <Text style={{ fontSize: 18 }}>{l.emoji}</Text>
+                  <Text style={[energyModal.quickLabel, { color: l.color }]}>{l.label}</Text>
+                </TouchableOpacity>
+            ))}
+          </View>
+          <TouchableOpacity
+              style={[energyModal.saveBtn, { backgroundColor: eColor }]}
+              onPress={() => { onSave(value); onClose(); }} activeOpacity={0.85}
+          >
+            <Text style={energyModal.saveBtnText}>{t.saveEnergy}</Text>
+          </TouchableOpacity>
         </View>
-        <View style={energyModal.barBg}>
-          <View style={[energyModal.barFill, { width: `${value}%`, backgroundColor: eColor }]} />
-        </View>
-        <View style={energyModal.controls}>
-          {['-5', '-1', '+1', '+5'].map(step => (
-            <TouchableOpacity
-              key={step}
-              style={[energyModal.controlBtn, { borderColor: eColor }]}
-              onPress={() => setValue(v => Math.min(100, Math.max(0, v + parseInt(step))))}
-              activeOpacity={0.8}
-            >
-              <Text style={[energyModal.controlText, { color: eColor }]}>{step}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <View style={energyModal.quickRow}>
-          {levels.map(l => (
-            <TouchableOpacity
-              key={l.val}
-              style={[energyModal.quickBtn, value === l.val && { backgroundColor: l.color + '22', borderColor: l.color }]}
-              onPress={() => setValue(l.val)} activeOpacity={0.8}
-            >
-              <Text style={{ fontSize: 18 }}>{l.emoji}</Text>
-              <Text style={[energyModal.quickLabel, { color: l.color }]}>{l.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <TouchableOpacity
-          style={[energyModal.saveBtn, { backgroundColor: eColor }]}
-          onPress={() => { onSave(value); onClose(); }} activeOpacity={0.85}
-        >
-          <Text style={energyModal.saveBtnText}>{t.saveEnergy}</Text>
-        </TouchableOpacity>
-      </View>
-    </Modal>
+      </Modal>
   );
 }
 
@@ -134,10 +134,10 @@ function EnergyEditModal({ visible, onClose, currentEnergy, onSave, isRTL, t }: 
 type ProfileFieldProps = { label: string; value: string; onChangeText: (v: string) => void; keyboardType?: any; autoCapitalize?: any; isRTL: boolean; };
 const ProfileField = React.memo(function ProfileField({ label, value, onChangeText, keyboardType = 'default', autoCapitalize = 'words', isRTL }: ProfileFieldProps) {
   return (
-    <View style={styles.fieldWrap}>
-      <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{label}</Text>
-      <TextInput value={value} onChangeText={onChangeText} style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]} keyboardType={keyboardType} autoCapitalize={autoCapitalize} placeholderTextColor={Colors.textMuted} blurOnSubmit={false} />
-    </View>
+      <View style={styles.fieldWrap}>
+        <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{label}</Text>
+        <TextInput value={value} onChangeText={onChangeText} style={[styles.fieldInput, { textAlign: isRTL ? 'right' : 'left' }]} keyboardType={keyboardType} autoCapitalize={autoCapitalize} placeholderTextColor={Colors.textMuted} blurOnSubmit={false} />
+      </View>
   );
 });
 
@@ -163,40 +163,40 @@ function AvatarActionSheet({ visible, onClose, onPickNew, onDelete, hasAvatar, t
   }, [visible]);
   if (!visible) return null;
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
-      <Animated.View style={[styles.actionOverlay, { opacity: opacityAnim }]}>
-        <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onClose} activeOpacity={1} />
-        <Animated.View style={[styles.actionSheet, { transform: [{ scale: scaleAnim }] }]}>
-          <View style={styles.actionHeader}>
-            <Text style={styles.actionEmoji}>📸</Text>
-            <Text style={styles.actionTitle}>{t.photoTitle}</Text>
-            <Text style={styles.actionSubtitle}>{t.photoSubtitle}</Text>
-          </View>
-          <View style={styles.actionDivider} />
-          <TouchableOpacity style={styles.actionBtn} onPress={() => { onClose(); setTimeout(onPickNew, 300); }} activeOpacity={0.7}>
-            <View style={[styles.actionBtnIcon, { backgroundColor: '#4CAF8220' }]}><Text style={styles.actionBtnEmoji}>🖼️</Text></View>
-            <Text style={styles.actionBtnText}>{hasAvatar ? t.changePhoto : t.addPhoto}</Text>
-            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
-          </TouchableOpacity>
-          {hasAvatar && (
-            <>
-              <View style={styles.actionDivider} />
-              <TouchableOpacity style={styles.actionBtn} onPress={() => { onClose(); setTimeout(onDelete, 300); }} activeOpacity={0.7}>
-                <View style={[styles.actionBtnIcon, { backgroundColor: Colors.dangerLight }]}><Text style={styles.actionBtnEmoji}>🗑️</Text></View>
-                <Text style={[styles.actionBtnText, { color: Colors.danger }]}>{t.deletePhoto}</Text>
-                <Ionicons name="chevron-forward" size={16} color={Colors.danger + '80'} />
-              </TouchableOpacity>
-            </>
-          )}
-          <View style={styles.actionDivider} />
-          <TouchableOpacity style={[styles.actionBtn, { justifyContent: 'center' }]} onPress={onClose} activeOpacity={0.7}>
-            <Text style={[styles.actionBtnText, { color: Colors.textMuted, textAlign: 'center' }]}>
-              {t.notNowBtn}
-            </Text>
-          </TouchableOpacity>
+      <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+        <Animated.View style={[styles.actionOverlay, { opacity: opacityAnim }]}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onClose} activeOpacity={1} />
+          <Animated.View style={[styles.actionSheet, { transform: [{ scale: scaleAnim }] }]}>
+            <View style={styles.actionHeader}>
+              <Text style={styles.actionEmoji}>📸</Text>
+              <Text style={styles.actionTitle}>{t.photoTitle}</Text>
+              <Text style={styles.actionSubtitle}>{t.photoSubtitle}</Text>
+            </View>
+            <View style={styles.actionDivider} />
+            <TouchableOpacity style={styles.actionBtn} onPress={() => { onClose(); setTimeout(onPickNew, 300); }} activeOpacity={0.7}>
+              <View style={[styles.actionBtnIcon, { backgroundColor: '#4CAF8220' }]}><Text style={styles.actionBtnEmoji}>🖼️</Text></View>
+              <Text style={styles.actionBtnText}>{hasAvatar ? t.changePhoto : t.addPhoto}</Text>
+              <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+            </TouchableOpacity>
+            {hasAvatar && (
+                <>
+                  <View style={styles.actionDivider} />
+                  <TouchableOpacity style={styles.actionBtn} onPress={() => { onClose(); setTimeout(onDelete, 300); }} activeOpacity={0.7}>
+                    <View style={[styles.actionBtnIcon, { backgroundColor: Colors.dangerLight }]}><Text style={styles.actionBtnEmoji}>🗑️</Text></View>
+                    <Text style={[styles.actionBtnText, { color: Colors.danger }]}>{t.deletePhoto}</Text>
+                    <Ionicons name="chevron-forward" size={16} color={Colors.danger + '80'} />
+                  </TouchableOpacity>
+                </>
+            )}
+            <View style={styles.actionDivider} />
+            <TouchableOpacity style={[styles.actionBtn, { justifyContent: 'center' }]} onPress={onClose} activeOpacity={0.7}>
+              <Text style={[styles.actionBtnText, { color: Colors.textMuted, textAlign: 'center' }]}>
+                {t.notNowBtn}
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
         </Animated.View>
-      </Animated.View>
-    </Modal>
+      </Modal>
   );
 }
 
@@ -228,37 +228,37 @@ function EditProfileModal({ visible, onClose, user, onSave, t, isRTL }: {
     finally { setSaving(false); }
   };
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent={false}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
-        <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }} activeOpacity={1} onPress={onClose} />
-        <View style={styles.slideModal}>
-          <View style={[styles.modalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}><Ionicons name="close" size={22} color={Colors.textPrimary} /></TouchableOpacity>
-            <Text style={styles.modalHeaderTitle}>{t.editProfile}</Text>
-            <View style={{ width: 36 }} />
-          </View>
-          <ScrollView contentContainerStyle={styles.editFormContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="none">
-            <ProfileField label={t.firstName} value={form.firstName} onChangeText={handleFirstName} isRTL={isRTL} />
-            <ProfileField label={t.lastName}  value={form.lastName}  onChangeText={handleLastName}  isRTL={isRTL} />
-            <ProfileField label={t.email}     value={form.email}     onChangeText={handleEmail}     keyboardType="email-address" autoCapitalize="none" isRTL={isRTL} />
-            <ProfileField label={t.age}       value={form.age}       onChangeText={handleAge}       keyboardType="numeric" autoCapitalize="none" isRTL={isRTL} />
-            <View style={styles.fieldWrap}>
-              <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.gender}</Text>
-              <View style={[styles.genderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-                {(['male','female'] as const).map(g => (
-                  <TouchableOpacity key={g} onPress={() => setForm(p => ({ ...p, gender: g }))}
-                    style={[styles.genderBtn, form.gender === g && styles.genderBtnActive]} activeOpacity={0.8}>
-                    <Ionicons name={g === 'male' ? 'male-outline' : 'female-outline'} size={18} color={form.gender === g ? Colors.white : Colors.textSecondary} />
-                    <Text style={[styles.genderBtnText, form.gender === g && styles.genderBtnTextActive]}>{g === 'male' ? t.male : t.female}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+      <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent={false}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
+          <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }} activeOpacity={1} onPress={onClose} />
+          <View style={styles.slideModal}>
+            <View style={[styles.modalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}><Ionicons name="close" size={22} color={Colors.textPrimary} /></TouchableOpacity>
+              <Text style={styles.modalHeaderTitle}>{t.editProfile}</Text>
+              <View style={{ width: 36 }} />
             </View>
-            <PrimaryButton title={saving ? t.savingProfile : t.save} onPress={handleSave} style={styles.saveBtn} />
-          </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+            <ScrollView contentContainerStyle={styles.editFormContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode="none">
+              <ProfileField label={t.firstName} value={form.firstName} onChangeText={handleFirstName} isRTL={isRTL} />
+              <ProfileField label={t.lastName}  value={form.lastName}  onChangeText={handleLastName}  isRTL={isRTL} />
+              <ProfileField label={t.email}     value={form.email}     onChangeText={handleEmail}     keyboardType="email-address" autoCapitalize="none" isRTL={isRTL} />
+              <ProfileField label={t.age}       value={form.age}       onChangeText={handleAge}       keyboardType="numeric" autoCapitalize="none" isRTL={isRTL} />
+              <View style={styles.fieldWrap}>
+                <Text style={[styles.fieldLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.gender}</Text>
+                <View style={[styles.genderRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                  {(['male','female'] as const).map(g => (
+                      <TouchableOpacity key={g} onPress={() => setForm(p => ({ ...p, gender: g }))}
+                                        style={[styles.genderBtn, form.gender === g && styles.genderBtnActive]} activeOpacity={0.8}>
+                        <Ionicons name={g === 'male' ? 'male-outline' : 'female-outline'} size={18} color={form.gender === g ? Colors.white : Colors.textSecondary} />
+                        <Text style={[styles.genderBtnText, form.gender === g && styles.genderBtnTextActive]}>{g === 'male' ? t.male : t.female}</Text>
+                      </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+              <PrimaryButton title={saving ? t.savingProfile : t.save} onPress={handleSave} style={styles.saveBtn} />
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
   );
 }
 
@@ -272,31 +272,31 @@ function LanguageModal({ visible, onClose, isRTL, t, onSelect }: {
     { code: 'en' as const, label: 'English', flag: '🇺🇸', native: 'الإنجليزية' },
   ];
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.modalCard}>
-          <View style={[styles.modalIconWrap, { backgroundColor: '#E8F5EF' }]}>
-            <Ionicons name="language-outline" size={32} color="#4CAF82" />
+      <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+        <View style={styles.overlay}>
+          <View style={styles.modalCard}>
+            <View style={[styles.modalIconWrap, { backgroundColor: '#E8F5EF' }]}>
+              <Ionicons name="language-outline" size={32} color="#4CAF82" />
+            </View>
+            <Text style={styles.modalTitle}>{t.language}</Text>
+            <Text style={styles.modalBody}>{t.selectLanguage}</Text>
+            <View style={{ width: '100%', gap: 10, marginBottom: Spacing.xl }}>
+              {langs.map(lang => (
+                  <TouchableOpacity key={lang.code} onPress={() => { onSelect(lang.code); onClose(); }}
+                                    style={[styles.langOption, (isRTL ? lang.code==='ar' : lang.code==='en') && styles.langOptionActive]} activeOpacity={0.8}>
+                    <Text style={styles.langFlag}>{lang.flag}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.langName}>{lang.label}</Text>
+                      <Text style={styles.langNative}>{lang.native}</Text>
+                    </View>
+                    {(isRTL ? lang.code==='ar' : lang.code==='en') && <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />}
+                  </TouchableOpacity>
+              ))}
+            </View>
+            <OutlineButton title={t.cancel} onPress={onClose} style={{ width: '100%' }} />
           </View>
-          <Text style={styles.modalTitle}>{t.language}</Text>
-          <Text style={styles.modalBody}>{t.selectLanguage}</Text>
-          <View style={{ width: '100%', gap: 10, marginBottom: Spacing.xl }}>
-            {langs.map(lang => (
-              <TouchableOpacity key={lang.code} onPress={() => { onSelect(lang.code); onClose(); }}
-                style={[styles.langOption, (isRTL ? lang.code==='ar' : lang.code==='en') && styles.langOptionActive]} activeOpacity={0.8}>
-                <Text style={styles.langFlag}>{lang.flag}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.langName}>{lang.label}</Text>
-                  <Text style={styles.langNative}>{lang.native}</Text>
-                </View>
-                {(isRTL ? lang.code==='ar' : lang.code==='en') && <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />}
-              </TouchableOpacity>
-            ))}
-          </View>
-          <OutlineButton title={t.cancel} onPress={onClose} style={{ width: '100%' }} />
         </View>
-      </View>
-    </Modal>
+      </Modal>
   );
 }
 
@@ -309,32 +309,32 @@ function HelpModal({ visible, onClose, t, isRTL }: { visible: boolean; onClose: 
   ];
   const [expanded, setExpanded] = useState<number | null>(null);
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={styles.slideModalSafe}>
-        <View style={styles.slideModal}>
-          <View style={[styles.modalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}><Ionicons name="close" size={22} color={Colors.textPrimary} /></TouchableOpacity>
-            <Text style={styles.modalHeaderTitle}>{t.help}</Text>
-            <View style={{ width: 36 }} />
-          </View>
-          <ScrollView contentContainerStyle={{ padding: Spacing.xl }}>
-            <View style={styles.card}>
-              {faqs.map((faq, i) => (
-                <View key={i}>
-                  <TouchableOpacity onPress={() => setExpanded(expanded === i ? null : i)}
-                    style={[styles.faqRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]} activeOpacity={0.8}>
-                    <Ionicons name={expanded === i ? 'chevron-up' : 'chevron-back'} size={16} color={Colors.textMuted} />
-                    <Text style={[styles.faqQ, { flex: 1, textAlign: isRTL ? 'right' : 'left' }]}>{faq.q}</Text>
-                  </TouchableOpacity>
-                  {expanded === i && <Text style={[styles.faqA, { textAlign: isRTL ? 'right' : 'left' }]}>{faq.a}</Text>}
-                  {i < faqs.length - 1 && <View style={styles.divider} />}
-                </View>
-              ))}
+      <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+        <SafeAreaView style={styles.slideModalSafe}>
+          <View style={styles.slideModal}>
+            <View style={[styles.modalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}><Ionicons name="close" size={22} color={Colors.textPrimary} /></TouchableOpacity>
+              <Text style={styles.modalHeaderTitle}>{t.help}</Text>
+              <View style={{ width: 36 }} />
             </View>
-          </ScrollView>
-        </View>
-      </SafeAreaView>
-    </Modal>
+            <ScrollView contentContainerStyle={{ padding: Spacing.xl }}>
+              <View style={styles.card}>
+                {faqs.map((faq, i) => (
+                    <View key={i}>
+                      <TouchableOpacity onPress={() => setExpanded(expanded === i ? null : i)}
+                                        style={[styles.faqRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]} activeOpacity={0.8}>
+                        <Ionicons name={expanded === i ? 'chevron-up' : 'chevron-back'} size={16} color={Colors.textMuted} />
+                        <Text style={[styles.faqQ, { flex: 1, textAlign: isRTL ? 'right' : 'left' }]}>{faq.q}</Text>
+                      </TouchableOpacity>
+                      {expanded === i && <Text style={[styles.faqA, { textAlign: isRTL ? 'right' : 'left' }]}>{faq.a}</Text>}
+                      {i < faqs.length - 1 && <View style={styles.divider} />}
+                    </View>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+        </SafeAreaView>
+      </Modal>
   );
 }
 
@@ -465,141 +465,141 @@ export default function MoreScreen() {
   const energyLabel = energy >= 70 ? t.highEnergy : energy >= 40 ? t.mediumEnergy : t.lowEnergy;
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar backgroundColor={Colors.background} barStyle="dark-content" />
-      <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: 84 + Math.max(insets.bottom, 12) + 20 }]}
-        showsVerticalScrollIndicator={false}
-      >
-
-        <View style={[styles.topBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <TouchableOpacity style={styles.editBtn} onPress={() => open('editProfile')}>
-            <Ionicons name="pencil-outline" size={20} color={Colors.primary} />
-          </TouchableOpacity>
-          <Text style={styles.pageTitle}>{t.profile}</Text>
-          <View style={{ width: 40 }} />
-        </View>
-
-        <View style={styles.avatarCard}>
-          <TouchableOpacity activeOpacity={0.85} onPressIn={handleAvatarPressIn} onPressOut={handleAvatarPressOut} onPress={() => {}}>
-            <View style={styles.avatarWrapper}>
-              <View style={styles.avatarCircle}>
-                {avatarUri ? <Image source={{ uri: avatarUri }} style={styles.avatarImage} /> : <Text style={styles.avatarInitials}>{initials}</Text>}
-              </View>
-              <TouchableOpacity style={styles.cameraBadge} onPress={handlePickAvatar} activeOpacity={0.85}>
-                <Ionicons name="camera" size={13} color={Colors.white} />
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-          <Text style={styles.avatarName}>{user?.firstName} {user?.lastName}</Text>
-          <Text style={styles.avatarEmail}>{user?.email}</Text>
-          <Text style={styles.avatarHint}>{t.longPressHint}</Text>
-        </View>
-
-        {/* Energy Card */}
-        <TouchableOpacity onPress={() => open('energy')} activeOpacity={0.85}
-          style={[styles.energyCard, { backgroundColor: eBg, borderColor: eColor + '33', flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          <Text style={{ fontSize: 20 }}>{energy >= 70 ? '⚡' : energy >= 40 ? '🔋' : '🪫'}</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.energyLabel, { color: eColor }]}>{energyLabel}</Text>
-            <View style={[styles.energyBarBg, { backgroundColor: eColor + '22' }]}>
-              <View style={[styles.energyBarFill, { width: `${energy}%` as any, backgroundColor: eColor }]} />
-            </View>
-          </View>
-          <View style={{ alignItems: 'flex-end', gap: 2 }}>
-            <Text style={[styles.energyPct, { color: eColor }]}>{energy}%</Text>
-            <Text style={{ fontSize: 10, color: eColor, opacity: 0.7 }}>{t.tapToEditEnergy}</Text>
-          </View>
-        </TouchableOpacity>
-
-        <Text style={[styles.sectionLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.accountInfo}</Text>
-        <View style={styles.card}>
-          <InfoRow label={t.firstName} value={user?.firstName || ''} isRTL={isRTL} />
-          <View style={styles.divider} />
-          <InfoRow label={t.lastName}  value={user?.lastName  || ''} isRTL={isRTL} />
-          <View style={styles.divider} />
-          <InfoRow label={t.email}     value={user?.email     || ''} isRTL={isRTL} />
-          <View style={styles.divider} />
-          <InfoRow label={t.age}       value={user?.age ? `${user.age} ${t.years}` : ''} isRTL={isRTL} />
-          <View style={styles.divider} />
-          <InfoRow label={t.gender}    value={user?.gender === 'male' ? t.male : user?.gender === 'female' ? t.female : ''} isRTL={isRTL} />
-        </View>
-
-        <Text style={[styles.sectionLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.quickLinks}</Text>
-        <View style={[styles.quickLinksRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          {[
-            { label: t.myPlanLink,    icon: 'calendar-outline',  color: '#7C5CBF', bg: '#F0EBFA', route: '/tabs/home'      },
-            { label: t.exercisesLink, icon: 'fitness-outline',   color: '#4CAF82', bg: '#E8F5EF', route: '/tabs/exercises' },
-            { label: t.tasksLink,     icon: 'checkbox-outline',  color: '#5B9BD5', bg: '#E8F1FB', route: '/tabs/tasks'     },
-            { label: t.doctorsLink,   icon: 'medkit-outline',    color: '#C97B3A', bg: '#FEF3E2', route: '/tabs/doctors'   },
-          ].map((item, i) => (
-            <TouchableOpacity key={i} style={[styles.quickLink, { backgroundColor: item.bg }]}
-              onPress={() => router.push(item.route as any)} activeOpacity={0.8}>
-              <Ionicons name={item.icon as any} size={22} color={item.color} />
-              <Text style={[styles.quickLinkText, { color: item.color }]}>{item.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <Text style={[styles.sectionLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.settings}</Text>
-        <View style={styles.card}>
-          {MENU.map((item, i) => (
-            <MenuRow key={item.key} icon={item.icon} label={item.label}
-              value={'value' in item ? item.value : undefined}
-              color={item.color} onPress={() => open(item.key as ModalKey)}
-              isLast={i === MENU.length - 1} isRTL={isRTL} />
-          ))}
-        </View>
-
-        <TouchableOpacity
-          onPress={() => router.push('/tabs/references')}
-          style={[styles.referencesBtn, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
-          activeOpacity={0.8}
+      <SafeAreaView style={styles.safe}>
+        <StatusBar backgroundColor={Colors.background} barStyle="dark-content" />
+        <ScrollView
+            contentContainerStyle={[styles.content, { paddingBottom: 84 + Math.max(insets.bottom, 12) + 20 }]}
+            showsVerticalScrollIndicator={false}
         >
-          <Ionicons name="book-outline" size={20} color="#7C5CBF" />
-          <Text style={styles.referencesBtnText}>{isRTL ? 'المراجع العلمية' : 'References'}</Text>
-        </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => open('logout')}
-          style={[styles.logoutBtn, { flexDirection: isRTL ? 'row-reverse' : 'row' }]} activeOpacity={0.8}>
-          <Ionicons name="log-out-outline" size={20} color={Colors.danger} />
-          <Text style={styles.logoutText}>{t.logout}</Text>
-        </TouchableOpacity>
+          <View style={[styles.topBar, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <TouchableOpacity style={styles.editBtn} onPress={() => open('editProfile')}>
+              <Ionicons name="pencil-outline" size={20} color={Colors.primary} />
+            </TouchableOpacity>
+            <Text style={styles.pageTitle}>{t.profile}</Text>
+            <View style={{ width: 40 }} />
+          </View>
 
-        <Text style={styles.versionText}>{t.version}</Text>
-      </ScrollView>
+          <View style={styles.avatarCard}>
+            <TouchableOpacity activeOpacity={0.85} onPressIn={handleAvatarPressIn} onPressOut={handleAvatarPressOut} onPress={() => {}}>
+              <View style={styles.avatarWrapper}>
+                <View style={styles.avatarCircle}>
+                  {avatarUri ? <Image source={{ uri: avatarUri }} style={styles.avatarImage} /> : <Text style={styles.avatarInitials}>{initials}</Text>}
+                </View>
+                <TouchableOpacity style={styles.cameraBadge} onPress={handlePickAvatar} activeOpacity={0.85}>
+                  <Ionicons name="camera" size={13} color={Colors.white} />
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+            <Text style={styles.avatarName}>{user?.firstName} {user?.lastName}</Text>
+            <Text style={styles.avatarEmail}>{user?.email}</Text>
+            <Text style={styles.avatarHint}>{t.longPressHint}</Text>
+          </View>
 
-      {/* ✅ isRTL prop added here */}
-      <AvatarActionSheet
-        visible={showAvatarSheet}
-        onClose={() => setShowAvatarSheet(false)}
-        onPickNew={handlePickAvatar}
-        onDelete={handleDeleteAvatar}
-        hasAvatar={!!avatarUri}
-        t={t}
-        isRTL={isRTL}
-      />
-      <EditProfileModal visible={activeModal === 'editProfile'} onClose={close} user={user} onSave={handleSaveProfile} t={t} isRTL={isRTL} />
-      <LanguageModal visible={activeModal === 'language'} onClose={close} isRTL={isRTL} t={t} onSelect={handleLanguageSelect} />
-      <HelpModal visible={activeModal === 'help'} onClose={close} t={t} isRTL={isRTL} />
-      <EnergyEditModal visible={activeModal === 'energy'} onClose={close} currentEnergy={energy} onSave={handleSaveEnergy} isRTL={isRTL} t={t} />
-
-      <Modal visible={activeModal === 'logout'} transparent animationType="fade" onRequestClose={close}>
-        <View style={styles.overlay}>
-          <View style={styles.modalCard}>
-            <View style={[styles.modalIconWrap, { backgroundColor: Colors.dangerLight }]}>
-              <Ionicons name="log-out-outline" size={32} color={Colors.danger} />
+          {/* Energy Card */}
+          <TouchableOpacity onPress={() => open('energy')} activeOpacity={0.85}
+                            style={[styles.energyCard, { backgroundColor: eBg, borderColor: eColor + '33', flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <Text style={{ fontSize: 20 }}>{energy >= 70 ? '⚡' : energy >= 40 ? '🔋' : '🪫'}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.energyLabel, { color: eColor }]}>{energyLabel}</Text>
+              <View style={[styles.energyBarBg, { backgroundColor: eColor + '22' }]}>
+                <View style={[styles.energyBarFill, { width: `${energy}%` as any, backgroundColor: eColor }]} />
+              </View>
             </View>
-            <Text style={styles.modalTitle}>{t.logout}</Text>
-            <Text style={styles.modalBody}>{t.logoutConfirm}</Text>
-            <View style={styles.modalBtns}>
-              <OutlineButton title={t.cancel} onPress={close} style={{ flex: 1 }} />
-              <PrimaryButton title={t.confirm} onPress={() => { close(); logout(); }} style={{ flex: 1, backgroundColor: Colors.danger }} />
+            <View style={{ alignItems: 'flex-end', gap: 2 }}>
+              <Text style={[styles.energyPct, { color: eColor }]}>{energy}%</Text>
+              <Text style={{ fontSize: 10, color: eColor, opacity: 0.7 }}>{t.tapToEditEnergy}</Text>
+            </View>
+          </TouchableOpacity>
+
+          <Text style={[styles.sectionLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.accountInfo}</Text>
+          <View style={styles.card}>
+            <InfoRow label={t.firstName} value={user?.firstName || ''} isRTL={isRTL} />
+            <View style={styles.divider} />
+            <InfoRow label={t.lastName}  value={user?.lastName  || ''} isRTL={isRTL} />
+            <View style={styles.divider} />
+            <InfoRow label={t.email}     value={user?.email     || ''} isRTL={isRTL} />
+            <View style={styles.divider} />
+            <InfoRow label={t.age}       value={user?.age ? `${user.age} ${t.years}` : ''} isRTL={isRTL} />
+            <View style={styles.divider} />
+            <InfoRow label={t.gender}    value={user?.gender === 'male' ? t.male : user?.gender === 'female' ? t.female : ''} isRTL={isRTL} />
+          </View>
+
+          <Text style={[styles.sectionLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.quickLinks}</Text>
+          <View style={[styles.quickLinksRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            {[
+              { label: t.myPlanLink,    icon: 'calendar-outline',  color: '#7C5CBF', bg: '#F0EBFA', route: '/tabs/home'      },
+              { label: t.exercisesLink, icon: 'fitness-outline',   color: '#4CAF82', bg: '#E8F5EF', route: '/tabs/exercises' },
+              { label: t.tasksLink,     icon: 'checkbox-outline',  color: '#5B9BD5', bg: '#E8F1FB', route: '/tabs/tasks'     },
+              { label: t.doctorsLink,   icon: 'medkit-outline',    color: '#C97B3A', bg: '#FEF3E2', route: '/tabs/doctors'   },
+            ].map((item, i) => (
+                <TouchableOpacity key={i} style={[styles.quickLink, { backgroundColor: item.bg }]}
+                                  onPress={() => router.push(item.route as any)} activeOpacity={0.8}>
+                  <Ionicons name={item.icon as any} size={22} color={item.color} />
+                  <Text style={[styles.quickLinkText, { color: item.color }]}>{item.label}</Text>
+                </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={[styles.sectionLabel, { textAlign: isRTL ? 'right' : 'left' }]}>{t.settings}</Text>
+          <View style={styles.card}>
+            {MENU.map((item, i) => (
+                <MenuRow key={item.key} icon={item.icon} label={item.label}
+                         value={'value' in item ? item.value : undefined}
+                         color={item.color} onPress={() => open(item.key as ModalKey)}
+                         isLast={i === MENU.length - 1} isRTL={isRTL} />
+            ))}
+          </View>
+
+          <TouchableOpacity
+              onPress={() => router.push('/tabs/references')}
+              style={[styles.referencesBtn, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}
+              activeOpacity={0.8}
+          >
+            <Ionicons name="book-outline" size={20} color="#7C5CBF" />
+            <Text style={styles.referencesBtnText}>{isRTL ? 'المراجع العلمية' : 'References'}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => open('logout')}
+                            style={[styles.logoutBtn, { flexDirection: isRTL ? 'row-reverse' : 'row' }]} activeOpacity={0.8}>
+            <Ionicons name="log-out-outline" size={20} color={Colors.danger} />
+            <Text style={styles.logoutText}>{t.logout}</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.versionText}>{t.version}</Text>
+        </ScrollView>
+
+        {/* ✅ isRTL prop added here */}
+        <AvatarActionSheet
+            visible={showAvatarSheet}
+            onClose={() => setShowAvatarSheet(false)}
+            onPickNew={handlePickAvatar}
+            onDelete={handleDeleteAvatar}
+            hasAvatar={!!avatarUri}
+            t={t}
+            isRTL={isRTL}
+        />
+        <EditProfileModal visible={activeModal === 'editProfile'} onClose={close} user={user} onSave={handleSaveProfile} t={t} isRTL={isRTL} />
+        <LanguageModal visible={activeModal === 'language'} onClose={close} isRTL={isRTL} t={t} onSelect={handleLanguageSelect} />
+        <HelpModal visible={activeModal === 'help'} onClose={close} t={t} isRTL={isRTL} />
+        <EnergyEditModal visible={activeModal === 'energy'} onClose={close} currentEnergy={energy} onSave={handleSaveEnergy} isRTL={isRTL} t={t} />
+
+        <Modal visible={activeModal === 'logout'} transparent animationType="fade" onRequestClose={close}>
+          <View style={styles.overlay}>
+            <View style={styles.modalCard}>
+              <View style={[styles.modalIconWrap, { backgroundColor: Colors.dangerLight }]}>
+                <Ionicons name="log-out-outline" size={32} color={Colors.danger} />
+              </View>
+              <Text style={styles.modalTitle}>{t.logout}</Text>
+              <Text style={styles.modalBody}>{t.logoutConfirm}</Text>
+              <View style={styles.modalBtns}>
+                <OutlineButton title={t.cancel} onPress={close} style={{ flex: 1 }} />
+                <PrimaryButton title={t.confirm} onPress={() => { close(); logout().then(() => router.replace('/Doctor/RoleChoose')); }} style={{ flex: 1, backgroundColor: Colors.danger }} />
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
-    </SafeAreaView>
+        </Modal>
+      </SafeAreaView>
   );
 }
 

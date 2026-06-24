@@ -8,11 +8,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { activeChatRef } from '../utils/activeChatRef';
 
-// Disable OS-level RTL so the app controls direction entirely via isRTL state.
-// Without this, Arabic system-locale devices double-reverse every flex layout.
 I18nManager.allowRTL(false);
 
-// Suppress foreground notifications when the user is already inside that chat
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
     const data = notification.request.content.data as any;
@@ -26,9 +23,6 @@ import { AuthProvider, useAuth } from '../context/AuthContext';
 import { LanguageProvider } from '../context/Languagecontext';
 import '../global.css';
 
-// ─── Auth Guard ────────────────────────────────────────────
-// Runs on every navigation. Blocks access to home screens when
-// not authenticated, and blocks access to auth screens when authenticated.
 function AuthGuard() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const segments = useSegments();
@@ -39,7 +33,6 @@ function AuthGuard() {
     const first  = (segments[0] ?? '') as string;
     const second = (segments[1] ?? '') as string;
 
-    // Never interfere with splash / onboarding
     if (!first || first === 'startup' || first === 'langchoose') return;
 
     const DOCTOR_AUTH  = ['Docsignin', 'DocsignUp1', 'Docsignup2', 'RoleChoose'];
@@ -51,24 +44,33 @@ function AuthGuard() {
     const isOnPatientHome = first === 'tabs';
 
     if (isAuthenticated && user) {
-      // Logged-in user on an auth screen → push them to their home
-      if (isOnPatientAuth || isOnDoctorAuth) {
-        if (user.role === 'doctor') {
-          router.replace('/Doctor/Dochome');
-        } else {
-          const today = new Date().toISOString().split('T')[0];
-          const uid   = user.uid ?? 'guest';
-          AsyncStorage.getItem(`energy_date_${uid}`).then(savedDate => {
-            router.replace(savedDate === today ? '/tabs/home' : '/energy');
-          });
-        }
+      // ── Correct-portal redirects only ──────────────────────────────────────
+      // A doctor on the doctor auth screen → send to doctor home.
+      if (isOnDoctorAuth && user.role === 'doctor') {
+        router.replace('/Doctor/Dochome');
+        return;
       }
-    } else if (!isAuthenticated) {
-      // Unauthenticated user on a home screen → push them to sign-in
-      if (isOnDoctorHome || isOnPatientHome) {
-        AsyncStorage.getItem('app_role').then(role => {
-          router.replace(role === 'doctor' ? '/Doctor/Docsignin' : '/auth/sign-in');
+      // A patient on the patient auth screen → send to energy or home.
+      if (isOnPatientAuth && user.role === 'patient') {
+        const today = new Date().toISOString().split('T')[0];
+        const uid   = user.uid ?? 'guest';
+        AsyncStorage.getItem(`energy_date_${uid}`).then(savedDate => {
+          router.replace(savedDate === today ? '/tabs/home' : '/energy');
         });
+        return;
+      }
+      // ── Wrong-portal combinations — DO NOTHING ─────────────────────────────
+      // If a doctor account appears while on the patient auth screen (or vice
+      // versa), it means AuthContext.signIn() is mid-flight and about to call
+      // signOut(). AuthGuard must stay silent and not redirect anywhere —
+      // signIn() will clean up React state and Firebase session itself.
+
+    } else if (!isAuthenticated) {
+      if (isOnDoctorHome || isOnPatientHome) {
+        // Always go to RoleChoose — never try to read app_role here.
+        // app_role is cleared on logout so it would be null, causing
+        // AuthGuard to route to the wrong portal.
+        router.replace('/Doctor/RoleChoose');
       }
     }
   }, [isAuthenticated, isLoading, user?.role, segments.join('/')]);
@@ -99,17 +101,14 @@ function openChatFromNotification(data: Record<string, string> | null | undefine
   }
 }
 
-// ─── Root Layout ───────────────────────────────────────────
 export default function RootLayout() {
   const notifSub = useRef<Notifications.Subscription | null>(null);
 
   useEffect(() => {
-    // Notification tapped while app is in background / foreground
     notifSub.current = Notifications.addNotificationResponseReceivedListener(response => {
       openChatFromNotification(response.notification.request.content.data as any);
     });
 
-    // Notification tapped when app was fully closed (cold start)
     Notifications.getLastNotificationResponseAsync().then(response => {
       if (response?.notification.request.content.data) {
         setTimeout(() => openChatFromNotification(response.notification.request.content.data as any), 800);
@@ -120,24 +119,23 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <GestureHandlerRootView style={styles.root}>
-      <LanguageProvider>
-        <AuthProvider>
-          <AuthGuard />
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="startup"    options={{ gestureEnabled: false }} />
-            <Stack.Screen name="langchoose" options={{ gestureEnabled: false }} />
-            <Stack.Screen name="energy"     options={{ gestureEnabled: false }} />
-            {/* auth: gesture allowed so sign-in can swipe back to RoleChoose */}
-            <Stack.Screen name="auth" />
-            <Stack.Screen name="tabs"   options={{ gestureEnabled: false }} />
-            <Stack.Screen name="Doctor" options={{ gestureEnabled: false }} />
-          </Stack>
-          <StatusBar style="dark" />
-        </AuthProvider>
-      </LanguageProvider>
-    </GestureHandlerRootView>
+      <GestureHandlerRootView style={styles.root}>
+        <LanguageProvider>
+          <AuthProvider>
+            <AuthGuard />
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="index" />
+              <Stack.Screen name="startup"    options={{ gestureEnabled: false }} />
+              <Stack.Screen name="langchoose" options={{ gestureEnabled: false }} />
+              <Stack.Screen name="energy"     options={{ gestureEnabled: false }} />
+              <Stack.Screen name="auth" />
+              <Stack.Screen name="tabs"   options={{ gestureEnabled: false }} />
+              <Stack.Screen name="Doctor" options={{ gestureEnabled: false }} />
+            </Stack>
+            <StatusBar style="dark" />
+          </AuthProvider>
+        </LanguageProvider>
+      </GestureHandlerRootView>
   );
 }
 

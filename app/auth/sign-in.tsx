@@ -10,13 +10,22 @@ import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/Languagecontext';
 import { PrimaryButton, InputField } from '../../components/UI';
 import { Colors, Spacing, Radius, FontSize } from '../../constants/Theme';
-import { doc, getDoc } from 'firebase/firestore';
-import { db, auth } from '../../utils/firebaseConfig';
+
+// ─── NOTE ─────────────────────────────────────────────────────────────────────
+// lastEnergyUpdate is read directly from signIn()'s return value — NOT from
+// the `user` context state. React state is async: `user` is still null at the
+// moment the await resolves, so user?.lastEnergyUpdate would always be
+// undefined, sending everyone to /energy every time.
+//
+// REQUIRED in AuthContext.signIn():
+//   return { ok: true, role: data.role, lastEnergyUpdate: data.lastEnergyUpdate ?? null };
+// ──────────────────────────────────────────────────────────────────────────────
 
 const getLocalToday = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
+
 export default function PatientSignInScreen() {
   const { signIn, logout } = useAuth();
   const { t, isRTL } = useLang();
@@ -28,66 +37,60 @@ export default function PatientSignInScreen() {
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!email.trim())              e.email    = t.required;
-    else if (!/\S+@\S+\.\S+/.test(email)) e.email = t.invalidEmail;
-    if (!password.trim())           e.password = t.required;
-    else if (password.length < 6)   e.password = t.shortPassword;
+    if (!email.trim())                    e.email    = t.required;
+    else if (!/\S+@\S+\.\S+/.test(email)) e.email    = t.invalidEmail;
+    if (!password.trim())                 e.password = t.required;
+    else if (password.length < 6)         e.password = t.shortPassword;
     setErrors(e);
     return Object.keys(e).length === 0;
   };
+
   const handleSignIn = async () => {
     if (!validate()) return;
 
     setLoading(true);
-    const { ok, error, role } = await signIn(email, password);
 
+    // signIn() enforces the role gate atomically before setting any state.
+    // It returns `lastEnergyUpdate` from the same Firestore read it already
+    // performed — so we never have a stale-context or double-read problem.
+    const { ok, error, lastEnergyUpdate } = await signIn(email, password, 'patient');
+    // ↑ lastEnergyUpdate comes from the same Firestore doc signIn() already
+    //   read — no second network call, no stale React state.
+
+    // ── FAILURE ───────────────────────────────────────────────────────────────
     if (!ok) {
       setLoading(false);
-      const errMsg = error ? ((t as any)[error] ?? t.signInFailed) : t.signInFailed;
-      Alert.alert(t.error, errMsg);
+      if (error === 'wrongPortal') {
+        Alert.alert(
+            t.error || 'Login Error',
+            (t as any).wrongPortal ||
+            (isRTL
+                ? 'هذا الحساب مسجّل بدور مختلف. يرجى استخدام البوابة الصحيحة.'
+                : 'This account is registered under a different role. Please use the correct portal.'),
+        );
+      } else {
+        const errMsg = error ? ((t as any)[error] ?? t.signInFailed) : t.signInFailed;
+        Alert.alert(t.error, errMsg);
+      }
       return;
     }
 
-    if (role === 'doctor') {
-      setLoading(false);
-      // Automatically pushing them to their correct home screen is usually better UX
-      router.replace('/Doctor/Dochome');
-
-      // If you prefer to strictly block them from this screen, use your original code instead:
-      // await logout();
-      // Alert.alert(t.doctorAccount, t.docRoleDoctorSub);
-      return;
-    }
-
-    // --- PATIENT ENERGY BAR LOGIC ---
+    // ── SUCCESS — PATIENT ENERGY ROUTING ─────────────────────────────────────
+    // Use lastEnergyUpdate from signIn()'s return — never from user context,
+    // which is still null at this point due to async React state updates.
     try {
-      const user = auth.currentUser;
-      if (user) {
-        const userDocRef = doc(db, 'users', user.uid);
-        const userDoc = await getDoc(userDocRef);
+      const today = getLocalToday();
+      setLoading(false); // stop spinner BEFORE navigating
 
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          const today = getLocalToday();
-
-          if (userData.lastEnergyUpdate === today) {
-            // Already updated today, skip to home
-            router.replace('/tabs/home');
-          } else {
-            // New day or first login, go to energy screen
-            router.replace('/energy');
-          }
-        } else {
-          // Fallback if data is somehow missing
-          router.replace('/energy');
-        }
+      if (lastEnergyUpdate === today) {
+        router.replace('/tabs/home');
+      } else {
+        router.replace('/energy');
       }
     } catch (err) {
-      console.error("Error fetching user data:", err);
-      // Fallback to home so the patient isn't stuck if the network fails
-      router.replace('/tabs/home');
-    } finally {
+      console.error('Energy routing error:', err);
       setLoading(false);
+      router.replace('/tabs/home');
     }
   };
 
@@ -101,6 +104,7 @@ export default function PatientSignInScreen() {
           >
             <View style={styles.orbTR} />
             <View style={styles.orbBL} />
+
             <View style={styles.roleBadgeRow}>
               <View style={styles.roleBadge}>
                 <Text style={styles.roleBadgeEmoji}>🧑‍⚕️</Text>
@@ -120,6 +124,8 @@ export default function PatientSignInScreen() {
                   value={email}
                   onChangeText={setEmail}
                   keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
                   error={errors.email}
                   rtl={isRTL}
               />
@@ -157,7 +163,7 @@ export default function PatientSignInScreen() {
             <PrimaryButton title={t.signIn} onPress={handleSignIn} loading={loading} />
 
             <TouchableOpacity
-                onPress={() => router.replace('/Doctor/RoleChoose')}
+                onPress={() => logout().then(() => router.replace('/Doctor/RoleChoose'))}
                 style={styles.switchRoleBtn}
                 activeOpacity={0.7}
             >
@@ -184,52 +190,48 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: Spacing.xl,
     paddingBottom: Spacing.xxxl,
-    justifyContent: "center",
+    justifyContent: 'center',
   },
 
   orbTR: {
-    position: "absolute",
+    position: 'absolute',
     top: -30,
     right: -50,
     width: 160,
     height: 160,
     borderRadius: 80,
-    backgroundColor: "#E8DFFA",
+    backgroundColor: '#E8DFFA',
     opacity: 0.5,
   },
   orbBL: {
-    position: "absolute",
+    position: 'absolute',
     bottom: 100,
     left: -60,
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: "#E8DFFA",
+    backgroundColor: '#E8DFFA',
     opacity: 0.5,
   },
 
-  roleBadgeRow: { alignItems: "center", paddingTop: 52, paddingBottom: 24 },
+  roleBadgeRow: { alignItems: 'center', paddingTop: 52, paddingBottom: 24 },
   roleBadge: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
-    backgroundColor: "#F0EBFA",
+    backgroundColor: '#F0EBFA',
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 50,
     borderWidth: 1.5,
-    borderColor: "#7C5CBF",
+    borderColor: '#7C5CBF',
   },
   roleBadgeEmoji: { fontSize: 22 },
-  roleBadgeText: { fontSize: FontSize.sm, fontWeight: "700", color: "#7C5CBF" },
+  roleBadgeText: { fontSize: FontSize.sm, fontWeight: '700', color: '#7C5CBF' },
 
   titleBlock: { marginBottom: Spacing.xl },
-  title: { fontSize: 28, fontWeight: "800", color: Colors.textPrimary },
-  subtitle: {
-    fontSize: FontSize.base,
-    color: Colors.textSecondary,
-    marginTop: 4,
-  },
+  title: { fontSize: 28, fontWeight: '800', color: Colors.textPrimary },
+  subtitle: { fontSize: FontSize.base, color: Colors.textSecondary, marginTop: 4 },
 
   card: {
     backgroundColor: Colors.white,
@@ -243,28 +245,28 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
 
-  signUpRow: { alignItems: "center", paddingVertical: 14 },
+  signUpRow: { alignItems: 'center', paddingVertical: 14 },
   signUpText: { fontSize: FontSize.sm, color: Colors.textSecondary },
-  signUpLink: { color: Colors.primary, fontWeight: "700" },
+  signUpLink: { color: Colors.primary, fontWeight: '700' },
 
   switchRoleBtn: { marginTop: 20 },
   switchRoleInner: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
     backgroundColor: Colors.primaryUltraLight,
     borderRadius: Radius.lg,
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderWidth: 1.5,
-    borderColor: Colors.primary + "40",
+    borderColor: Colors.primary + '40',
   },
   switchRoleText: {
     fontSize: FontSize.sm,
-    fontWeight: "700",
+    fontWeight: '700',
     color: Colors.primary,
     flex: 1,
-    textAlign: "center",
+    textAlign: 'center',
   },
 });

@@ -1,4 +1,4 @@
-// app/langchoose.tsx  (أو أي مسار تحطه في مشروعك)
+// app/langchoose.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -11,123 +11,133 @@ import {
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useLang, Lang } from '../context/Languagecontext'; // ← عدّل المسار
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLang, Lang } from '../context/Languagecontext';
 
 export default function LangChoose() {
   const router = useRouter();
   const { setLang } = useLang();
   const [selected, setSelected] = useState<Lang>('ar');
 
-  const handleContinue = () => {
-    setLang(selected);                        // ← بيحفظ اللغة في الـ context
-    router.replace('/Doctor/RoleChoose');            // ← بيروح لصفحة اختيار الدور
+  const handleContinue = async () => {
+    setLang(selected);
+
+    // Clear any stale app_role left over from a previous session.
+    // Without this, a doctor who logged out would leave 'doctor' in
+    // AsyncStorage, and index.tsx's role check would misroute the next
+    // user (even a patient) back to the doctor portal.
+    // Energy keys are safe — they're stored as energy_date_{uid}, so
+    // clearing app_role does not affect the per-user energy screen logic.
+    await AsyncStorage.removeItem('app_role');
+
+    router.replace('/Doctor/RoleChoose');
   };
 
   return (
-    <LinearGradient
-      colors={["#ffffff", "#EDE6F8", "#7C5CBF"]}
-      style={styles.container}
-    >
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-
-      {/* ── Logo ── */}
-      <View style={styles.logoSection}>
-        <Image
-          source={require("../assets/images/logo.png")}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-        <Text style={styles.appName}>حكاية حركة • hekaya-haraka</Text>
-      </View>
-
-      {/* ── Heading ── */}
-      <View style={styles.headingWrap}>
-        <Text style={styles.title}>🌐 اختر لغتك{"\n"}Choose Your Language</Text>
-        <Text style={styles.subtitle}>
-          يمكنك تغييرها لاحقاً من الإعدادات{"\n"}You can change it later from
-          settings
-        </Text>
-      </View>
-
-      {/* ── Language Cards ── */}
-      <View style={styles.cardsCol}>
-        {/* Arabic */}
-        <TouchableOpacity
-          style={[styles.card, selected === "ar" && styles.cardActive]}
-          onPress={() => setSelected("ar")}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.flag}>🇸🇦</Text>
-          <View style={styles.cardTextCol}>
-            <Text
-              style={[
-                styles.cardTitle,
-                selected === "ar" && styles.cardTitleActive,
-              ]}
-            >
-              العربية
-            </Text>
-            <Text
-              style={[
-                styles.cardSub,
-                selected === "ar" && styles.cardSubActive,
-              ]}
-            >
-              Arabic
-            </Text>
-          </View>
-          {selected === "ar" && (
-            <Ionicons name="checkmark-circle" size={26} color="#7C5CBF" />
-          )}
-        </TouchableOpacity>
-
-        {/* English */}
-        <TouchableOpacity
-          style={[styles.card, selected === "en" && styles.cardActive]}
-          onPress={() => setSelected("en")}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.flag}>🇬🇧</Text>
-          <View style={styles.cardTextCol}>
-            <Text
-              style={[
-                styles.cardTitle,
-                selected === "en" && styles.cardTitleActive,
-              ]}
-            >
-              English
-            </Text>
-            <Text
-              style={[
-                styles.cardSub,
-                selected === "en" && styles.cardSubActive,
-              ]}
-            >
-              الإنجليزية
-            </Text>
-          </View>
-          {selected === "en" && (
-            <Ionicons name="checkmark-circle" size={26} color="#7C5CBF" />
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {/* ── Continue Button ── */}
-      <TouchableOpacity
-        style={styles.continueBtn}
-        onPress={handleContinue}
-        activeOpacity={0.8}
+      <LinearGradient
+          colors={["#ffffff", "#EDE6F8", "#7C5CBF"]}
+          style={styles.container}
       >
-        <Text style={styles.continueBtnText}>
-          {selected === "ar" ? "متابعة" : "Continue"}
-        </Text>
-        <Ionicons
-          name={selected === "ar" ? "arrow-back" : "arrow-forward"}
-          size={18}
-          color="#fff"
-        />
-      </TouchableOpacity>
-    </LinearGradient>
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+
+        {/* ── Logo ── */}
+        <View style={styles.logoSection}>
+          <Image
+              source={require("../assets/images/logo.png")}
+              style={styles.logo}
+              resizeMode="contain"
+          />
+          <Text style={styles.appName}>حكاية حركة • hekaya-haraka</Text>
+        </View>
+
+        {/* ── Heading ── */}
+        <View style={styles.headingWrap}>
+          <Text style={styles.title}>🌐 اختر لغتك{"\n"}Choose Your Language</Text>
+          <Text style={styles.subtitle}>
+            يمكنك تغييرها لاحقاً من الإعدادات{"\n"}You can change it later from
+            settings
+          </Text>
+        </View>
+
+        {/* ── Language Cards ── */}
+        <View style={styles.cardsCol}>
+          {/* Arabic */}
+          <TouchableOpacity
+              style={[styles.card, selected === "ar" && styles.cardActive]}
+              onPress={() => setSelected("ar")}
+              activeOpacity={0.8}
+          >
+            <Text style={styles.flag}>🇸🇦</Text>
+            <View style={styles.cardTextCol}>
+              <Text
+                  style={[
+                    styles.cardTitle,
+                    selected === "ar" && styles.cardTitleActive,
+                  ]}
+              >
+                العربية
+              </Text>
+              <Text
+                  style={[
+                    styles.cardSub,
+                    selected === "ar" && styles.cardSubActive,
+                  ]}
+              >
+                Arabic
+              </Text>
+            </View>
+            {selected === "ar" && (
+                <Ionicons name="checkmark-circle" size={26} color="#7C5CBF" />
+            )}
+          </TouchableOpacity>
+
+          {/* English */}
+          <TouchableOpacity
+              style={[styles.card, selected === "en" && styles.cardActive]}
+              onPress={() => setSelected("en")}
+              activeOpacity={0.8}
+          >
+            <Text style={styles.flag}>🇬🇧</Text>
+            <View style={styles.cardTextCol}>
+              <Text
+                  style={[
+                    styles.cardTitle,
+                    selected === "en" && styles.cardTitleActive,
+                  ]}
+              >
+                English
+              </Text>
+              <Text
+                  style={[
+                    styles.cardSub,
+                    selected === "en" && styles.cardSubActive,
+                  ]}
+              >
+                الإنجليزية
+              </Text>
+            </View>
+            {selected === "en" && (
+                <Ionicons name="checkmark-circle" size={26} color="#7C5CBF" />
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Continue Button ── */}
+        <TouchableOpacity
+            style={styles.continueBtn}
+            onPress={handleContinue}
+            activeOpacity={0.8}
+        >
+          <Text style={styles.continueBtnText}>
+            {selected === "ar" ? "متابعة" : "Continue"}
+          </Text>
+          <Ionicons
+              name={selected === "ar" ? "arrow-back" : "arrow-forward"}
+              size={18}
+              color="#fff"
+          />
+        </TouchableOpacity>
+      </LinearGradient>
   );
 }
 
