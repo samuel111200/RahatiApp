@@ -201,14 +201,14 @@ export const ALL_DEFAULT_EXERCISES: DefaultExercise[] = [
 
   // ─── Strength ─────────────────────────────────────────────
   {
-    key: 'marchingInPlace',
+    key: 'Forwardbend',
     emoji: '🚶',
-    titleAr: 'السير في وضع الوقوف',
-    titleEn: 'Marching in Place',
+    titleAr: 'لف الجسم ولمس الركبة المعاكسة اثناء الجلوس.',
+    titleEn: 'Forward bend, turning, (Seated)',
     durationMin: 5, durationSeconds: 300,
     color: '#7B5EA7', bg: '#F0EBF8', accent: '#E0D5F2',
-    descAr: 'تحسين التوازن وتقوية عضلات الساقين والوركين مع تنشيط الدورة الدموية',
-    descEn: 'Improves balance and strengthens leg and hip muscles while boosting circulation',
+    descAr: 'يساعد هذا التمرين على تحسين مرونة الجذع والتناسق الحركي.',
+    descEn: 'This exercise helps improve trunk flexibility and motor coordination.',
     steps: [
 
     ],
@@ -218,7 +218,7 @@ export const ALL_DEFAULT_EXERCISES: DefaultExercise[] = [
     animType: 'hipMarch', type: 'strength',
   },
   {
-    key: 'chairSquat',
+    key: 'kneeCircleStanding',
     emoji: '🪑',
     titleAr: 'القرفصاء باستخدام الكرسي',
     titleEn: 'Chair Squat',
@@ -290,12 +290,12 @@ export const ALL_DEFAULT_EXERCISES: DefaultExercise[] = [
   {
     key: 'lateralBalanceSeated',
     emoji: '⚖️',
-    titleAr: 'تمرين التوازن الجانبي أثناء الجلوس',
-    titleEn: 'Seated Lateral Balance Exercise',
+    titleAr: 'تمرين التوازن  أثناء الجلوس',
+    titleEn: 'Sitting balance, (Sideways)',
     durationMin: 5, durationSeconds: 300,
     color: '#2A9D8F', bg: '#E6F5F3', accent: '#C8EBE7',
-    descAr: 'يساعد هذا التمرين على تحسين مرونة الحوض وأسفل الظهر، وتعزيز التحكم في وضعية الجلوس، كما يساهم في زيادة حركة الجذع وتقليل التيبّس.',
-    descEn: 'This exercise helps improve pelvic and lower back flexibility, enhance postural control while sitting, and increase trunk mobility while reducing stiffness.',
+    descAr: 'يساعد هذا التمرين على تحسين التوازن والتحكم في حركة الجذع أثناء الجلوس.',
+    descEn: 'This exercise helps improve balance and trunk control while sitting.',
     steps: [
 
     ],
@@ -461,12 +461,12 @@ export const ALL_DEFAULT_EXERCISES: DefaultExercise[] = [
   {
     key: 'standingArmTrunk',
     emoji: '🏋️',
-    titleAr: 'تمرين السحب أثناء الوقوف (Standing Row)',
-    titleEn: 'Standing Row',
+    titleAr: 'تمرين مرونة الجزء العلوي وتقوية الذراعين.',
+    titleEn: 'Upper body, mobility and arm strength while standing.',
     durationMin: 5, durationSeconds: 300,
     color: '#7B5EA7', bg: '#F0EBF8', accent: '#E0D5F2',
-    descAr: ' تمرين إطالة ودوران الجزء العلوي لتحسين مرونة الكتفين والظهر العلوي.',
-    descEn: 'Upper body stretch and rotation  to improve shoulder and upper back flexibility.',
+    descAr: 'يساعد هذا التمرين على تحسين مرونة الجزء العلوي من الجسم، وتقوية عضلات الذراعين والكتفين، كما يعزز التناسق الحركي بين الذراعين والجذع.',
+    descEn: 'This exercise helps improve upper body mobility, strengthen the arms and shoulder muscles, and enhance coordination between the arms and trunk',
     steps: [],
     stepsEn: [],
     animType: 'standingRow', type: 'strength',
