@@ -54,6 +54,7 @@ const EXERCISE_VIDEOS: Record<string, any> = {
   lateralBalanceSeated:     { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048712/diujbmuft8snqh8eybgf.mp4' },
   toeTipHeelStand:          { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048716/hka0tr7uinskbo8hsysw.mp4' },
   trunkFlexibilityStanding: { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1781048728/ngmclq9t9fqzxgmn4zux.mp4' },
+  Jumpingjacks:             { uri: 'https://res.cloudinary.com/dyrf3eqtn/video/upload/v1782350904/WhatsApp_Video_2026-06-25_at_4.22.45_AM_knf0s1.mp4' },
 };
 
 const { width } = Dimensions.get('window');

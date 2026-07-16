@@ -271,14 +271,14 @@ export const ALL_DEFAULT_EXERCISES: DefaultExercise[] = [
     animType: 'hipMarch', type: 'coordination',
   },
   {
-    key: 'seatedTwistKnee',
+    key: 'Jumpingjacks',
     emoji: '🔄',
-    titleAr: 'لف الجسم ولمس الركبة المعاكسة أثناء الجلوس',
-    titleEn: 'Seated Trunk Twist and Opposite Knee Touch',
+    titleAr: 'تمرين القفز مع فتح وضم الذراعين والساقين.',
+    titleEn: 'Jumping Jacks',
     durationMin: 5, durationSeconds: 300,
     color: '#2A9D8F', bg: '#E6F5F3', accent: '#C8EBE7',
-    descAr: 'يساعد هذا التمرين على تحسين التوازن والتحكم في حركة الجذع أثناء الجلوس.',
-    descEn: 'This exercise helps improve balance and trunk control while sitting.',
+    descAr: 'التمرين يساعد على تحسين التوافق الحركي والتوازن واللياقة البدنية.',
+    descEn: 'This exercise Improves coordination, balance, and fitness.',
     steps: [
 
     ],
